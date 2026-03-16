@@ -1,0 +1,98 @@
+# generated: 2026-03-16
+# last_updated: 2026-03-16
+# project: apix
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: .bmad/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+generated: 2026-03-16
+last_updated: 2026-03-16
+project: apix
+project_key: NOKEY
+tracking_system: file-system
+story_location: .bmad/implementation-artifacts
+
+development_status:
+  # Epic 1: Project Foundation
+  epic-1: backlog
+  1-1-initialize-package-structure: backlog
+  1-2-setup-github-actions-ci: backlog
+  1-3-create-makefile-dev-tooling: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Error Hierarchy
+  epic-2: backlog
+  2-1-create-base-api-exception: backlog
+  2-2-create-network-exception-hierarchy: backlog
+  2-3-create-http-exception-hierarchy: backlog
+  2-4-implement-result-pattern: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Core API Client
+  epic-3: backlog
+  3-1-create-apiclient-with-minimal-config: backlog
+  3-2-implement-http-methods: backlog
+  3-3-handle-json-requests-responses: backlog
+  3-4-support-multipart-requests: backlog
+  3-5-provide-raw-response-access: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Authentication & Refresh
+  epic-4: backlog
+  4-1-create-tokenprovider-interface: backlog
+  4-2-implement-authinterceptor: backlog
+  4-3-implement-configurable-refresh-detection: backlog
+  4-4-implement-refresh-token-queue: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Retry Logic
+  epic-5: backlog
+  5-1-implement-retryinterceptor: backlog
+  5-2-configure-retry-status-codes: backlog
+  5-3-implement-exponential-backoff: backlog
+  5-4-disable-retry-per-request: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Caching
+  epic-6: backlog
+  6-1-create-cachestorage-interface: backlog
+  6-2-implement-cachefirst-networkfirst: backlog
+  6-3-implement-httpcacheaware-strategy: backlog
+  6-4-implement-request-deduplication: backlog
+  6-5-implement-cache-invalidation: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Logging & Observability
+  epic-7: backlog
+  7-1-implement-loggerinterceptor: backlog
+  7-2-custom-log-handler: backlog
+  7-3-implement-sentryinterceptor: backlog
+  7-4-request-breadcrumbs-metrics: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Documentation & Release
+  epic-8: backlog
+  8-1-create-readme-getting-started: backlog
+  8-2-document-public-api: backlog
+  8-3-create-example-app: backlog
+  8-4-prepare-for-pubdev-release: backlog
+  8-5-create-integration-test-suite: backlog
+  epic-8-retrospective: optional
