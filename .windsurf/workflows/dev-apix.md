@@ -26,9 +26,25 @@ If `next` provided:
 Invoke `bmad-dev-story` with the story file path:
 `.bmad/implementation-artifacts/stories/{story-key}.md`
 
-### Step 3: After completion
+### Step 3: Code review
 
-Suggest running `bmad-code-review` with a different LLM for best results.
+After all tasks completed and tests pass:
+- Invoke `bmad-code-review` on the changed files
+- Address any issues found
+
+### Step 4: Mark story done
+
+After code review passes:
+- Update story file Status to: `done`
+- Update sprint-status.yaml: set story to `done`
+
+### Step 5: Commit changes
+
+Suggest commit command:
+```bash
+git add .
+git commit -m "feat(epic-{N}): Story {story-key} - {description}"
+```
 
 ---
 
