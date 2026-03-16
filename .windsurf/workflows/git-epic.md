@@ -10,7 +10,7 @@ description: Start or finish an epic branch - usage: /git-epic start [epic-num] 
 git checkout develop
 git pull origin develop
 git checkout -b epic/{epic-num}-{epic-name}
-git push -u origin epic/{epic-num}-{epic-name}
+git push origin epic/{epic-num}-{epic-name}
 ```
 
 **Epic names:**
