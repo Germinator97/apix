@@ -41,11 +41,13 @@ void main() {
     late MockTokenProvider tokenProvider;
     late AuthConfig authConfig;
     late AuthInterceptor interceptor;
+    late Dio dio;
 
     setUp(() {
       tokenProvider = MockTokenProvider();
       authConfig = AuthConfig(tokenProvider: tokenProvider);
-      interceptor = AuthInterceptor(authConfig);
+      dio = Dio();
+      interceptor = AuthInterceptor(authConfig, dio);
     });
 
     test('adds Authorization header when token is available', () async {
@@ -81,7 +83,7 @@ void main() {
         tokenProvider: tokenProvider,
         headerName: 'X-Auth-Token',
       );
-      interceptor = AuthInterceptor(authConfig);
+      interceptor = AuthInterceptor(authConfig, dio);
 
       final options = RequestOptions(path: '/api/users');
       final handler = TestHandler();
@@ -99,7 +101,7 @@ void main() {
         tokenProvider: tokenProvider,
         headerPrefix: 'Token',
       );
-      interceptor = AuthInterceptor(authConfig);
+      interceptor = AuthInterceptor(authConfig, dio);
 
       final options = RequestOptions(path: '/api/users');
       final handler = TestHandler();
@@ -119,7 +121,7 @@ void main() {
         tokenProvider: tokenProvider,
         headerPrefix: '',
       );
-      interceptor = AuthInterceptor(authConfig);
+      interceptor = AuthInterceptor(authConfig, dio);
 
       final options = RequestOptions(path: '/api/users');
       final handler = TestHandler();
@@ -161,4 +163,129 @@ void main() {
       expect(handler.nextCalled, isTrue);
     });
   });
+
+  group('AuthInterceptor refresh detection', () {
+    late MockTokenProvider tokenProvider;
+    late Dio dio;
+
+    setUp(() {
+      tokenProvider = MockTokenProvider();
+      dio = Dio();
+    });
+
+    test('shouldRefresh returns true for configured status codes', () {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshStatusCodes: [401, 403],
+      );
+
+      expect(config.shouldRefresh(401), isTrue);
+      expect(config.shouldRefresh(403), isTrue);
+      expect(config.shouldRefresh(404), isFalse);
+      expect(config.shouldRefresh(500), isFalse);
+    });
+
+    test('shouldRefresh defaults to [401]', () {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+
+      expect(config.shouldRefresh(401), isTrue);
+      expect(config.shouldRefresh(403), isFalse);
+    });
+
+    test('onRefresh callback is called on refresh status code', () async {
+      var refreshCalled = false;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          refreshCalled = true;
+          await provider.saveTokens('new_access', 'new_refresh');
+          return true;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(refreshCalled, isTrue);
+    });
+
+    test('does not call onRefresh for non-refresh status codes', () async {
+      var refreshCalled = false;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          refreshCalled = true;
+          return true;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 404,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(refreshCalled, isFalse);
+      expect(handler.nextCalled, isTrue);
+    });
+
+    test('does not call refresh when onRefresh is null', () async {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.nextCalled, isTrue);
+    });
+  });
+}
+
+class TestErrorHandler extends ErrorInterceptorHandler {
+  bool nextCalled = false;
+  bool resolveCalled = false;
+  DioException? lastError;
+  Response<dynamic>? lastResponse;
+
+  @override
+  void next(DioException err) {
+    nextCalled = true;
+    lastError = err;
+  }
+
+  @override
+  void resolve(Response<dynamic> response) {
+    resolveCalled = true;
+    lastResponse = response;
+  }
 }
