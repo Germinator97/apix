@@ -305,9 +305,15 @@ So that I can work with standard API formats.
 
 **Given** a POST request with Map<String, dynamic> body
 **When** I send the request
-**Then** Content-Type is set to application/json
+**Then** Content-Type is set to application/json by default (via MultipartInterceptor)
 **And** response JSON is accessible as Map
-**And** I can optionally deserialize to a model via fromJson
+**And** I can optionally deserialize to a model via `*AndDecode` methods
+**And** I can configure defaultContentType globally or override per-request
+
+**Implementation (ADR-010):**
+- JSON is the default Content-Type (configurable via `defaultContentType`)
+- No separate `postJson()`, `putJson()` methods - use standard `post()`, `put()`
+- `getAndDecode()`, `postAndDecode()`, `getListAndDecode()` for typed deserialization
 
 ### Story 3.4: Support Multipart Requests
 
@@ -318,9 +324,15 @@ So that I can upload files.
 **Acceptance Criteria:**
 
 **Given** a file to upload
-**When** I call client.post with FormData
-**Then** the request is sent as multipart/form-data
-**And** files are properly encoded
+**When** I call client.post with File in data Map
+**Then** MultipartInterceptor auto-detects the File
+**And** Converts to FormData automatically
+**And** Sets Content-Type to multipart/form-data
+
+**Implementation (ADR-009):**
+- No separate `postMultipart()`, `uploadFile()` methods
+- Just pass `File` or `List<File>` in your data Map
+- MultipartInterceptor handles detection and conversion transparently
 
 ### Story 3.5: Provide Raw Response Access
 

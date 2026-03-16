@@ -51,7 +51,7 @@ development_status:
   3-1-create-apiclient-with-minimal-config: done
   3-2-implement-http-methods: done
   3-3-handle-json-requests-responses: done
-  3-4-support-multipart-requests: backlog
+  3-4-support-multipart-requests: done
   3-5-provide-raw-response-access: backlog
   epic-3-retrospective: optional
 

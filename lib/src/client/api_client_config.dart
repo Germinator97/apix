@@ -32,6 +32,12 @@ class ApiClientConfig {
   /// Default headers to include in all requests.
   final Map<String, dynamic>? headers;
 
+  /// Default content type for requests.
+  ///
+  /// Defaults to 'application/json'. Set to null to disable auto content-type.
+  /// This is automatically overridden when sending FormData (multipart).
+  final String? defaultContentType;
+
   /// Custom Dio interceptors to add.
   final List<Interceptor>? interceptors;
 
@@ -44,6 +50,7 @@ class ApiClientConfig {
     this.receiveTimeout = const Duration(seconds: 30),
     this.sendTimeout = const Duration(seconds: 30),
     this.headers,
+    this.defaultContentType = 'application/json',
     this.interceptors,
   });
 
@@ -54,6 +61,7 @@ class ApiClientConfig {
     Duration? receiveTimeout,
     Duration? sendTimeout,
     Map<String, dynamic>? headers,
+    String? defaultContentType,
     List<Interceptor>? interceptors,
   }) {
     return ApiClientConfig(
@@ -62,6 +70,7 @@ class ApiClientConfig {
       receiveTimeout: receiveTimeout ?? this.receiveTimeout,
       sendTimeout: sendTimeout ?? this.sendTimeout,
       headers: headers ?? this.headers,
+      defaultContentType: defaultContentType ?? this.defaultContentType,
       interceptors: interceptors ?? this.interceptors,
     );
   }

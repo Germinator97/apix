@@ -22,16 +22,17 @@ so that I can work with standard API formats.
 
 ## Tasks / Subtasks
 
-- [x] Task 1: Add postJson/putJson/patchJson convenience methods
-  - [x] Auto-set Content-Type header
-  - [x] Accept Map<String, dynamic> body
+- [x] Task 1: Default Content-Type to application/json (ADR-010)
+  - [x] Add defaultContentType to ApiClientConfig (default: 'application/json')
+  - [x] Create MultipartInterceptor for auto-detection (ADR-009)
+  - [x] Auto-detect File/FormData → multipart/form-data
 
-- [x] Task 2: Add response deserialization helper
-  - [x] Create typed response method with fromJson
-  - [x] Added getListAndDecode for list responses
+- [x] Task 2: Add response deserialization helpers
+  - [x] getAndDecode, postAndDecode, putAndDecode, patchAndDecode
+  - [x] getListAndDecode for list responses
 
 - [x] Task 3: Write unit tests
-  - [x] Test JSON content type
+  - [x] Test MultipartInterceptor behavior
   - [x] Test response deserialization
 
 ## Dev Notes
@@ -39,15 +40,20 @@ so that I can work with standard API formats.
 ### Implementation Pattern
 
 ```dart
-// Convenience methods
-Future<Response<T>> postJson<T>(String path, Map<String, dynamic> body);
+// JSON is default - no special method needed
+await client.post('/users', data: {'name': 'John'});  // → application/json
+
+// FormData auto-detected
+await client.post('/upload', data: formData);  // → multipart/form-data
+
+// Override content type globally
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  defaultContentType: 'text/xml',  // or null to disable
+);
 
 // Typed response with fromJson
-Future<T> postAndDecode<T>(
-  String path,
-  Map<String, dynamic> body,
-  T Function(Map<String, dynamic>) fromJson,
-);
+final user = await client.postAndDecode('/users', body, User.fromJson);
 ```
 
 ### References
@@ -66,16 +72,25 @@ None
 
 ### Completion Notes List
 
-- Added postJson, putJson, patchJson with auto Content-Type
-- Added getAndDecode, postAndDecode, putAndDecode, patchAndDecode
-- Added getListAndDecode for list responses
-- 7 unit tests passing
+- ADR-010: JSON is now the default Content-Type (configurable)
+- ADR-009: Created MultipartInterceptor for auto-detection of File
+- ADR-011: ApiClientFactory pattern for client creation
+- File/FormData auto-detected → multipart/form-data
+- Removed postJson/putJson/patchJson (redundant)
+- Kept *AndDecode methods for typed deserialization
+- 10 unit tests for MultipartInterceptor
 
 ### File List
 
-- `lib/src/client/api_client.dart` - Added JSON methods
-- `test/client/api_client_json_test.dart` - Unit tests
+- `lib/src/client/api_client_config.dart` - Added defaultContentType
+- `lib/src/client/multipart_interceptor.dart` - Auto-detect File → FormData
+- `lib/src/client/api_client_factory.dart` - Factory for creating ApiClient
+- `lib/src/client/api_client.dart` - Simplified, uses factory
+- `test/client/multipart_interceptor_test.dart` - Unit tests
 
 ### Change Log
 
 - 2026-03-16: Story 3.3 implemented - JSON requests/responses
+- 2026-03-16: REFACTORED - JSON as default, auto-detect File/FormData
+- 2026-03-16: Renamed ContentTypeInterceptor → MultipartInterceptor
+- 2026-03-16: Added ApiClientFactory pattern (ADR-011)

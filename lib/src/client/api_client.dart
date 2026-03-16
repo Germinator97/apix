@@ -4,14 +4,14 @@ import 'api_client_config.dart';
 
 /// A production-ready API client powered by Dio.
 ///
-/// Create an instance with minimal configuration:
+/// Use `ApiClientFactory` to create instances:
 /// ```dart
-/// final client = ApiClient(baseUrl: 'https://api.example.com');
+/// final client = ApiClientFactory.create(baseUrl: 'https://api.example.com');
 /// ```
 ///
 /// Or with full configuration:
 /// ```dart
-/// final client = ApiClient(
+/// final client = ApiClientFactory.create(
 ///   baseUrl: 'https://api.example.com',
 ///   connectTimeout: Duration(seconds: 60),
 ///   headers: {'Authorization': 'Bearer token'},
@@ -24,58 +24,10 @@ class ApiClient {
   /// The configuration for this client.
   final ApiClientConfig config;
 
-  /// Creates an [ApiClient] with the given [baseUrl].
+  /// Creates an [ApiClient] with the given [Dio] and [ApiClientConfig].
   ///
-  /// All timeout values default to 30 seconds.
-  ///
-  /// Example:
-  /// ```dart
-  /// final client = ApiClient(baseUrl: 'https://api.example.com');
-  /// ```
-  factory ApiClient({
-    required String baseUrl,
-    Duration connectTimeout = const Duration(seconds: 30),
-    Duration receiveTimeout = const Duration(seconds: 30),
-    Duration sendTimeout = const Duration(seconds: 30),
-    Map<String, dynamic>? headers,
-    List<Interceptor>? interceptors,
-  }) {
-    final config = ApiClientConfig(
-      baseUrl: baseUrl,
-      connectTimeout: connectTimeout,
-      receiveTimeout: receiveTimeout,
-      sendTimeout: sendTimeout,
-      headers: headers,
-      interceptors: interceptors,
-    );
-    return ApiClient.fromConfig(config);
-  }
-
-  /// Creates an [ApiClient] from an [ApiClientConfig].
-  ///
-  /// Example:
-  /// ```dart
-  /// final config = ApiClientConfig(baseUrl: 'https://api.example.com');
-  /// final client = ApiClient.fromConfig(config);
-  /// ```
-  ApiClient.fromConfig(this.config) : _dio = Dio() {
-    _dio.options = BaseOptions(
-      baseUrl: config.baseUrl,
-      connectTimeout: config.connectTimeout,
-      receiveTimeout: config.receiveTimeout,
-      sendTimeout: config.sendTimeout,
-      headers: config.headers,
-    );
-
-    if (config.interceptors != null) {
-      _dio.interceptors.addAll(config.interceptors!);
-    }
-  }
-
-  /// Creates an [ApiClient] with a custom [Dio] instance.
-  ///
-  /// Useful for testing or advanced customization.
-  ApiClient.withDio(this._dio, this.config);
+  /// Use `ApiClientFactory.create` or `ApiClientFactory.fromConfig` instead.
+  ApiClient(this._dio, this.config);
 
   /// The base URL for all requests.
   String get baseUrl => config.baseUrl;
@@ -215,79 +167,6 @@ class ApiClient {
     );
   }
 
-  // ========== JSON Convenience Methods ==========
-
-  /// Sends a POST request with JSON body.
-  ///
-  /// Automatically sets Content-Type to application/json.
-  ///
-  /// Example:
-  /// ```dart
-  /// final response = await client.postJson('/users', {'name': 'John'});
-  /// ```
-  Future<Response<Map<String, dynamic>>> postJson(
-    String path,
-    Map<String, dynamic> body, {
-    Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
-    CancelToken? cancelToken,
-  }) {
-    return post<Map<String, dynamic>>(
-      path,
-      data: body,
-      queryParameters: queryParameters,
-      options: Options(
-        contentType: 'application/json',
-        headers: headers,
-      ),
-      cancelToken: cancelToken,
-    );
-  }
-
-  /// Sends a PUT request with JSON body.
-  ///
-  /// Automatically sets Content-Type to application/json.
-  Future<Response<Map<String, dynamic>>> putJson(
-    String path,
-    Map<String, dynamic> body, {
-    Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
-    CancelToken? cancelToken,
-  }) {
-    return put<Map<String, dynamic>>(
-      path,
-      data: body,
-      queryParameters: queryParameters,
-      options: Options(
-        contentType: 'application/json',
-        headers: headers,
-      ),
-      cancelToken: cancelToken,
-    );
-  }
-
-  /// Sends a PATCH request with JSON body.
-  ///
-  /// Automatically sets Content-Type to application/json.
-  Future<Response<Map<String, dynamic>>> patchJson(
-    String path,
-    Map<String, dynamic> body, {
-    Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
-    CancelToken? cancelToken,
-  }) {
-    return patch<Map<String, dynamic>>(
-      path,
-      data: body,
-      queryParameters: queryParameters,
-      options: Options(
-        contentType: 'application/json',
-        headers: headers,
-      ),
-      cancelToken: cancelToken,
-    );
-  }
-
   // ========== Typed Response Methods ==========
 
   /// Sends a GET request and deserializes the response.
@@ -315,7 +194,7 @@ class ApiClient {
     return fromJson(response.data!);
   }
 
-  /// Sends a POST request with JSON body and deserializes the response.
+  /// Sends a POST request and deserializes the response.
   ///
   /// Example:
   /// ```dart
@@ -327,55 +206,55 @@ class ApiClient {
   /// ```
   Future<T> postAndDecode<T>(
     String path,
-    Map<String, dynamic> body,
+    dynamic data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
+    Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await postJson(
+    final response = await post<Map<String, dynamic>>(
       path,
-      body,
+      data: data,
       queryParameters: queryParameters,
-      headers: headers,
+      options: options,
       cancelToken: cancelToken,
     );
     return fromJson(response.data!);
   }
 
-  /// Sends a PUT request with JSON body and deserializes the response.
+  /// Sends a PUT request and deserializes the response.
   Future<T> putAndDecode<T>(
     String path,
-    Map<String, dynamic> body,
+    dynamic data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
+    Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await putJson(
+    final response = await put<Map<String, dynamic>>(
       path,
-      body,
+      data: data,
       queryParameters: queryParameters,
-      headers: headers,
+      options: options,
       cancelToken: cancelToken,
     );
     return fromJson(response.data!);
   }
 
-  /// Sends a PATCH request with JSON body and deserializes the response.
+  /// Sends a PATCH request and deserializes the response.
   Future<T> patchAndDecode<T>(
     String path,
-    Map<String, dynamic> body,
+    dynamic data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
-    Map<String, dynamic>? headers,
+    Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await patchJson(
+    final response = await patch<Map<String, dynamic>>(
       path,
-      body,
+      data: data,
       queryParameters: queryParameters,
-      headers: headers,
+      options: options,
       cancelToken: cancelToken,
     );
     return fromJson(response.data!);

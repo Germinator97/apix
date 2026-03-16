@@ -27,7 +27,7 @@ void main() {
     when(() => mockDio.interceptors).thenReturn(Interceptors());
 
     const config = ApiClientConfig(baseUrl: 'https://api.example.com');
-    client = ApiClient.withDio(mockDio, config);
+    client = ApiClient(mockDio, config);
   });
 
   Response<T> createResponse<T>(T data, {int statusCode = 200}) {

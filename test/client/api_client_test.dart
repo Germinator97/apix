@@ -68,9 +68,10 @@ void main() {
     });
   });
 
-  group('ApiClient', () {
+  group('ApiClientFactory', () {
     test('creates with minimal config', () {
-      final client = ApiClient(baseUrl: 'https://api.example.com');
+      final client =
+          ApiClientFactory.create(baseUrl: 'https://api.example.com');
 
       expect(client.baseUrl, equals('https://api.example.com'));
       expect(client.config.connectTimeout, equals(const Duration(seconds: 30)));
@@ -80,7 +81,7 @@ void main() {
     });
 
     test('creates with custom timeouts', () {
-      final client = ApiClient(
+      final client = ApiClientFactory.create(
         baseUrl: 'https://api.example.com',
         connectTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 45),
@@ -93,7 +94,7 @@ void main() {
     });
 
     test('creates with custom headers', () {
-      final client = ApiClient(
+      final client = ApiClientFactory.create(
         baseUrl: 'https://api.example.com',
         headers: {'Authorization': 'Bearer token'},
       );
@@ -106,7 +107,7 @@ void main() {
 
     test('creates with interceptors', () {
       final interceptor = InterceptorsWrapper();
-      final client = ApiClient(
+      final client = ApiClientFactory.create(
         baseUrl: 'https://api.example.com',
         interceptors: [interceptor],
       );
@@ -122,7 +123,7 @@ void main() {
         connectTimeout: Duration(seconds: 60),
       );
 
-      final client = ApiClient.fromConfig(config);
+      final client = ApiClientFactory.fromConfig(config);
 
       expect(client.baseUrl, equals('https://api.example.com'));
       expect(client.config, equals(config));
@@ -134,7 +135,7 @@ void main() {
       final dio = Dio();
       const config = ApiClientConfig(baseUrl: 'https://api.example.com');
 
-      final client = ApiClient.withDio(dio, config);
+      final client = ApiClient(dio, config);
 
       expect(client.dio, same(dio));
       expect(client.config, equals(config));
@@ -143,7 +144,7 @@ void main() {
     });
 
     test('configures Dio options correctly', () {
-      final client = ApiClient(
+      final client = ApiClientFactory.create(
         baseUrl: 'https://api.example.com',
         connectTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 45),
@@ -168,7 +169,8 @@ void main() {
     });
 
     test('default timeout is 30 seconds', () {
-      final client = ApiClient(baseUrl: 'https://api.example.com');
+      final client =
+          ApiClientFactory.create(baseUrl: 'https://api.example.com');
 
       expect(
         client.dio.options.connectTimeout,
