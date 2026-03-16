@@ -42,7 +42,7 @@ development_status:
   epic-2: in-progress
   2-1-create-base-api-exception: done
   2-2-create-network-exception-hierarchy: done
-  2-3-create-http-exception-hierarchy: backlog
+  2-3-create-http-exception-hierarchy: done
   2-4-implement-result-pattern: backlog
   epic-2-retrospective: optional
 
