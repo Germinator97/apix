@@ -1,6 +1,6 @@
 # Story 1.1: Initialize Package Structure
 
-Status: review
+Status: done
 
 ## Story
 
