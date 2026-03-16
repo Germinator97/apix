@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:apix/apix.dart';
@@ -269,12 +271,134 @@ void main() {
       expect(handler.nextCalled, isTrue);
     });
   });
+
+  group('AuthInterceptor refresh queue', () {
+    late MockTokenProvider tokenProvider;
+    late Dio dio;
+
+    setUp(() {
+      tokenProvider = MockTokenProvider();
+      dio = Dio();
+    });
+
+    test('isRefreshing is false initially', () {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+      final interceptor = AuthInterceptor(config, dio);
+
+      expect(interceptor.isRefreshing, isFalse);
+    });
+
+    test('concurrent requests share same refresh', () async {
+      var refreshCount = 0;
+      final refreshCompleter = Completer<void>();
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          refreshCount++;
+          await refreshCompleter.future;
+          await provider.saveTokens('new_access', 'new_refresh');
+          return true;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+
+      // Simulate two concurrent 401 errors
+      final handler1 = TestErrorHandler();
+      final handler2 = TestErrorHandler();
+
+      final error1 = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      final error2 = DioException(
+        requestOptions: RequestOptions(path: '/api/posts'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/posts'),
+          statusCode: 401,
+        ),
+      );
+
+      // Start both error handlers (they will wait for refresh)
+      interceptor.onError(error1, handler1);
+      await Future<void>.delayed(Duration.zero);
+
+      // At this point, refresh is in progress
+      expect(interceptor.isRefreshing, isTrue);
+
+      interceptor.onError(error2, handler2);
+      await Future<void>.delayed(Duration.zero);
+
+      // Complete the refresh
+      refreshCompleter.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Only one refresh should have been called
+      expect(refreshCount, equals(1));
+    });
+
+    test('rejects with AuthException when refresh fails', () async {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => false,
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.rejectCalled, isTrue);
+      expect(handler.lastRejectedError?.error, isA<AuthException>());
+    });
+
+    test('handles refresh exception gracefully', () async {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          throw Exception('Network error');
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.rejectCalled, isTrue);
+    });
+  });
 }
 
 class TestErrorHandler extends ErrorInterceptorHandler {
   bool nextCalled = false;
   bool resolveCalled = false;
+  bool rejectCalled = false;
   DioException? lastError;
+  DioException? lastRejectedError;
   Response<dynamic>? lastResponse;
 
   @override
@@ -287,5 +411,11 @@ class TestErrorHandler extends ErrorInterceptorHandler {
   void resolve(Response<dynamic> response) {
     resolveCalled = true;
     lastResponse = response;
+  }
+
+  @override
+  void reject(DioException err) {
+    rejectCalled = true;
+    lastRejectedError = err;
   }
 }

@@ -56,11 +56,11 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Authentication & Refresh
-  epic-4: in-progress
+  epic-4: done
   4-1-create-tokenprovider-interface: done
   4-2-implement-authinterceptor: done
   4-3-implement-configurable-refresh-detection: done
-  4-4-implement-refresh-token-queue: backlog
+  4-4-implement-refresh-token-queue: done
   epic-4-retrospective: optional
 
   # Epic 5: Retry Logic
