@@ -35,7 +35,7 @@ development_status:
   epic-1: in-progress
   1-1-initialize-package-structure: done
   1-2-setup-github-actions-ci: done
-  1-3-create-makefile-dev-tooling: backlog
+  1-3-create-makefile-dev-tooling: done
   epic-1-retrospective: optional
 
   # Epic 2: Error Hierarchy
