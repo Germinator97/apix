@@ -47,12 +47,12 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: Core API Client
-  epic-3: backlog
-  3-1-create-apiclient-with-minimal-config: backlog
-  3-2-implement-http-methods: backlog
-  3-3-handle-json-requests-responses: backlog
-  3-4-support-multipart-requests: backlog
-  3-5-provide-raw-response-access: backlog
+  epic-3: done
+  3-1-create-apiclient-with-minimal-config: done
+  3-2-implement-http-methods: done
+  3-3-handle-json-requests-responses: done
+  3-4-support-multipart-requests: done
+  3-5-provide-raw-response-access: done
   epic-3-retrospective: optional
 
   # Epic 4: Authentication & Refresh
