@@ -214,4 +214,198 @@ class ApiClient {
       onReceiveProgress: onReceiveProgress,
     );
   }
+
+  // ========== JSON Convenience Methods ==========
+
+  /// Sends a POST request with JSON body.
+  ///
+  /// Automatically sets Content-Type to application/json.
+  ///
+  /// Example:
+  /// ```dart
+  /// final response = await client.postJson('/users', {'name': 'John'});
+  /// ```
+  Future<Response<Map<String, dynamic>>> postJson(
+    String path,
+    Map<String, dynamic> body, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) {
+    return post<Map<String, dynamic>>(
+      path,
+      data: body,
+      queryParameters: queryParameters,
+      options: Options(
+        contentType: 'application/json',
+        headers: headers,
+      ),
+      cancelToken: cancelToken,
+    );
+  }
+
+  /// Sends a PUT request with JSON body.
+  ///
+  /// Automatically sets Content-Type to application/json.
+  Future<Response<Map<String, dynamic>>> putJson(
+    String path,
+    Map<String, dynamic> body, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) {
+    return put<Map<String, dynamic>>(
+      path,
+      data: body,
+      queryParameters: queryParameters,
+      options: Options(
+        contentType: 'application/json',
+        headers: headers,
+      ),
+      cancelToken: cancelToken,
+    );
+  }
+
+  /// Sends a PATCH request with JSON body.
+  ///
+  /// Automatically sets Content-Type to application/json.
+  Future<Response<Map<String, dynamic>>> patchJson(
+    String path,
+    Map<String, dynamic> body, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) {
+    return patch<Map<String, dynamic>>(
+      path,
+      data: body,
+      queryParameters: queryParameters,
+      options: Options(
+        contentType: 'application/json',
+        headers: headers,
+      ),
+      cancelToken: cancelToken,
+    );
+  }
+
+  // ========== Typed Response Methods ==========
+
+  /// Sends a GET request and deserializes the response.
+  ///
+  /// Example:
+  /// ```dart
+  /// final user = await client.getAndDecode(
+  ///   '/users/1',
+  ///   (json) => User.fromJson(json),
+  /// );
+  /// ```
+  Future<T> getAndDecode<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<Map<String, dynamic>>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return fromJson(response.data!);
+  }
+
+  /// Sends a POST request with JSON body and deserializes the response.
+  ///
+  /// Example:
+  /// ```dart
+  /// final user = await client.postAndDecode(
+  ///   '/users',
+  ///   {'name': 'John'},
+  ///   (json) => User.fromJson(json),
+  /// );
+  /// ```
+  Future<T> postAndDecode<T>(
+    String path,
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await postJson(
+      path,
+      body,
+      queryParameters: queryParameters,
+      headers: headers,
+      cancelToken: cancelToken,
+    );
+    return fromJson(response.data!);
+  }
+
+  /// Sends a PUT request with JSON body and deserializes the response.
+  Future<T> putAndDecode<T>(
+    String path,
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await putJson(
+      path,
+      body,
+      queryParameters: queryParameters,
+      headers: headers,
+      cancelToken: cancelToken,
+    );
+    return fromJson(response.data!);
+  }
+
+  /// Sends a PATCH request with JSON body and deserializes the response.
+  Future<T> patchAndDecode<T>(
+    String path,
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await patchJson(
+      path,
+      body,
+      queryParameters: queryParameters,
+      headers: headers,
+      cancelToken: cancelToken,
+    );
+    return fromJson(response.data!);
+  }
+
+  /// Sends a GET request and deserializes a list response.
+  ///
+  /// Example:
+  /// ```dart
+  /// final users = await client.getListAndDecode(
+  ///   '/users',
+  ///   (json) => User.fromJson(json),
+  /// );
+  /// ```
+  Future<List<T>> getListAndDecode<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<List<dynamic>>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return response.data!
+        .cast<Map<String, dynamic>>()
+        .map((json) => fromJson(json))
+        .toList();
+  }
 }
