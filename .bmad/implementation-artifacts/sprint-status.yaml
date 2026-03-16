@@ -53,11 +53,11 @@ development_status:
   3-3-handle-json-requests-responses: done
   3-4-support-multipart-requests: done
   3-5-provide-raw-response-access: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
 
   # Epic 4: Authentication & Refresh
-  epic-4: backlog
-  4-1-create-tokenprovider-interface: backlog
+  epic-4: in-progress
+  4-1-create-tokenprovider-interface: done
   4-2-implement-authinterceptor: backlog
   4-3-implement-configurable-refresh-detection: backlog
   4-4-implement-refresh-token-queue: backlog

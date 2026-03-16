@@ -25,7 +25,7 @@ git push origin epic/{epic-num}-{epic-name}
 
 ### Finish epic branch
 
-1. Run retrospective (optional but recommended):
+1. Run retrospective:
    - Invoke `bmad-retrospective` for Epic {epic-num}
    - Mark epic-{epic-num}-retrospective as done in sprint-status.yaml
 
