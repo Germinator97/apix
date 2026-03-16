@@ -6,6 +6,11 @@
 // - Smart caching (CacheFirst, NetworkFirst, HttpCacheAware)
 // - Built-in Sentry integration
 
+// Auth
+export 'src/auth/auth_config.dart';
+export 'src/auth/auth_interceptor.dart';
+export 'src/auth/token_provider.dart';
+
 // Client
 export 'src/client/api_client.dart';
 export 'src/client/api_client_config.dart';
