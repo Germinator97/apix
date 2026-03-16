@@ -25,6 +25,14 @@ git push origin epic/{epic-num}-{epic-name}
 
 ### Finish epic branch
 
+1. Run retrospective (optional but recommended):
+   - Invoke `bmad-retrospective` for Epic {epic-num}
+   - Mark epic-{epic-num}-retrospective as done in sprint-status.yaml
+
+2. Mark epic as done:
+   - Update sprint-status.yaml: set epic-{epic-num} to `done`
+
+3. Merge and push:
 ```bash
 git checkout develop
 git merge epic/{epic-num}-{epic-name} --no-ff -m "feat: Epic {epic-num} - {description}"

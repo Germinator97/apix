@@ -39,12 +39,12 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: Error Hierarchy
-  epic-2: backlog
-  2-1-create-base-api-exception: backlog
-  2-2-create-network-exception-hierarchy: backlog
-  2-3-create-http-exception-hierarchy: backlog
-  2-4-implement-result-pattern: backlog
-  epic-2-retrospective: optional
+  epic-2: done
+  2-1-create-base-api-exception: done
+  2-2-create-network-exception-hierarchy: done
+  2-3-create-http-exception-hierarchy: done
+  2-4-implement-result-pattern: done
+  epic-2-retrospective: done
 
   # Epic 3: Core API Client
   epic-3: backlog

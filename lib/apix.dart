@@ -6,4 +6,10 @@
 // - Smart caching (CacheFirst, NetworkFirst, HttpCacheAware)
 // - Built-in Sentry integration
 
-// Exports will be added as features are implemented
+// Errors
+export 'src/errors/api_exception.dart';
+export 'src/errors/http_exception.dart';
+export 'src/errors/network_exception.dart';
+
+// Models
+export 'src/models/result.dart';
