@@ -396,6 +396,110 @@ void main() {
       expect(handler.nextCalled, isTrue);
     });
   });
+
+  group('Custom Log Handler (Story 7.2)', () {
+    test('all logs go through custom handler', () {
+      final logs = <LogEntry>[];
+      final interceptor = LoggerInterceptor(
+        config: LoggerConfig(
+          logHandler: (entry) => logs.add(entry),
+        ),
+      );
+
+      final options = RequestOptions(path: '/test');
+      interceptor.onRequest(options, _MockRequestHandler());
+
+      final response = Response<dynamic>(
+        requestOptions: options,
+        statusCode: 200,
+      );
+      interceptor.onResponse(response, _MockResponseHandler());
+
+      expect(logs.length, equals(2));
+      expect(logs[0].message, equals('→ Request'));
+      expect(logs[1].message, equals('← Response'));
+    });
+
+    test('receives structured LogEntry not just strings', () {
+      LogEntry? capturedEntry;
+      final interceptor = LoggerInterceptor(
+        config: LoggerConfig(
+          logHandler: (entry) => capturedEntry = entry,
+        ),
+      );
+
+      final options = RequestOptions(
+        path: '/users/123',
+        method: 'POST',
+        baseUrl: 'https://api.com',
+        headers: {'Content-Type': 'application/json'},
+        data: <String, dynamic>{'name': 'Test'},
+      );
+      interceptor.onRequest(options, _MockRequestHandler());
+
+      expect(capturedEntry, isNotNull);
+      expect(capturedEntry!.timestamp, isA<DateTime>());
+      expect(capturedEntry!.level, equals(LogLevel.info));
+      expect(capturedEntry!.method, equals('POST'));
+      expect(capturedEntry!.url, contains('/users/123'));
+      expect(capturedEntry!.headers, isA<Map<String, dynamic>>());
+      expect(capturedEntry!.body, equals({'name': 'Test'}));
+    });
+
+    test('error logs include structured error data', () {
+      LogEntry? capturedEntry;
+      final interceptor = LoggerInterceptor(
+        config: LoggerConfig(
+          logHandler: (entry) => capturedEntry = entry,
+        ),
+      );
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/fail'),
+        type: DioExceptionType.badResponse,
+        message: 'Server error',
+        response: Response<dynamic>(
+          requestOptions: RequestOptions(path: '/fail'),
+          statusCode: 500,
+          data: <String, dynamic>{'error': 'Internal error'},
+        ),
+      );
+      interceptor.onError(error, _MockErrorHandler());
+
+      expect(capturedEntry, isNotNull);
+      expect(capturedEntry!.level, equals(LogLevel.error));
+      expect(capturedEntry!.statusCode, equals(500));
+      expect(capturedEntry!.error, contains('Server error'));
+      expect(capturedEntry!.extra, isNotNull);
+      expect(capturedEntry!.extra!['type'], equals('badResponse'));
+    });
+
+    test('can integrate with external logging solutions', () {
+      // Simulate integration with a logging framework
+      final logMessages = <String>[];
+
+      void myCustomLogger(LogEntry entry) {
+        final formatted = '[${entry.level.name}] ${entry.method} ${entry.url}';
+        logMessages.add(formatted);
+      }
+
+      final interceptor = LoggerInterceptor(
+        config: LoggerConfig(logHandler: myCustomLogger),
+      );
+
+      final options = RequestOptions(
+        path: '/api/data',
+        method: 'GET',
+        baseUrl: 'https://example.com',
+      );
+      interceptor.onRequest(options, _MockRequestHandler());
+
+      expect(logMessages.length, equals(1));
+      expect(logMessages[0], contains('[info]'));
+      expect(logMessages[0], contains('GET'));
+      expect(logMessages[0], contains('/api/data'));
+    });
+  });
 }
 
 class _MockRequestHandler extends RequestInterceptorHandler {
