@@ -71,11 +71,11 @@ development_status:
   6-5-implement-cache-invalidation: done
 
   # Epic 7: Logging & Observability
-  epic-7: in-progress
+  epic-7: done
   7-1-implement-loggerinterceptor: done
   7-2-custom-log-handler: done
   7-3-implement-sentryinterceptor: done
-  7-4-request-breadcrumbs-metrics: backlog
+  7-4-request-breadcrumbs-metrics: done
 
   # Epic 8: Documentation & Release
   epic-8: backlog
