@@ -78,9 +78,9 @@ development_status:
   7-4-request-breadcrumbs-metrics: done
 
   # Epic 8: Documentation & Release
-  epic-8: backlog
-  8-1-create-readme-getting-started: backlog
-  8-2-document-public-api: backlog
+  epic-8: in-progress
+  8-1-create-readme-getting-started: done
+  8-2-document-public-api: done
   8-3-create-example-app: backlog
   8-4-prepare-for-pubdev-release: backlog
   8-5-create-integration-test-suite: backlog
