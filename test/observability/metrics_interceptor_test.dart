@@ -104,7 +104,7 @@ void main() {
 
       expect(map['type'], equals('response'));
       expect(map['message'], equals('← GET /users [200]'));
-      expect(map['data']['status_code'], equals(200));
+      expect((map['data'] as Map<String, dynamic>)['status_code'], equals(200));
     });
   });
 

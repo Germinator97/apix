@@ -115,7 +115,8 @@ void main() {
 
       expect(breadcrumbs.length, equals(1));
       expect(breadcrumbs[0]['message'], contains('[200]'));
-      expect(breadcrumbs[0]['data']['status_code'], equals(200));
+      expect((breadcrumbs[0]['data'] as Map<String, dynamic>)['status_code'],
+          equals(200));
     });
 
     test('captures DioException errors', () {

@@ -153,8 +153,9 @@ class SentrySetup {
         // Disable tracing in debug mode
         sentryOptions.tracesSampleRate =
             kDebugMode ? 0.0 : options.tracesSampleRate;
-        sentryOptions.profilesSampleRate =
-            kDebugMode ? 0.0 : options.profilesSampleRate;
+        // Note: profilesSampleRate is experimental and may be removed
+        // sentryOptions.profilesSampleRate =
+        //     kDebugMode ? 0.0 : options.profilesSampleRate;
 
         // Note: Replay options available in newer versions
         // sentryOptions.replay.onErrorSampleRate = options.replayOnErrorSampleRate;
@@ -291,7 +292,7 @@ class SentrySetup {
       exception,
       stackTrace: stackTrace,
       withScope: (scope) {
-        extra?.forEach((key, value) => scope.setExtra(key, value));
+        extra?.forEach((key, value) => scope.setContexts(key, value));
         tags?.forEach((key, value) => scope.setTag(key, value));
       },
     );
@@ -350,7 +351,7 @@ class SentrySetup {
   /// Sets extra context on the current scope.
   static void setExtra(String key, dynamic value) {
     Sentry.configureScope((scope) {
-      scope.setExtra(key, value);
+      scope.setContexts(key, value);
     });
   }
 }
