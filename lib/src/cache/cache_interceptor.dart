@@ -49,9 +49,10 @@ class CacheInterceptor extends Interceptor {
         await _handleCacheFirst(options, handler, cacheKey);
       case CacheStrategy.cacheOnly:
         await _handleCacheOnly(options, handler, cacheKey);
+      case CacheStrategy.httpCacheAware:
+        await _handleHttpCacheAware(options, handler, cacheKey);
       case CacheStrategy.networkFirst:
       case CacheStrategy.networkOnly:
-      case CacheStrategy.httpCacheAware:
         // Let request proceed, handle in onResponse/onError
         options.extra['_cacheKey'] = cacheKey;
         handler.next(options);
@@ -73,10 +74,32 @@ class CacheInterceptor extends Interceptor {
 
     final cacheKey =
         options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
+    final strategy = _getStrategy(options);
+
+    // Handle 304 Not Modified for httpCacheAware
+    if (strategy == CacheStrategy.httpCacheAware &&
+        response.statusCode == 304) {
+      final cached = await config.storage.get(cacheKey);
+      if (cached != null) {
+        final cachedResponse = _buildResponseFromCache(options, cached);
+        handler.resolve(cachedResponse);
+        return;
+      }
+    }
+
+    // Check Cache-Control headers for httpCacheAware
+    if (strategy == CacheStrategy.httpCacheAware) {
+      final cacheControl = _parseCacheControl(response.headers);
+      if (cacheControl.noStore) {
+        // Don't cache this response
+        handler.next(response);
+        return;
+      }
+    }
 
     // Cache successful responses
     if (_shouldCacheResponse(response)) {
-      await _cacheResponse(cacheKey, response);
+      await _cacheResponse(cacheKey, response, strategy: strategy);
     }
 
     handler.next(response);
@@ -90,8 +113,9 @@ class CacheInterceptor extends Interceptor {
     final options = err.requestOptions;
     final strategy = _getStrategy(options);
 
-    // Only handle networkFirst fallback
-    if (strategy != CacheStrategy.networkFirst) {
+    // Only handle networkFirst and httpCacheAware fallback
+    if (strategy != CacheStrategy.networkFirst &&
+        strategy != CacheStrategy.httpCacheAware) {
       handler.next(err);
       return;
     }
@@ -131,6 +155,36 @@ class CacheInterceptor extends Interceptor {
     }
 
     // No cache, proceed with network request
+    options.extra['_cacheKey'] = cacheKey;
+    handler.next(options);
+  }
+
+  /// Handles HttpCacheAware strategy: add conditional headers if cached.
+  Future<void> _handleHttpCacheAware(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+    String cacheKey,
+  ) async {
+    final cached = await config.storage.get(cacheKey);
+
+    if (cached != null) {
+      // Add If-None-Match header if we have an ETag
+      if (cached.etag != null) {
+        options.headers['If-None-Match'] = cached.etag;
+      }
+
+      // Check if cache is still fresh (no need to revalidate)
+      if (cached.isValid) {
+        // Check if we should revalidate based on no-cache
+        final shouldRevalidate = options.extra['_forceRevalidate'] == true;
+        if (!shouldRevalidate) {
+          final response = _buildResponseFromCache(options, cached);
+          handler.resolve(response);
+          return;
+        }
+      }
+    }
+
     options.extra['_cacheKey'] = cacheKey;
     handler.next(options);
   }
@@ -209,20 +263,77 @@ class CacheInterceptor extends Interceptor {
   }
 
   /// Caches a response.
-  Future<void> _cacheResponse(String key, Response<dynamic> response) async {
+  Future<void> _cacheResponse(
+    String key,
+    Response<dynamic> response, {
+    CacheStrategy? strategy,
+  }) async {
     final data = response.data;
     final jsonString = data is String ? data : jsonEncode(data);
+
+    // Determine TTL based on Cache-Control for httpCacheAware
+    Duration ttl = config.defaultTtl;
+    String? etag;
+
+    if (strategy == CacheStrategy.httpCacheAware) {
+      final cacheControl = _parseCacheControl(response.headers);
+      if (cacheControl.maxAge != null) {
+        ttl = Duration(seconds: cacheControl.maxAge!);
+      }
+      etag = _getEtag(response.headers);
+    }
 
     final entry = CacheEntry.withTtl(
       data: jsonString,
       statusCode: response.statusCode ?? 200,
-      ttl: config.defaultTtl,
+      ttl: ttl,
+      etag: etag,
       headers: response.headers.map.map(
         (key, value) => MapEntry(key, value.join(', ')),
       ),
     );
 
     await config.storage.set(key, entry);
+  }
+
+  /// Parses Cache-Control header into structured data.
+  CacheControlHeader _parseCacheControl(Headers headers) {
+    final headerValue = headers.value('cache-control');
+    if (headerValue == null) {
+      return const CacheControlHeader();
+    }
+
+    final directives =
+        headerValue.split(',').map((s) => s.trim().toLowerCase());
+    int? maxAge;
+    bool noCache = false;
+    bool noStore = false;
+    bool mustRevalidate = false;
+
+    for (final directive in directives) {
+      if (directive.startsWith('max-age=')) {
+        final value = directive.substring(8);
+        maxAge = int.tryParse(value);
+      } else if (directive == 'no-cache') {
+        noCache = true;
+      } else if (directive == 'no-store') {
+        noStore = true;
+      } else if (directive == 'must-revalidate') {
+        mustRevalidate = true;
+      }
+    }
+
+    return CacheControlHeader(
+      maxAge: maxAge,
+      noCache: noCache,
+      noStore: noStore,
+      mustRevalidate: mustRevalidate,
+    );
+  }
+
+  /// Gets ETag from response headers.
+  String? _getEtag(Headers headers) {
+    return headers.value('etag');
   }
 
   /// Builds a response from a cached entry.
@@ -246,6 +357,35 @@ class CacheInterceptor extends Interceptor {
       ),
       extra: {'fromCache': true},
     );
+  }
+}
+
+/// Parsed Cache-Control header directives.
+class CacheControlHeader {
+  /// Maximum age in seconds before the response is considered stale.
+  final int? maxAge;
+
+  /// If true, the response must be revalidated with the server.
+  final bool noCache;
+
+  /// If true, the response must not be stored.
+  final bool noStore;
+
+  /// If true, stale responses must be revalidated.
+  final bool mustRevalidate;
+
+  /// Creates a [CacheControlHeader] with the given directives.
+  const CacheControlHeader({
+    this.maxAge,
+    this.noCache = false,
+    this.noStore = false,
+    this.mustRevalidate = false,
+  });
+
+  @override
+  String toString() {
+    return 'CacheControlHeader(maxAge: $maxAge, noCache: $noCache, '
+        'noStore: $noStore, mustRevalidate: $mustRevalidate)';
   }
 }
 

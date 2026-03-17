@@ -66,7 +66,7 @@ development_status:
   epic-6: in-progress
   6-1-create-cachestorage-interface: done
   6-2-implement-cachefirst-networkfirst: done
-  6-3-implement-httpcacheaware-strategy: backlog
+  6-3-implement-httpcacheaware-strategy: done
   6-4-implement-request-deduplication: backlog
   6-5-implement-cache-invalidation: backlog
 
