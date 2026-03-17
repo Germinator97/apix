@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import 'cache_config.dart';
 import 'cache_entry.dart';
+import 'request_deduplicator.dart';
 
 /// Interceptor that provides response caching with configurable strategies.
 ///
@@ -27,8 +28,23 @@ class CacheInterceptor extends Interceptor {
   /// The cache configuration.
   final CacheConfig config;
 
+  /// The request deduplicator for concurrent requests.
+  final RequestDeduplicator _deduplicator = RequestDeduplicator();
+
+  /// Dio instance for executing deduplicated requests.
+  Dio? _dio;
+
   /// Creates a [CacheInterceptor] with the given [config].
   CacheInterceptor({required this.config});
+
+  /// Sets the Dio instance for deduplication.
+  /// Must be called after adding this interceptor to Dio.
+  void setDio(Dio dio) {
+    _dio = dio;
+  }
+
+  /// Returns the request deduplicator (for testing).
+  RequestDeduplicator get deduplicator => _deduplicator;
 
   @override
   void onRequest(
@@ -53,9 +69,13 @@ class CacheInterceptor extends Interceptor {
         await _handleHttpCacheAware(options, handler, cacheKey);
       case CacheStrategy.networkFirst:
       case CacheStrategy.networkOnly:
-        // Let request proceed, handle in onResponse/onError
         options.extra['_cacheKey'] = cacheKey;
-        handler.next(options);
+        // Check for deduplication
+        if (config.shouldDeduplicate(options.method) && _dio != null) {
+          await _handleWithDeduplication(options, handler, cacheKey, strategy);
+        } else {
+          handler.next(options);
+        }
     }
   }
 
@@ -211,6 +231,54 @@ class CacheInterceptor extends Interceptor {
         type: DioExceptionType.unknown,
       ),
     );
+  }
+
+  /// Handles request with deduplication.
+  Future<void> _handleWithDeduplication(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+    String cacheKey,
+    CacheStrategy strategy,
+  ) async {
+    try {
+      final response = await _deduplicator.deduplicate(
+        options,
+        () => _executeRequest(options),
+      );
+
+      // Cache the response if needed
+      if (_shouldCacheResponse(response)) {
+        await _cacheResponse(cacheKey, response, strategy: strategy);
+      }
+
+      handler.resolve(response);
+    } on DioException catch (e) {
+      // For networkFirst, try cache fallback
+      if (strategy == CacheStrategy.networkFirst) {
+        final cached = await config.storage.get(cacheKey);
+        if (cached != null) {
+          final cachedResponse = _buildResponseFromCache(options, cached);
+          handler.resolve(cachedResponse);
+          return;
+        }
+      }
+      handler.reject(e);
+    }
+  }
+
+  /// Executes the actual network request without interceptors loop.
+  Future<Response<dynamic>> _executeRequest(RequestOptions options) async {
+    // Create a new Dio instance without this interceptor to avoid loops
+    final tempDio = Dio(BaseOptions(
+      baseUrl: options.baseUrl,
+      connectTimeout: options.connectTimeout,
+      receiveTimeout: options.receiveTimeout,
+      sendTimeout: options.sendTimeout,
+    ));
+
+    return tempDio.fetch<dynamic>(options.copyWith(
+      extra: {...options.extra, '_skipDeduplication': true},
+    ));
   }
 
   /// Generates a cache key from request options.

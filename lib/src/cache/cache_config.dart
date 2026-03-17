@@ -44,6 +44,12 @@ class CacheConfig {
   /// HTTP methods that should be cached.
   final List<String> cacheableMethods;
 
+  /// Whether to deduplicate identical concurrent requests.
+  final bool enableDeduplication;
+
+  /// HTTP methods that should be deduplicated.
+  final List<String> deduplicateMethods;
+
   /// Creates a [CacheConfig] with the given parameters.
   CacheConfig({
     CacheStorage? storage,
@@ -51,11 +57,17 @@ class CacheConfig {
     this.defaultTtl = const Duration(minutes: 5),
     this.cacheErrors = false,
     this.cacheableMethods = const ['GET'],
+    this.enableDeduplication = true,
+    this.deduplicateMethods = const ['GET'],
   }) : storage = storage ?? InMemoryCacheStorage();
 
   /// Returns true if the given HTTP method should be cached.
   bool shouldCache(String method) =>
       cacheableMethods.contains(method.toUpperCase());
+
+  /// Returns true if the given HTTP method should be deduplicated.
+  bool shouldDeduplicate(String method) =>
+      enableDeduplication && deduplicateMethods.contains(method.toUpperCase());
 
   /// Creates a copy with updated fields.
   CacheConfig copyWith({
@@ -64,6 +76,8 @@ class CacheConfig {
     Duration? defaultTtl,
     bool? cacheErrors,
     List<String>? cacheableMethods,
+    bool? enableDeduplication,
+    List<String>? deduplicateMethods,
   }) {
     return CacheConfig(
       storage: storage ?? this.storage,
@@ -71,6 +85,8 @@ class CacheConfig {
       defaultTtl: defaultTtl ?? this.defaultTtl,
       cacheErrors: cacheErrors ?? this.cacheErrors,
       cacheableMethods: cacheableMethods ?? this.cacheableMethods,
+      enableDeduplication: enableDeduplication ?? this.enableDeduplication,
+      deduplicateMethods: deduplicateMethods ?? this.deduplicateMethods,
     );
   }
 
@@ -79,6 +95,7 @@ class CacheConfig {
     return 'CacheConfig(strategy: $strategy, '
         'defaultTtl: $defaultTtl, '
         'cacheErrors: $cacheErrors, '
-        'cacheableMethods: $cacheableMethods)';
+        'cacheableMethods: $cacheableMethods, '
+        'enableDeduplication: $enableDeduplication)';
   }
 }
