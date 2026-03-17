@@ -74,7 +74,7 @@ development_status:
   epic-7: in-progress
   7-1-implement-loggerinterceptor: done
   7-2-custom-log-handler: done
-  7-3-implement-sentryinterceptor: backlog
+  7-3-implement-sentryinterceptor: done
   7-4-request-breadcrumbs-metrics: backlog
 
   # Epic 8: Documentation & Release
