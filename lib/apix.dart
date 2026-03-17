@@ -32,4 +32,5 @@ export 'src/retry/retry_interceptor.dart';
 // Cache
 export 'src/cache/cache_config.dart';
 export 'src/cache/cache_entry.dart';
+export 'src/cache/cache_interceptor.dart';
 export 'src/cache/cache_storage.dart';
