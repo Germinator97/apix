@@ -179,6 +179,47 @@ void main() {
 
       expect(allKeys, containsAll(['key1', 'key2']));
     });
+
+    test('removeWhere removes matching entries', () async {
+      final storage = InMemoryCacheStorage();
+      final entry = CacheEntry.withTtl(
+        data: '{}',
+        statusCode: 200,
+        ttl: const Duration(minutes: 5),
+      );
+
+      await storage.set('GET:https://api.com/users/1', entry);
+      await storage.set('GET:https://api.com/users/2', entry);
+      await storage.set('GET:https://api.com/posts/1', entry);
+
+      final removed =
+          await storage.removeWhere((key) => key.contains('/users'));
+
+      expect(removed, equals(2));
+      expect(await storage.has('GET:https://api.com/users/1'), isFalse);
+      expect(await storage.has('GET:https://api.com/users/2'), isFalse);
+      expect(await storage.has('GET:https://api.com/posts/1'), isTrue);
+    });
+
+    test('removeByPrefix removes entries starting with prefix', () async {
+      final storage = InMemoryCacheStorage();
+      final entry = CacheEntry.withTtl(
+        data: '{}',
+        statusCode: 200,
+        ttl: const Duration(minutes: 5),
+      );
+
+      await storage.set('GET:https://api.com/users', entry);
+      await storage.set('GET:https://api.com/users/1', entry);
+      await storage.set('POST:https://api.com/users', entry);
+
+      final removed = await storage.removeByPrefix('GET:https://api.com/users');
+
+      expect(removed, equals(2));
+      expect(await storage.has('GET:https://api.com/users'), isFalse);
+      expect(await storage.has('GET:https://api.com/users/1'), isFalse);
+      expect(await storage.has('POST:https://api.com/users'), isTrue);
+    });
   });
 
   group('CacheConfig', () {

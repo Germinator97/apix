@@ -40,6 +40,15 @@ abstract class CacheStorage {
 
   /// Returns all cached keys.
   Future<List<String>> keys();
+
+  /// Removes all entries matching the given pattern.
+  ///
+  /// The pattern can be a prefix (e.g., 'GET:https://api.com/users')
+  /// or contain wildcards using '*' (e.g., 'GET:*/users/*').
+  Future<int> removeWhere(bool Function(String key) predicate);
+
+  /// Removes all entries whose keys start with the given prefix.
+  Future<int> removeByPrefix(String prefix);
 }
 
 /// In-memory implementation of [CacheStorage].
@@ -88,6 +97,20 @@ class InMemoryCacheStorage implements CacheStorage {
     // Filter out expired entries
     _cache.removeWhere((_, entry) => entry.isExpired);
     return _cache.keys.toList();
+  }
+
+  @override
+  Future<int> removeWhere(bool Function(String key) predicate) async {
+    final keysToRemove = _cache.keys.where(predicate).toList();
+    for (final key in keysToRemove) {
+      _cache.remove(key);
+    }
+    return keysToRemove.length;
+  }
+
+  @override
+  Future<int> removeByPrefix(String prefix) async {
+    return removeWhere((key) => key.startsWith(prefix));
   }
 
   /// Returns the current number of cached entries.

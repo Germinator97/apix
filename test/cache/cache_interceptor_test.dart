@@ -495,6 +495,103 @@ void main() {
     });
   });
 
+  group('Cache Invalidation', () {
+    late InMemoryCacheStorage storage;
+    late CacheInterceptor interceptor;
+
+    setUp(() async {
+      storage = InMemoryCacheStorage();
+      interceptor = CacheInterceptor(
+        config: CacheConfig(storage: storage),
+      );
+
+      // Pre-populate cache
+      final entry = CacheEntry.withTtl(
+        data: '{}',
+        statusCode: 200,
+        ttl: const Duration(minutes: 5),
+      );
+      await storage.set('GET:https://api.com/users', entry);
+      await storage.set('GET:https://api.com/users/1', entry);
+      await storage.set('GET:https://api.com/users/2', entry);
+      await storage.set('GET:https://api.com/posts/1', entry);
+      await storage.set('POST:https://api.com/users', entry);
+    });
+
+    test('invalidate removes specific key', () async {
+      final removed = await interceptor.invalidate('GET:https://api.com/users');
+
+      expect(removed, isTrue);
+      expect(await storage.has('GET:https://api.com/users'), isFalse);
+      expect(await storage.has('GET:https://api.com/users/1'), isTrue);
+    });
+
+    test('invalidate returns false for non-existent key', () async {
+      final removed =
+          await interceptor.invalidate('GET:https://api.com/nonexistent');
+
+      expect(removed, isFalse);
+    });
+
+    test('invalidateUrl removes by URL and method', () async {
+      final removed = await interceptor.invalidateUrl(
+        'https://api.com/users/1',
+        method: 'GET',
+      );
+
+      expect(removed, isTrue);
+      expect(await storage.has('GET:https://api.com/users/1'), isFalse);
+    });
+
+    test('invalidateWhere removes matching entries', () async {
+      final removed = await interceptor.invalidateWhere(
+        (key) => key.contains('/users/'),
+      );
+
+      expect(removed, equals(2));
+      expect(await storage.has('GET:https://api.com/users/1'), isFalse);
+      expect(await storage.has('GET:https://api.com/users/2'), isFalse);
+      expect(await storage.has('GET:https://api.com/users'), isTrue);
+    });
+
+    test('invalidateByPrefix removes entries with prefix', () async {
+      final removed =
+          await interceptor.invalidateByPrefix('GET:https://api.com/users');
+
+      expect(removed, equals(3));
+      expect(await storage.has('GET:https://api.com/users'), isFalse);
+      expect(await storage.has('GET:https://api.com/users/1'), isFalse);
+      expect(await storage.has('POST:https://api.com/users'), isTrue);
+    });
+
+    test('invalidatePath removes entries containing path', () async {
+      final removed = await interceptor.invalidatePath('/users');
+
+      expect(removed, equals(4));
+      expect(await storage.has('GET:https://api.com/posts/1'), isTrue);
+    });
+
+    test('clearCache removes all entries', () async {
+      final removed = await interceptor.clearCache();
+
+      expect(removed, equals(5));
+      expect(storage.length, equals(0));
+    });
+
+    test('getCacheKeys returns all keys', () async {
+      final keys = await interceptor.getCacheKeys();
+
+      expect(keys.length, equals(5));
+      expect(keys, contains('GET:https://api.com/users'));
+    });
+
+    test('hasCache checks entry existence', () async {
+      expect(await interceptor.hasCache('GET:https://api.com/users'), isTrue);
+      expect(await interceptor.hasCache('GET:https://api.com/nonexistent'),
+          isFalse);
+    });
+  });
+
   group('CacheException', () {
     test('toString returns message', () {
       const exception = CacheException('Test error');
