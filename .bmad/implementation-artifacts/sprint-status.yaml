@@ -67,7 +67,7 @@ development_status:
   6-1-create-cachestorage-interface: done
   6-2-implement-cachefirst-networkfirst: done
   6-3-implement-httpcacheaware-strategy: done
-  6-4-implement-request-deduplication: backlog
+  6-4-implement-request-deduplication: done
   6-5-implement-cache-invalidation: backlog
 
   # Epic 7: Logging & Observability
