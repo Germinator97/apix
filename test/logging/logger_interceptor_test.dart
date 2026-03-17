@@ -47,7 +47,7 @@ void main() {
 
   group('LoggerConfig', () {
     test('creates with default values', () {
-      final config = LoggerConfig();
+      const config = LoggerConfig();
 
       expect(config.enabled, isTrue);
       expect(config.level, equals(LogLevel.info));
@@ -83,14 +83,14 @@ void main() {
 
     test('shouldLog respects enabled flag', () {
       final disabled = LoggerConfig.disabled();
-      final enabled = LoggerConfig();
+      const enabled = LoggerConfig();
 
       expect(disabled.shouldLog(LogLevel.info), isFalse);
       expect(enabled.shouldLog(LogLevel.info), isTrue);
     });
 
     test('shouldLog respects level', () {
-      final config = LoggerConfig(level: LogLevel.warn);
+      const config = LoggerConfig(level: LogLevel.warn);
 
       expect(config.shouldLog(LogLevel.error), isTrue);
       expect(config.shouldLog(LogLevel.warn), isTrue);
@@ -99,13 +99,13 @@ void main() {
     });
 
     test('shouldLog returns false for none level', () {
-      final config = LoggerConfig(level: LogLevel.trace);
+      const config = LoggerConfig(level: LogLevel.trace);
 
       expect(config.shouldLog(LogLevel.none), isFalse);
     });
 
     test('redactHeaders redacts sensitive headers', () {
-      final config = LoggerConfig();
+      const config = LoggerConfig();
       final headers = <String, dynamic>{
         'Content-Type': 'application/json',
         'Authorization': 'Bearer secret-token',
@@ -122,7 +122,7 @@ void main() {
     });
 
     test('redactHeaders is case-insensitive', () {
-      final config = LoggerConfig();
+      const config = LoggerConfig();
       final headers = <String, dynamic>{
         'authorization': 'Bearer token',
         'COOKIE': 'session=123',
@@ -135,7 +135,7 @@ void main() {
     });
 
     test('truncateBody truncates long bodies', () {
-      final config = LoggerConfig(maxBodyLength: 20);
+      const config = LoggerConfig(maxBodyLength: 20);
       final longBody = 'a' * 100;
 
       final truncated = config.truncateBody(longBody);
@@ -145,7 +145,7 @@ void main() {
     });
 
     test('truncateBody does not truncate short bodies', () {
-      final config = LoggerConfig(maxBodyLength: 100);
+      const config = LoggerConfig(maxBodyLength: 100);
       final shortBody = 'short';
 
       final truncated = config.truncateBody(shortBody);
@@ -154,13 +154,13 @@ void main() {
     });
 
     test('truncateBody handles null', () {
-      final config = LoggerConfig();
+      const config = LoggerConfig();
 
       expect(config.truncateBody(null), equals('null'));
     });
 
     test('copyWith creates updated config', () {
-      final config = LoggerConfig();
+      const config = LoggerConfig();
       final updated = config.copyWith(
         level: LogLevel.trace,
         logResponseHeaders: true,
