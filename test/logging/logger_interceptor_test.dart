@@ -146,7 +146,7 @@ void main() {
 
     test('truncateBody does not truncate short bodies', () {
       const config = LoggerConfig(maxBodyLength: 100);
-      final shortBody = 'short';
+      const shortBody = 'short';
 
       final truncated = config.truncateBody(shortBody);
 
