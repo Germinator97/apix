@@ -24,3 +24,7 @@ export 'src/errors/network_exception.dart';
 
 // Models
 export 'src/models/result.dart';
+
+// Retry
+export 'src/retry/retry_config.dart';
+export 'src/retry/retry_interceptor.dart';
