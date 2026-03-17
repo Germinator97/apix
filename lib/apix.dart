@@ -35,3 +35,12 @@ export 'src/cache/cache_entry.dart';
 export 'src/cache/cache_interceptor.dart';
 export 'src/cache/cache_storage.dart';
 export 'src/cache/request_deduplicator.dart';
+
+// Logging
+export 'src/logging/logger_config.dart';
+export 'src/logging/logger_interceptor.dart';
+
+// Observability
+export 'src/observability/metrics_interceptor.dart';
+export 'src/observability/sentry_interceptor.dart';
+export 'src/observability/sentry_setup.dart';
