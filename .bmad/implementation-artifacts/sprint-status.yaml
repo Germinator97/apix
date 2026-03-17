@@ -58,7 +58,7 @@ development_status:
   # Epic 5: Retry Logic
   epic-5: in-progress
   5-1-implement-retryinterceptor: done
-  5-2-configure-retry-status-codes: backlog
+  5-2-configure-retry-status-codes: done
   5-3-implement-exponential-backoff: backlog
   5-4-disable-retry-per-request: backlog
 
