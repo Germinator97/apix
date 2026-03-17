@@ -46,6 +46,92 @@ class CacheInterceptor extends Interceptor {
   /// Returns the request deduplicator (for testing).
   RequestDeduplicator get deduplicator => _deduplicator;
 
+  // ==================== Cache Invalidation API ====================
+
+  /// Invalidates a specific cache entry by its exact key.
+  ///
+  /// Returns true if the entry existed and was removed.
+  Future<bool> invalidate(String key) async {
+    final existed = await config.storage.has(key);
+    if (existed) {
+      await config.storage.remove(key);
+    }
+    return existed;
+  }
+
+  /// Invalidates cache entry for a specific URL and method.
+  ///
+  /// Example:
+  /// ```dart
+  /// await interceptor.invalidateUrl('/users/123', method: 'GET');
+  /// ```
+  Future<bool> invalidateUrl(String url, {String method = 'GET'}) async {
+    final key = '$method:$url';
+    return invalidate(key);
+  }
+
+  /// Invalidates all cache entries matching a predicate.
+  ///
+  /// Returns the number of entries removed.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Remove all user-related cache entries
+  /// await interceptor.invalidateWhere((key) => key.contains('/users'));
+  /// ```
+  Future<int> invalidateWhere(bool Function(String key) predicate) async {
+    return config.storage.removeWhere(predicate);
+  }
+
+  /// Invalidates all cache entries whose keys start with the given prefix.
+  ///
+  /// Returns the number of entries removed.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Remove all GET requests to a specific endpoint
+  /// await interceptor.invalidateByPrefix('GET:https://api.com/users');
+  /// ```
+  Future<int> invalidateByPrefix(String prefix) async {
+    return config.storage.removeByPrefix(prefix);
+  }
+
+  /// Invalidates all cache entries for a specific path pattern.
+  ///
+  /// The pattern matches against the URL path portion.
+  /// Returns the number of entries removed.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Remove all cache for /users/* endpoints
+  /// await interceptor.invalidatePath('/users');
+  /// ```
+  Future<int> invalidatePath(String pathPattern) async {
+    return config.storage.removeWhere((key) => key.contains(pathPattern));
+  }
+
+  /// Clears all cached entries.
+  ///
+  /// Returns the number of entries removed.
+  Future<int> clearCache() async {
+    final allKeys = await config.storage.keys();
+    final count = allKeys.length;
+    await config.storage.clear();
+    return count;
+  }
+
+  /// Returns all current cache keys.
+  Future<List<String>> getCacheKeys() async {
+    return config.storage.keys();
+  }
+
+  /// Returns true if a cache entry exists for the given key.
+  Future<bool> hasCache(String key) async {
+    return config.storage.has(key);
+  }
+
+  // ==================== Interceptor Methods ====================
+
   @override
   void onRequest(
     RequestOptions options,

@@ -63,12 +63,12 @@ development_status:
   5-4-disable-retry-per-request: done
 
   # Epic 6: Caching
-  epic-6: in-progress
+  epic-6: done
   6-1-create-cachestorage-interface: done
   6-2-implement-cachefirst-networkfirst: done
   6-3-implement-httpcacheaware-strategy: done
   6-4-implement-request-deduplication: done
-  6-5-implement-cache-invalidation: backlog
+  6-5-implement-cache-invalidation: done
 
   # Epic 7: Logging & Observability
   epic-7: backlog
