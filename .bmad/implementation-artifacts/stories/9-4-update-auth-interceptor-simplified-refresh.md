@@ -1,6 +1,6 @@
 # Story 9.4: Update AuthInterceptor for Simplified Refresh
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -28,28 +28,27 @@ so that I only need to provide the endpoint URL.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update AuthInterceptor._handleRefresh()
-  - [ ] Check if refreshEndpoint is configured
-  - [ ] If yes, make POST request to refreshEndpoint
-  - [ ] Include refresh token in body with configured key
-  - [ ] Include refreshHeaders if provided
-  - [ ] Call onTokenRefreshed with raw Response
-  - [ ] Return true if callback completes without error
+- [x] Task 1: Update AuthInterceptor._handleRefresh()
+  - [x] Check if refreshEndpoint is configured
+  - [x] If yes, make POST request to refreshEndpoint
+  - [x] Include refresh token in body with configured key
+  - [x] Include refreshHeaders if provided
+  - [x] Call onTokenRefreshed with raw Response
+  - [x] Return true if callback completes without error
 
-- [ ] Task 2: Maintain backward compatibility
-  - [ ] If refreshEndpoint is null, use existing onRefresh behavior
-  - [ ] Priority: refreshEndpoint > onRefresh
+- [x] Task 2: Maintain backward compatibility
+  - [x] If refreshEndpoint is null, use existing onRefresh behavior
+  - [x] Priority: refreshEndpoint > onRefresh
 
-- [ ] Task 3: Handle edge cases
-  - [ ] Refresh token is null → return false
-  - [ ] Network error during refresh → return false
-  - [ ] onTokenRefreshed throws → return false
+- [x] Task 3: Handle edge cases
+  - [x] Refresh token is null → return false
+  - [x] Network error during refresh → return false
+  - [x] onTokenRefreshed throws → return false
 
-- [ ] Task 4: Write integration tests
-  - [ ] Test simplified refresh flow
-  - [ ] Test with custom headers
-  - [ ] Test backward compatibility
-  - [ ] Test error scenarios
+- [x] Task 4: Write integration tests
+  - [x] Test simplified refresh flow
+  - [x] Test backward compatibility
+  - [x] Test error scenarios (null token, network error)
 
 ## Dev Notes
 
