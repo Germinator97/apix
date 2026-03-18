@@ -56,6 +56,17 @@ This document provides the complete epic and story breakdown for apix, decomposi
 - FR40: System provides built-in SentryInterceptor with SentryConfig (dsn, environment, enabled)
 - FR41: Developer can enable/disable Sentry reporting per environment
 - FR42: System automatically captures API errors to Sentry with request context
+- FR43: Developer can use SecureStorageService for secure key-value storage
+- FR44: SecureStorageService provides write(key, value), read(key), delete(key), deleteAll() methods
+- FR45: Developer can use SecureTokenProvider as ready-to-use TokenProvider implementation
+- FR46: SecureTokenProvider uses SecureStorageService via composition
+- FR47: Developer can inject custom SecureStorageService into SecureTokenProvider
+- FR48: Developer can configure refreshEndpoint (relative URL) in AuthConfig
+- FR49: Developer can provide optional refreshHeaders for custom headers during refresh
+- FR50: System calls refreshEndpoint automatically when token refresh is triggered
+- FR51: System invokes onTokenRefreshed(Response) callback with raw response
+- FR52: Developer parses response and saves tokens (same pattern as login)
+- FR53: SecureStorageService can be used independently for other secrets (Firebase Auth, API keys)
 
 ### NonFunctional Requirements
 
@@ -102,6 +113,7 @@ N/A - Package infrastructure, no UI
 | FR26-FR30 | Epic 3 | Request/Response |
 | FR31-FR33 | Epic 7 | Logging |
 | FR34-FR42 | Epic 7 | Observability |
+| FR43-FR53 | Epic 9 | Secure Token Storage |
 
 ## Epic List
 
@@ -144,6 +156,11 @@ Le développeur peut logger et monitorer les requêtes avec Sentry built-in.
 Le package est prêt pour publication sur pub.dev avec 160/160 points.
 **FRs covered:** NFR11, NFR12, NFR13, NFR14
 **Depends on:** All
+
+### Epic 9: Secure Token Storage (v0.3)
+Le développeur peut utiliser SecureTokenProvider prêt à l'emploi avec refresh simplifié.
+**FRs covered:** FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50, FR51, FR52, FR53
+**Depends on:** Epic 4
 
 ---
 
@@ -674,3 +691,96 @@ So that regressions are caught early.
 **And** test retry with backoff
 **And** test cache strategies (CacheFirst, NetworkFirst, HttpCacheAware)
 **And** tests run on CI for every PR
+
+---
+
+## Epic 9: Secure Token Storage (v0.3)
+
+Le développeur peut utiliser SecureTokenProvider prêt à l'emploi avec refresh simplifié.
+
+### Story 9.1: Implement SecureStorageService
+
+As a developer,
+I want a SecureStorageService wrapper for flutter_secure_storage,
+So that I can securely store key-value pairs without boilerplate.
+
+**Acceptance Criteria:**
+
+**Given** I need secure storage
+**When** I create a SecureStorageService
+**Then** I can use write(), read(), delete(), deleteAll() methods
+**And** default FlutterSecureStorage uses AndroidOptions(encryptedSharedPreferences: true)
+**And** I can inject my own FlutterSecureStorage instance
+
+### Story 9.2: Implement SecureTokenProvider
+
+As a developer,
+I want a ready-to-use SecureTokenProvider implementation,
+So that I don't have to implement TokenProvider manually.
+
+**Acceptance Criteria:**
+
+**Given** I need token management
+**When** I create a SecureTokenProvider
+**Then** it implements TokenProvider interface
+**And** uses SecureStorageService via composition
+**And** I can inject my own SecureStorageService
+**And** I can configure custom storage keys
+**And** storage is exposed for secondary usage (Firebase Auth, API keys)
+
+### Story 9.3: Add refreshEndpoint to AuthConfig
+
+As a developer,
+I want to configure a refresh endpoint URL in AuthConfig,
+So that ApiX can handle token refresh automatically.
+
+**Acceptance Criteria:**
+
+**Given** AuthConfig
+**When** I provide refreshEndpoint
+**Then** it's stored as relative URL to baseUrl
+**And** I can provide optional refreshHeaders
+**And** I can provide onTokenRefreshed callback receiving raw Response
+**And** existing onRefresh callback still works (backward compatible)
+
+### Story 9.4: Update AuthInterceptor for Simplified Refresh
+
+As a developer,
+I want AuthInterceptor to handle refresh calls automatically,
+So that I only need to provide the endpoint URL.
+
+**Acceptance Criteria:**
+
+**Given** AuthConfig with refreshEndpoint
+**When** a 401 is received
+**Then** AuthInterceptor calls refreshEndpoint with refresh token
+**And** onTokenRefreshed callback receives raw Response
+**And** refreshHeaders are included if provided
+**And** old onRefresh behavior is preserved (backward compatible)
+
+### Story 9.5: Write Tests for Secure Token Storage
+
+As a maintainer,
+I want comprehensive tests for SecureTokenProvider feature,
+So that the implementation is reliable and regression-free.
+
+**Acceptance Criteria:**
+
+**Given** all new classes
+**Then** unit tests cover > 90% of code
+**And** integration tests verify simplified refresh flow
+**And** backward compatibility is tested
+
+### Story 9.6: Update Documentation and Examples
+
+As a developer,
+I want clear documentation for SecureTokenProvider,
+So that I can integrate it quickly.
+
+**Acceptance Criteria:**
+
+**Given** README.md
+**Then** SecureTokenProvider section is added
+**And** basic and advanced usage examples are provided
+**And** example app uses SecureTokenProvider
+**And** CHANGELOG documents v0.3.0 changes
