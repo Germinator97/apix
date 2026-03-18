@@ -242,6 +242,107 @@ final client = ApiClient(
 - Désactivable par environnement (dev vs prod)
 - Breadcrumbs et contexte request automatiques
 
+### ADR-009: MultipartInterceptor - Auto-detection File → FormData
+
+**Decision:** Créer un intercepteur interne qui détecte automatiquement les `File` dans les données et les convertit en `FormData`.
+
+```dart
+// L'utilisateur envoie simplement un File dans son Map
+await client.post('/upload', data: {
+  'file': File('/path/to/image.jpg'),
+  'name': 'my-image',
+});
+// → L'intercepteur détecte File, convertit en FormData, set Content-Type: multipart/form-data
+```
+
+**Comportement:**
+- Détecte `File`, `List<File>`, `Map<String, File>` dans les données
+- Convertit automatiquement en `FormData` avec `MultipartFile`
+- Set `Content-Type: multipart/form-data` automatiquement
+- Si pas de fichiers, applique le `defaultContentType` (JSON par défaut)
+
+**Rationale:**
+- Pas de méthodes séparées `postMultipart()`, `uploadFile()` - API simplifiée
+- L'utilisateur n'a pas à connaître les détails de FormData
+- Détection transparente, comportement prévisible
+
+### ADR-010: Default Content-Type JSON (Configurable)
+
+**Decision:** `application/json` est le Content-Type par défaut, configurable globalement.
+
+```dart
+// JSON par défaut - rien à faire
+await client.post('/users', data: {'name': 'John'});  // → application/json
+
+// Override global
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  defaultContentType: 'text/xml',  // ou null pour désactiver
+);
+
+// Override par requête
+await client.post('/data', data: body, options: Options(contentType: 'text/plain'));
+```
+
+**Rationale:**
+- 99% des APIs REST modernes utilisent JSON
+- Pas besoin de méthodes `postJson()`, `putJson()` - redondantes
+- L'utilisateur configure uniquement s'il veut autre chose
+
+### ADR-011: ApiClientFactory Pattern
+
+**Decision:** Séparer la création de `ApiClient` dans une classe factory dédiée.
+
+```dart
+// Factory (recommandé)
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  connectTimeout: Duration(seconds: 60),
+);
+
+// Via config
+final client = ApiClientFactory.fromConfig(config);
+
+// Direct (pour tests avec mock Dio)
+final client = ApiClient(mockDio, config);
+```
+
+**Rationale:**
+- Séparation des responsabilités (création vs utilisation)
+- ApiClient reste simple (juste les méthodes HTTP)
+- Facilite les tests (injection de mock Dio)
+- Factory gère toute la configuration (interceptors, adapters, etc.)
+
+### ADR-012: Optional HttpClientAdapter
+
+**Decision:** Permettre un `HttpClientAdapter` personnalisé, optionnel.
+
+```dart
+// Par défaut - Dio utilise son adapter natif (fonctionne sur toutes plateformes)
+final client = ApiClientFactory.create(baseUrl: 'https://api.example.com');
+
+// Avec adapter personnalisé (mobile/desktop uniquement)
+import 'dart:io';
+import 'package:dio/io.dart';
+
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  httpClientAdapter: IOHttpClientAdapter(
+    createHttpClient: () {
+      final client = HttpClient();
+      client.badCertificateCallback = (cert, host, port) => true; // dev only
+      return client;
+    },
+  ),
+);
+```
+
+**Rationale:**
+- Optionnel - si null, Dio utilise son adapter par défaut
+- Permet certificats auto-signés, proxies, etc.
+- L'utilisateur choisit l'adapter selon sa plateforme
+- Pas de conditional imports complexes dans le package
+
 ## Implementation Patterns & Consistency Rules
 
 ### Naming Conventions
@@ -260,7 +361,9 @@ final client = ApiClient(
 lib/src/
 ├── client/
 │   ├── api_client.dart
-│   └── api_client_config.dart
+│   ├── api_client_config.dart
+│   ├── api_client_factory.dart
+│   └── multipart_interceptor.dart
 ├── interceptors/
 │   ├── auth_interceptor.dart
 │   ├── retry_interceptor.dart

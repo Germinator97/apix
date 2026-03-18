@@ -1,0 +1,90 @@
+Flutter crash report.
+Please report a bug at https://github.com/flutter/flutter/issues.
+
+## command
+
+flutter analyze
+
+## exception
+
+_Exception: Exception: analysis server exited with code 64 and output:
+[stderr]     --enable-analytics      Enable analytics.
+[stderr]     --disable-analytics     Disable analytics.
+[stderr]     --suppress-analytics    Disallow analytics for this `dart *` run without changing the analytics configuration.
+[stderr] -h, --help                  Print this usage information.
+[stderr] 
+[stderr] Available commands:
+[stderr]   analyze    Analyze Dart code in a directory.
+[stderr]   compile    Compile Dart to various formats.
+[stderr]   create     Create a new Dart project.
+[stderr]   devtools   Open DevTools (optionally connecting to an existing application).
+[stderr]   doc        Generate API documentation for Dart projects.
+[stderr]   fix        Apply automated fixes to Dart source code.
+[stderr]   format     Idiomatically format Dart source code.
+[stderr]   info       Show diagnostic information about the installed tooling.
+[stderr]   pub        Work with packages.
+[stderr]   run        Run a Dart program.
+[stderr]   test       Run tests for a project.
+[stderr] 
+[stderr] Run "dart help <command>" for more information about a command.
+[stderr] See https://dart.dev/tools/dart-tool for detailed documentation.
+
+```
+```
+
+## flutter doctor
+
+```
+[32m[✓][39m Flutter (Channel stable, 3.32.0, on macOS 15.7.4 24G517 darwin-x64, locale fr-FR) [2,1s]
+    [32m•[39m Flutter version 3.32.0 on channel stable at /Users/mac/fvm/versions/3.32.0
+    [32m•[39m Upstream repository https://github.com/flutter/flutter.git
+    [32m•[39m Framework revision be698c48a6 (10 months ago), 2025-05-19 12:59:14 -0700
+    [32m•[39m Engine revision 1881800949
+    [32m•[39m Dart version 3.8.0
+    [32m•[39m DevTools version 2.45.1
+
+[32m[✓][39m Android toolchain - develop for Android devices (Android SDK version 35.0.0) [6,8s]
+    [32m•[39m Android SDK at /Users/mac/Library/Android/sdk
+    [32m•[39m Platform android-36, build-tools 35.0.0
+    [32m•[39m ANDROID_HOME = /Users/mac/Library/Android/sdk
+    [32m•[39m Java binary at: /Users/mac/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    [32m•[39m Java version OpenJDK Runtime Environment (build 21.0.6+-13391695-b895.109)
+    [32m•[39m All Android licenses accepted.
+
+[32m[✓][39m Xcode - develop for iOS and macOS (Xcode 26.3) [3,7s]
+    [32m•[39m Xcode at /Applications/Xcode.app/Contents/Developer
+    [32m•[39m Build 17C529
+    [32m•[39m CocoaPods version 1.16.2
+
+[32m[✓][39m Chrome - develop for the web [27ms]
+    [32m•[39m Chrome at /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+
+[32m[✓][39m Android Studio (version 2025.1) [25ms]
+    [32m•[39m Android Studio at /Users/mac/Applications/Android Studio.app/Contents
+    [32m•[39m Flutter plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/9212-flutter
+    [32m•[39m Dart plugin can be installed from:
+      🔨 https://plugins.jetbrains.com/plugin/6351-dart
+    [32m•[39m Java version OpenJDK Runtime Environment (build 21.0.6+-13391695-b895.109)
+
+[32m[✓][39m VS Code (version 1.96.4) [20ms]
+    [32m•[39m VS Code at /Users/mac/Downloads/Visual Studio Code.app/Contents
+    [32m•[39m Flutter extension version 3.102.0
+
+[32m[✓][39m Connected device (4 available) [17,0s]
+    [32m•[39m Germinator (wireless) (mobile) • 00008110-00044C343A20201E            • ios            • iOS
+      26.3.1 23D8133
+    [32m•[39m iPhone 17 Pro (mobile)         • D2666EC2-A5D0-4320-B27E-10E145065144 • ios            •
+      com.apple.CoreSimulator.SimRuntime.iOS-26-1 (simulator)
+    [32m•[39m macOS (desktop)                • macos                                • darwin-x64     • macOS
+      15.7.4 24G517 darwin-x64
+    [32m•[39m Chrome (web)                   • chrome                               • web-javascript • Google
+      Chrome 146.0.7680.80
+
+[32m[✓][39m Network resources [30,8s]
+    [32m•[39m All expected network resources are available.
+
+[32m•[39m No issues found!
+```
