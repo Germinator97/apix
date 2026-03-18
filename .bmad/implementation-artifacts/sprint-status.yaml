@@ -79,7 +79,7 @@ development_status:
 
   # Epic 8: Documentation & Release
   epic-8: in-progress
-  8-1-create-readme-getting-started: needs-update  # After Epic 9
+  8-1-create-readme-getting-started: done
   8-2-document-public-api: needs-update  # After Epic 9
   8-3-create-example-app: needs-update  # After Epic 9
   8-4-prepare-for-pubdev-release: backlog
