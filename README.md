@@ -1,11 +1,19 @@
-# Apix
+<p align="center">
+  <img src="assets/logo_icon_filled.svg" alt="Apix Logo" width="120" height="120">
+</p>
 
-[![pub package](https://img.shields.io/pub/v/apix.svg)](https://pub.dev/packages/apix)
-[![CI](https://github.com/Germinator97/apix/actions/workflows/ci.yml/badge.svg)](https://github.com/Germinator97/apix/actions/workflows/ci.yml)
-[![coverage](https://codecov.io/gh/Germinator97/apix/branch/main/graph/badge.svg)](https://codecov.io/gh/Germinator97/apix)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<h1 align="center">ApiX</h1>
 
-Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching, and built-in Sentry integration. Powered by [Dio](https://pub.dev/packages/dio).
+<p align="center">
+  <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
+  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/main/graph/badge.svg" alt="coverage"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
+
+<p align="center">
+  🚀 Production-ready Flutter/Dart API client — auth refresh queue, exponential retry with backoff, smart & flexible caching, and built-in Sentry. Zero boilerplate, maximum reliability. Powered by <a href="https://pub.dev/packages/dio">Dio</a>.
+</p>
 
 ## Quick Start
 

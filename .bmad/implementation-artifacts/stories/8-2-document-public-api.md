@@ -1,6 +1,11 @@
 # Story 8.2: Document Public API
 
-Status: done
+Status: needs-update
+
+> **Note:** Requires update after Epic 9 (SecureTokenProvider) implementation to document:
+> - SecureStorageService
+> - SecureTokenProvider
+> - AuthConfig new fields (refreshEndpoint, refreshHeaders, onTokenRefreshed)
 
 ## Story
 
