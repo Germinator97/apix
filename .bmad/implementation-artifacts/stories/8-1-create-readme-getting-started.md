@@ -1,6 +1,8 @@
 # Story 8.1: Create README & Getting Started
 
-Status: done
+Status: needs-update
+
+> **Note:** Requires update after Epic 9 (SecureTokenProvider) implementation to document new classes.
 
 ## Story
 
