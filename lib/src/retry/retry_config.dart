@@ -19,7 +19,7 @@ class RetryConfig {
 
   /// HTTP status codes that should trigger a retry.
   ///
-  /// Defaults to [500, 502, 503, 504] (common server errors).
+  /// Defaults to `[500, 502, 503, 504]` (common server errors).
   final List<int> retryStatusCodes;
 
   /// Base delay between retry attempts in milliseconds.

@@ -51,7 +51,7 @@ class AuthConfig {
 
   /// HTTP status codes that trigger a token refresh.
   ///
-  /// Defaults to [401].
+  /// Defaults to `[401]`.
   final List<int> refreshStatusCodes;
 
   /// Creates an [AuthConfig].
