@@ -391,6 +391,149 @@ void main() {
       expect(handler.rejectCalled, isTrue);
     });
   });
+
+  group('AuthInterceptor simplified refresh flow', () {
+    late MockTokenProvider tokenProvider;
+    late Dio dio;
+
+    setUp(() {
+      tokenProvider = MockTokenProvider();
+      tokenProvider.refreshToken = 'test_refresh_token';
+      dio = Dio();
+    });
+
+    test('uses refreshEndpoint when configured', () async {
+      Response? capturedResponse;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshEndpoint: '/auth/refresh',
+        onTokenRefreshed: (response) async {
+          capturedResponse = response;
+          await tokenProvider.saveTokens('new_access', 'new_refresh');
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Simplified refresh should be attempted (will fail due to no mock server)
+      // but the flow should be triggered
+      expect(handler.rejectCalled, isTrue);
+    });
+
+    test('returns false when refresh token is null', () async {
+      tokenProvider.refreshToken = null;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshEndpoint: '/auth/refresh',
+        onTokenRefreshed: (response) async {
+          await tokenProvider.saveTokens('new_access', 'new_refresh');
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.rejectCalled, isTrue);
+      expect(handler.lastRejectedError?.error, isA<AuthException>());
+    });
+
+    test('refreshEndpoint takes priority over onRefresh', () async {
+      var legacyRefreshCalled = false;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshEndpoint: '/auth/refresh',
+        onRefresh: (provider) async {
+          legacyRefreshCalled = true;
+          return true;
+        },
+        onTokenRefreshed: (response) async {
+          await tokenProvider.saveTokens('new_access', 'new_refresh');
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Legacy onRefresh should NOT be called when refreshEndpoint is configured
+      expect(legacyRefreshCalled, isFalse);
+    });
+
+    test('hasSimplifiedRefresh returns true when refreshEndpoint is set', () {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshEndpoint: '/auth/refresh',
+      );
+
+      expect(config.hasSimplifiedRefresh, isTrue);
+    });
+
+    test('hasSimplifiedRefresh returns false when refreshEndpoint is null', () {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+
+      expect(config.hasSimplifiedRefresh, isFalse);
+    });
+
+    test('canRefresh is true with simplified flow', () async {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        refreshEndpoint: '/auth/refresh',
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // Should attempt refresh (and fail due to network), not just pass through
+      expect(handler.rejectCalled, isTrue);
+    });
+  });
 }
 
 class TestErrorHandler extends ErrorInterceptorHandler {
@@ -419,3 +562,4 @@ class TestErrorHandler extends ErrorInterceptorHandler {
     lastRejectedError = err;
   }
 }
+

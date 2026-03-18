@@ -90,6 +90,6 @@ development_status:
   9-1-implement-secure-storage-service: done
   9-2-implement-secure-token-provider: done
   9-3-add-refresh-endpoint-to-authconfig: done
-  9-4-update-auth-interceptor-simplified-refresh: ready-for-dev
+  9-4-update-auth-interceptor-simplified-refresh: done
   9-5-write-tests-secure-token-storage: ready-for-dev
   9-6-update-documentation-examples: ready-for-dev
