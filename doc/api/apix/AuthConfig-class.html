@@ -55,7 +55,21 @@
     
 <section class="desc markdown">
   <p>Configuration for authentication handling.</p>
-<p>Example:</p>
+<p>There are two approaches for token refresh:</p>
+<p><strong>1. Simplified approach (recommended):</strong> Use <a href="../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> with <a href="../apix/AuthConfig/onTokenRefreshed.html">onTokenRefreshed</a></p>
+<pre class="language-dart"><code class="language-dart">final authConfig = AuthConfig(
+  tokenProvider: SecureTokenProvider(),
+  refreshEndpoint: '/auth/refresh',
+  onTokenRefreshed: (response) async {
+    final data = response.data;
+    await tokenProvider.saveTokens(
+      data['access_token'],
+      data['refresh_token'],
+    );
+  },
+);
+</code></pre>
+<p><strong>2. Legacy approach:</strong> Use <a href="../apix/AuthConfig/onRefresh.html">onRefresh</a> callback for full control</p>
 <pre class="language-dart"><code class="language-dart">final authConfig = AuthConfig(
   tokenProvider: MyTokenProvider(),
   onRefresh: (provider) async {
@@ -83,7 +97,7 @@
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="AuthConfig.new" class="callable">
-          <span class="name"><a href="../apix/AuthConfig/AuthConfig.html">AuthConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-tokenProvider"><span>required</span> <span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a></span> <span class="parameter-name">tokenProvider</span>, </span><span class="parameter" id="-param-onRefresh"><span class="type-annotation"><a href="../apix/RefreshCallback.html">RefreshCallback</a>?</span> <span class="parameter-name">onRefresh</span>, </span><span class="parameter" id="-param-headerName"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">headerName</span> = <span class="default-value">&#39;Authorization&#39;</span>, </span><span class="parameter" id="-param-headerPrefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">headerPrefix</span> = <span class="default-value">&#39;Bearer&#39;</span>, </span><span class="parameter" id="-param-refreshStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">refreshStatusCodes</span> = <span class="default-value">const [401]</span></span>})</span>
+          <span class="name"><a href="../apix/AuthConfig/AuthConfig.html">AuthConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-tokenProvider"><span>required</span> <span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a></span> <span class="parameter-name">tokenProvider</span>, </span><span class="parameter" id="-param-onRefresh"><span class="type-annotation"><a href="../apix/RefreshCallback.html">RefreshCallback</a>?</span> <span class="parameter-name">onRefresh</span>, </span><span class="parameter" id="-param-refreshEndpoint"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">refreshEndpoint</span>, </span><span class="parameter" id="-param-refreshHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span> <span class="parameter-name">refreshHeaders</span>, </span><span class="parameter" id="-param-onTokenRefreshed"><span class="type-annotation"><a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a>?</span> <span class="parameter-name">onTokenRefreshed</span>, </span><span class="parameter" id="-param-refreshTokenBodyKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">refreshTokenBodyKey</span> = <span class="default-value">&#39;refresh_token&#39;</span>, </span><span class="parameter" id="-param-headerName"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">headerName</span> = <span class="default-value">&#39;Authorization&#39;</span>, </span><span class="parameter" id="-param-headerPrefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">headerPrefix</span> = <span class="default-value">&#39;Bearer&#39;</span>, </span><span class="parameter" id="-param-refreshStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">refreshStatusCodes</span> = <span class="default-value">const [401]</span></span>})</span>
         </dt>
         <dd>
           Creates an <a href="../apix/AuthConfig-class.html">AuthConfig</a>.
@@ -106,6 +120,18 @@
 <dd class="inherited">
   The hash code for this object.
   <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="hasSimplifiedRefresh" class="property">
+  <span class="name"><a href="../apix/AuthConfig/hasSimplifiedRefresh.html">hasSimplifiedRefresh</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd>
+  Returns true if simplified refresh flow is configured.
+  <div class="features"><span class="feature">no setter</span></div>
 
 </dd>
 
@@ -145,6 +171,42 @@
 
 </dd>
 
+        <dt id="onTokenRefreshed" class="property">
+  <span class="name"><a href="../apix/AuthConfig/onTokenRefreshed.html">onTokenRefreshed</a></span>
+  <span class="signature">&#8594; <a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a>?</span>
+  
+
+</dt>
+<dd>
+  Callback invoked with the raw <a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a> after a successful refresh.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="refreshEndpoint" class="property">
+  <span class="name"><a href="../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+  
+
+</dt>
+<dd>
+  Endpoint for token refresh, relative to the base URL.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="refreshHeaders" class="property">
+  <span class="name"><a href="../apix/AuthConfig/refreshHeaders.html">refreshHeaders</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span>
+  
+
+</dt>
+<dd>
+  Optional headers to include in the refresh request.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
         <dt id="refreshStatusCodes" class="property">
   <span class="name"><a href="../apix/AuthConfig/refreshStatusCodes.html">refreshStatusCodes</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span>
@@ -153,6 +215,18 @@
 </dt>
 <dd>
   HTTP status codes that trigger a token refresh.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="refreshTokenBodyKey" class="property">
+  <span class="name"><a href="../apix/AuthConfig/refreshTokenBodyKey.html">refreshTokenBodyKey</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  Key name for the refresh token in the request body.
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -191,7 +265,7 @@
     <h2>Methods</h2>
     <dl class="callables">
         <dt id="copyWith" class="callable">
-  <span class="name"><a href="../apix/AuthConfig/copyWith.html">copyWith</a></span><span class="signature">(<wbr>{<span class="parameter" id="copyWith-param-tokenProvider"><span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a>?</span> <span class="parameter-name">tokenProvider</span>, </span><span class="parameter" id="copyWith-param-onRefresh"><span class="type-annotation"><a href="../apix/RefreshCallback.html">RefreshCallback</a>?</span> <span class="parameter-name">onRefresh</span>, </span><span class="parameter" id="copyWith-param-headerName"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerName</span>, </span><span class="parameter" id="copyWith-param-headerPrefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerPrefix</span>, </span><span class="parameter" id="copyWith-param-refreshStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">refreshStatusCodes</span></span>})
+  <span class="name"><a href="../apix/AuthConfig/copyWith.html">copyWith</a></span><span class="signature">(<wbr>{<span class="parameter" id="copyWith-param-tokenProvider"><span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a>?</span> <span class="parameter-name">tokenProvider</span>, </span><span class="parameter" id="copyWith-param-onRefresh"><span class="type-annotation"><a href="../apix/RefreshCallback.html">RefreshCallback</a>?</span> <span class="parameter-name">onRefresh</span>, </span><span class="parameter" id="copyWith-param-refreshEndpoint"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">refreshEndpoint</span>, </span><span class="parameter" id="copyWith-param-refreshHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span> <span class="parameter-name">refreshHeaders</span>, </span><span class="parameter" id="copyWith-param-onTokenRefreshed"><span class="type-annotation"><a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a>?</span> <span class="parameter-name">onTokenRefreshed</span>, </span><span class="parameter" id="copyWith-param-refreshTokenBodyKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">refreshTokenBodyKey</span>, </span><span class="parameter" id="copyWith-param-headerName"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerName</span>, </span><span class="parameter" id="copyWith-param-headerPrefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerPrefix</span>, </span><span class="parameter" id="copyWith-param-refreshStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">refreshStatusCodes</span></span>})
     <span class="returntype parameter">&#8594; <a href="../apix/AuthConfig-class.html">AuthConfig</a></span>
   </span>
   

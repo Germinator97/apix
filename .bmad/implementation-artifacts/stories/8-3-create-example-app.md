@@ -1,11 +1,8 @@
 # Story 8.3: Create Example App
 
-Status: needs-update
+Status: done
 
-> **Note:** Requires update after Epic 9 (SecureTokenProvider) implementation to document:
-> - SecureStorageService
-> - SecureTokenProvider
-> - AuthConfig new fields (refreshEndpoint, refreshHeaders, onTokenRefreshed)
+> **Note:** Updated after Epic 9 with SecureTokenProvider and simplified refresh flow examples.
 
 ## Story
 

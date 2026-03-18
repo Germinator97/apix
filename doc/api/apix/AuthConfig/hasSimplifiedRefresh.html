@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the onRefresh property from the AuthConfig class, for the Dart programming language.">
-  <title>onRefresh property - AuthConfig class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the hasSimplifiedRefresh property from the AuthConfig class, for the Dart programming language.">
+  <title>hasSimplifiedRefresh property - AuthConfig class - apix library - Dart API</title>
 
 
   
@@ -27,9 +27,9 @@
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
     <li><a href="../../apix/AuthConfig-class.html">AuthConfig</a></li>
-    <li class="self-crumb">onRefresh property</li>
+    <li class="self-crumb">hasSimplifiedRefresh property</li>
   </ol>
-  <div class="self-name">onRefresh</div>
+  <div class="self-name">hasSimplifiedRefresh</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -49,34 +49,36 @@
     data-above-sidebar="apix&#47;AuthConfig-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">onRefresh</span> property 
+<h1><span class="kind-property">hasSimplifiedRefresh</span> property 
 </h1></div>
 
     
-      <section class="multi-line-signature">
-        
-        <a href="../../apix/RefreshCallback.html">RefreshCallback</a>?
-        <span class="name ">onRefresh</span>
-        <div class="features"><span class="feature">final</span></div>
-
-      </section>
-      
-<section class="desc markdown">
-  <p>Callback to refresh tokens when a refresh-triggering status code is received.</p>
-<p>This is the legacy approach. Consider using <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> with
-<a href="../../apix/AuthConfig/onTokenRefreshed.html">onTokenRefreshed</a> for a simpler flow.</p>
-<p>If both <a href="../../apix/AuthConfig/onRefresh.html">onRefresh</a> and <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> are null, no automatic refresh
-will be attempted. If both are provided, <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> takes priority.</p>
-</section>
-
-      
-<section class="summary source-code" id="source">
-  <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final RefreshCallback? onRefresh;</code></pre>
-</section>
-
 
     
+        
+  <section id="getter">
+    <section class="multi-line-signature">
+      
+      <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+      get
+      <span class="name ">hasSimplifiedRefresh</span>
+      
+
+    </section>
+    
+<section class="desc markdown">
+  <p>Returns true if simplified refresh flow is configured.</p>
+</section>
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">bool get hasSimplifiedRefresh =&gt; refreshEndpoint != null;</code></pre>
+</section>
+
+  </section>
+
+
 </div> <!-- /.main-content -->
 <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
   <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
@@ -89,7 +91,7 @@ will be attempted. If both are provided, <a href="../../apix/AuthConfig/refreshE
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
     <li><a href="../../apix/AuthConfig-class.html">AuthConfig</a></li>
-    <li class="self-crumb">onRefresh property</li>
+    <li class="self-crumb">hasSimplifiedRefresh property</li>
 </ol>
 
   <h5>AuthConfig class</h5>

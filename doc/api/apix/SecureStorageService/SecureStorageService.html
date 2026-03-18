@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the onError method from the AuthInterceptor class, for the Dart programming language.">
-  <title>onError method - AuthInterceptor class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the SecureStorageService.new constructor from Class SecureStorageService from the apix library, for the Dart programming language.">
+  <title>SecureStorageService.new constructor - SecureStorageService - apix library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
-    <li><a href="../../apix/AuthInterceptor-class.html">AuthInterceptor</a></li>
-    <li class="self-crumb">onError method</li>
+    <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
+    <li class="self-crumb">SecureStorageService.new constructor</li>
   </ol>
-  <div class="self-name">onError</div>
+  <div class="self-name">SecureStorageService.new</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -43,77 +43,41 @@
   </button>
 </header>
 <main>
-<div
-    id="dartdoc-main-content"
-    class="main-content"
-    data-above-sidebar="apix&#47;AuthInterceptor-class-sidebar.html"
-    data-below-sidebar="">
-    <div>
-<h1><span class="kind-method">onError</span> method 
+  <div
+      id="dartdoc-main-content"
+      class="main-content"
+      data-above-sidebar="apix&#47;SecureStorageService-class-sidebar.html"
+      data-below-sidebar="">
+      <div>
+<h1><span class="kind-constructor">SecureStorageService</span> constructor 
 </h1></div>
 
     <section class="multi-line-signature">
       
-  <div>
-    <ol class="annotation-list">
-        <li>@<a href="https://api.flutter.dev/flutter/dart-core/override-constant.html">override</a></li>
-    </ol>
-  </div>
-<span class="returntype">void</span>
-<span class="name ">onError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span></li>
-<li><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
-</ol>)
-
-      <div class="features"><span class="feature">override</span></div>
-
+      <span class="name ">SecureStorageService</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span></li>
+</ol>})
     </section>
     
 <section class="desc markdown">
-  <p>Called when an exception was occurred during the request.</p>
+  <p>Creates a <a href="../../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.</p>
+<p>If no <code>storage</code> is provided, a default <a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> is created
+with <code>AndroidOptions.encryptedSharedPreferences</code> set to <code>true</code> for
+better security on Android devices.
+On iOS, the accessibility is set to <code>KeychainAccessibility.first_unlock</code>
+to ensure the data is accessible only when the device is unlocked.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">@override
-void onError(
-  DioException err,
-  ErrorInterceptorHandler handler,
-) async {
-  final statusCode = err.response?.statusCode;
-
-  &#47;&#47; Check if we should refresh (simplified or legacy approach)
-  final canRefresh = config.hasSimplifiedRefresh || config.onRefresh != null;
-  if (statusCode != null &amp;&amp; config.shouldRefresh(statusCode) &amp;&amp; canRefresh) {
-    &#47;&#47; Wait for refresh and retry
-    final refreshSuccess = await _handleRefresh();
-
-    if (refreshSuccess) {
-      &#47;&#47; Retry the original request with new token
-      try {
-        final response = await _retryRequest(err.requestOptions);
-        handler.resolve(response);
-        return;
-      } on DioException catch (e) {
-        handler.next(e);
-        return;
-      }
-    } else {
-      &#47;&#47; Refresh failed - reject with AuthException
-      handler.reject(
-        DioException(
-          requestOptions: err.requestOptions,
-          error: const AuthException(&#39;Token refresh failed&#39;),
-          type: DioExceptionType.unknown,
-        ),
-      );
-      return;
-    }
-  }
-
-  handler.next(err);
-}</code></pre>
+  <pre class="language-dart"><code class="language-dart">SecureStorageService({FlutterSecureStorage? storage})
+    : _storage = storage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(encryptedSharedPreferences: true),
+            iOptions:
+                IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+          );</code></pre>
 </section>
 
 
@@ -128,15 +92,15 @@ void onError(
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
-    <li><a href="../../apix/AuthInterceptor-class.html">AuthInterceptor</a></li>
-    <li class="self-crumb">onError method</li>
+    <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
+    <li class="self-crumb">SecureStorageService.new constructor</li>
 </ol>
 
-    <h5>AuthInterceptor class</h5>
+    <h5>SecureStorageService class</h5>
     <div id="dartdoc-sidebar-left-content"></div>
-  </div><!--/.sidebar-offcanvas-->
+  </div><!--/.sidebar-offcanvas-left-->
   <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
-</div><!--/.sidebar-offcanvas-->
+  </div><!--/.sidebar-offcanvas-->
 </main>
 <footer>
   <span class="no-break">
