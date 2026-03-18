@@ -43,12 +43,19 @@
   <div id="dartdoc-main-content" class="main-content">
       
 <section class="desc markdown">
-  <h1 id="apix">Apix</h1>
-<p><a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
-<a href="https://github.com/Germinator97/apix/actions/workflows/ci.yml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-<a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/main/graph/badge.svg" alt="coverage"></a>
-<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a></p>
-<p>Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching, and built-in Sentry integration. Powered by <a href="https://pub.dev/packages/dio">Dio</a>.</p>
+  <p align="center">
+  <img src="assets/logo_icon_filled.svg" alt="Apix Logo" width="120" height="120">
+</p>
+<h1 align="center">ApiX</h1>
+<p align="center">
+  <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
+  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/main/graph/badge.svg" alt="coverage"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
+<p align="center">
+  🚀 Production-ready Flutter/Dart API client — auth refresh queue, exponential retry with backoff, smart &amp; flexible caching, and built-in Sentry. Zero boilerplate, maximum reliability. Powered by <a href="https://pub.dev/packages/dio">Dio</a>.
+</p>
 <h2 id="quick-start">Quick Start</h2>
 <pre class="language-dart"><code class="language-dart">import 'package:apix/apix.dart';
 
@@ -70,7 +77,11 @@ final response = await client.get('/users');
 <td>Automatic token refresh with request queuing</td>
 </tr>
 <tr>
-<td>🔄 <strong>Retry Logic</strong></td>
+<td>� <strong>Secure Token Storage</strong></td>
+<td>Built-in secure storage with <code>flutter_secure_storage</code></td>
+</tr>
+<tr>
+<td>�🔄 <strong>Retry Logic</strong></td>
 <td>Exponential backoff with jitter</td>
 </tr>
 <tr>
@@ -117,22 +128,49 @@ final newUser = await client.post('/users', data: {
   'email': 'john@example.com',
 });
 </code></pre>
-<h3 id="with-authentication">With Authentication</h3>
-<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
+<h3 id="with-authentication-recommended">With Authentication (Recommended)</h3>
+<p>Using <code>SecureTokenProvider</code> for zero-boilerplate secure token management:</p>
+<pre class="language-dart"><code class="language-dart">final tokenProvider = SecureTokenProvider();
+
+final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
   authConfig: AuthConfig(
-    tokenProvider: TokenProvider(
-      getAccessToken: () async =&gt; secureStorage.read('access_token'),
-      getRefreshToken: () async =&gt; secureStorage.read('refresh_token'),
-      saveTokens: (access, refresh) async {
-        await secureStorage.write('access_token', access);
-        await secureStorage.write('refresh_token', refresh);
-      },
-      clearTokens: () async =&gt; secureStorage.deleteAll(),
-    ),
+    tokenProvider: tokenProvider,
     refreshEndpoint: '/auth/refresh',
+    onTokenRefreshed: (response) async {
+      final data = response.data;
+      await tokenProvider.saveTokens(
+        data['access_token'],
+        data['refresh_token'],
+      );
+    },
   ),
 );
+
+// After login, save tokens
+await tokenProvider.saveTokens(accessToken, refreshToken);
+
+// On logout, clear tokens
+await tokenProvider.clearTokens();
+</code></pre>
+<h3 id="secure-token-storage">Secure Token Storage</h3>
+<p><code>SecureTokenProvider</code> uses <code>flutter_secure_storage</code> under the hood with secure defaults:</p>
+<pre class="language-dart"><code class="language-dart">// Basic usage - tokens stored securely
+final tokenProvider = SecureTokenProvider();
+
+// Custom storage keys
+final tokenProvider = SecureTokenProvider(
+  accessTokenKey: 'my_access_token',
+  refreshTokenKey: 'my_refresh_token',
+);
+
+// Share storage with other secrets
+final storage = SecureStorageService();
+final tokenProvider = SecureTokenProvider(storage: storage);
+
+// Store other secrets using the same storage
+await storage.write('firebase_token', firebaseToken);
+await storage.write('api_key', apiKey);
 </code></pre>
 <h3 id="with-retry">With Retry</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
