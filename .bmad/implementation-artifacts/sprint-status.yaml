@@ -82,7 +82,7 @@ development_status:
   8-1-create-readme-getting-started: done
   8-2-document-public-api: done
   8-3-create-example-app: done
-  8-4-prepare-for-pubdev-release: backlog
+  8-4-prepare-for-pubdev-release: done
   8-5-create-integration-test-suite: backlog
 
   # Epic 9: Secure Token Storage (v0.3)
