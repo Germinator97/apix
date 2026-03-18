@@ -9,6 +9,8 @@
 // Auth
 export 'src/auth/auth_config.dart';
 export 'src/auth/auth_interceptor.dart';
+export 'src/auth/secure_storage_service.dart';
+export 'src/auth/secure_token_provider.dart';
 export 'src/auth/token_provider.dart';
 
 // Client

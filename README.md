@@ -31,7 +31,8 @@ final response = await client.get('/users');
 | Feature | Description |
 |---------|-------------|
 | 🔐 **Auth Refresh Queue** | Automatic token refresh with request queuing |
-| 🔄 **Retry Logic** | Exponential backoff with jitter |
+| � **Secure Token Storage** | Built-in secure storage with `flutter_secure_storage` |
+| �🔄 **Retry Logic** | Exponential backoff with jitter |
 | 💾 **Smart Caching** | CacheFirst, NetworkFirst, HttpCacheAware strategies |
 | 📊 **Logging** | Configurable request/response logging |
 | 🐛 **Sentry Integration** | Built-in error tracking and breadcrumbs |
@@ -74,24 +75,56 @@ final newUser = await client.post('/users', data: {
 });
 ```
 
-### With Authentication
+### With Authentication (Recommended)
+
+Using `SecureTokenProvider` for zero-boilerplate secure token management:
 
 ```dart
+final tokenProvider = SecureTokenProvider();
+
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
   authConfig: AuthConfig(
-    tokenProvider: TokenProvider(
-      getAccessToken: () async => secureStorage.read('access_token'),
-      getRefreshToken: () async => secureStorage.read('refresh_token'),
-      saveTokens: (access, refresh) async {
-        await secureStorage.write('access_token', access);
-        await secureStorage.write('refresh_token', refresh);
-      },
-      clearTokens: () async => secureStorage.deleteAll(),
-    ),
+    tokenProvider: tokenProvider,
     refreshEndpoint: '/auth/refresh',
+    onTokenRefreshed: (response) async {
+      final data = response.data;
+      await tokenProvider.saveTokens(
+        data['access_token'],
+        data['refresh_token'],
+      );
+    },
   ),
 );
+
+// After login, save tokens
+await tokenProvider.saveTokens(accessToken, refreshToken);
+
+// On logout, clear tokens
+await tokenProvider.clearTokens();
+```
+
+### Secure Token Storage
+
+`SecureTokenProvider` uses `flutter_secure_storage` under the hood with secure defaults:
+
+```dart
+// Basic usage - tokens stored securely
+final tokenProvider = SecureTokenProvider();
+
+// Custom storage keys
+final tokenProvider = SecureTokenProvider(
+  accessTokenKey: 'my_access_token',
+  refreshTokenKey: 'my_refresh_token',
+);
+
+// Share storage with other secrets
+final storage = SecureStorageService();
+final tokenProvider = SecureTokenProvider(storage: storage);
+
+// Store other secrets using the same storage
+await storage.write('firebase_token', firebaseToken);
+await storage.write('api_key', apiKey);
 ```
 
 ### With Retry
