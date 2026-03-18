@@ -1,3 +1,29 @@
+## 1.0.0
+
+### 🎉 First Stable Release
+
+ApiX is now production-ready with a complete feature set for Flutter/Dart API clients.
+
+### Features
+
+* **Core API Client** - Dio-powered client with configurable timeouts, headers, and interceptors
+* **Authentication** - TokenProvider interface with refresh token queue and automatic retry
+* **Secure Token Storage** - Built-in SecureTokenProvider with flutter_secure_storage
+* **Retry Logic** - Exponential backoff with configurable status codes and max attempts
+* **Smart Caching** - CacheFirst, NetworkFirst, and HTTP-aware strategies with TTL
+* **Observability** - Logger, Metrics, and Sentry interceptors for debugging and monitoring
+* **Result Pattern** - Functional error handling with Success/Failure types
+* **Exception Hierarchy** - NetworkException, HttpException, and typed client/server errors
+
+### Highlights
+
+* 401 tests passing
+* Full API documentation
+* Example app included
+* CI/CD with GitHub Actions
+
+---
+
 ## 0.3.0
 
 ### Added
