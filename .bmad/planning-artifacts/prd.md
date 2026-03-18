@@ -1,7 +1,7 @@
 ---
 stepsCompleted: ['step-01-init', 'step-02-discovery', 'step-02b-vision', 'step-02c-executive-summary', 'step-03-success', 'step-04-journeys', 'step-05-domain-skipped', 'step-06-innovation', 'step-07-project-type', 'step-08-scoping', 'step-09-functional', 'step-10-nonfunctional', 'step-11-polish', 'step-12-complete']
 status: complete
-inputDocuments: ['product-brief-apix-2026-03-16.md', 'brainstorming-session-2026-03-15-2311.md']
+inputDocuments: ['product-brief-apix-2026-03-16.md', 'brainstorming-session-2026-03-15-2311.md', 'product-brief-secure-token-provider-2026-03-18.md', 'brainstorming-session-2026-03-18-secure-token-provider.md']
 workflowType: 'prd'
 briefCount: 1
 brainstormingCount: 1
@@ -297,16 +297,22 @@ apix/
 
 ### Post-MVP Features
 
-**Phase 2 (v0.3 - Growth) :**
+**Phase 2 (v0.3 - SecureTokenProvider) :**
+- SecureStorageService (wrapper flutter_secure_storage)
+- SecureTokenProvider (implementation prete a l'emploi de TokenProvider)
+- AuthConfig updates (refreshEndpoint, refreshHeaders, onTokenRefreshed)
+- Simplified refresh flow (URL only, raw Response returned)
+
+**Phase 3 (v0.4 - Growth) :**
 - apix_generator (codegen Retrofit-like)
 - Annotations pour type-safe API definitions
 
-**Phase 3 (v1.0 - Stable) :**
+**Phase 4 (v1.0 - Stable) :**
 - Stabilisation, bug fixes
 - Documentation complete
 - 160/160 pub points
 
-**Phase 4 (v1.x - Expansion) :**
+**Phase 5 (v1.x - Expansion) :**
 - Offline sync (mutations persistees)
 - Mock server (tests integration)
 - apix_live (WebSocket/SSE)
@@ -386,6 +392,20 @@ apix/
 - FR40: System provides built-in SentryInterceptor with SentryConfig (dsn, environment, enabled)
 - FR41: Developer can enable/disable Sentry reporting per environment
 - FR42: System automatically captures API errors to Sentry with request context
+
+### Secure Token Storage (v0.3)
+
+- FR43: Developer can use SecureStorageService for secure key-value storage
+- FR44: SecureStorageService provides write(key, value), read(key), delete(key), deleteAll() methods
+- FR45: Developer can use SecureTokenProvider as ready-to-use TokenProvider implementation
+- FR46: SecureTokenProvider uses SecureStorageService via composition
+- FR47: Developer can inject custom SecureStorageService into SecureTokenProvider
+- FR48: Developer can configure refreshEndpoint (relative URL) in AuthConfig
+- FR49: Developer can provide optional refreshHeaders for custom headers during refresh
+- FR50: System calls refreshEndpoint automatically when token refresh is triggered
+- FR51: System invokes onTokenRefreshed(Response) callback with raw response
+- FR52: Developer parses response and saves tokens (same pattern as login)
+- FR53: SecureStorageService can be used independently for other secrets (Firebase Auth, API keys)
 
 ## Non-Functional Requirements
 
