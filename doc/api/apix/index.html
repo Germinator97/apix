@@ -257,6 +257,23 @@ and handles token refresh on configured status codes.
   Interceptor that automatically retries failed requests.
 </dd>
 
+          <dt id="SecureStorageService">
+  <span class="name "><a href="../apix/SecureStorageService-class.html">SecureStorageService</a></span> 
+
+</dt>
+<dd>
+  A wrapper service for <a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> providing simplified
+secure key-value storage operations.
+</dd>
+
+          <dt id="SecureTokenProvider">
+  <span class="name "><a href="../apix/SecureTokenProvider-class.html">SecureTokenProvider</a></span> 
+
+</dt>
+<dd>
+  A ready-to-use <a href="../apix/TokenProvider-class.html">TokenProvider</a> implementation using <a href="../apix/SecureStorageService-class.html">SecureStorageService</a>.
+</dd>
+
           <dt id="SentryConfig">
   <span class="name "><a href="../apix/SentryConfig-class.html">SentryConfig</a></span> 
 
@@ -490,6 +507,20 @@ and handles token refresh on configured status codes.
   </dd>
 
           
+  <dt id="OnTokenRefreshedCallback" class="callable">
+    <span class="name"><a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Callback invoked after successful token refresh with raw response.
+    
+
+  </dd>
+
+          
   <dt id="RefreshCallback" class="callable">
     <span class="name"><a href="../apix/RefreshCallback.html">RefreshCallback</a></span><span class="signature">
       <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-tokenProvider"><span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a></span> <span class="parameter-name">tokenProvider</span></span>)</span></span>
@@ -498,7 +529,7 @@ and handles token refresh on configured status codes.
 
   </dt>
   <dd>
-    Callback for refreshing tokens.
+    Callback for refreshing tokens (legacy approach).
     
 
   </dd>

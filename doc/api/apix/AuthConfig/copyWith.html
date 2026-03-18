@@ -57,6 +57,10 @@
 <span class="returntype"><a href="../../apix/AuthConfig-class.html">AuthConfig</a></span>
 <span class="name ">copyWith</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="copyWith-param-tokenProvider"><span class="type-annotation"><a href="../../apix/TokenProvider-class.html">TokenProvider</a>?</span> <span class="parameter-name">tokenProvider</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-onRefresh"><span class="type-annotation"><a href="../../apix/RefreshCallback.html">RefreshCallback</a>?</span> <span class="parameter-name">onRefresh</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-refreshEndpoint"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">refreshEndpoint</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-refreshHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span> <span class="parameter-name">refreshHeaders</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-onTokenRefreshed"><span class="type-annotation"><a href="../../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a>?</span> <span class="parameter-name">onTokenRefreshed</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-refreshTokenBodyKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">refreshTokenBodyKey</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-headerName"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerName</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-headerPrefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">headerPrefix</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-refreshStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">refreshStatusCodes</span>, </span></li>
@@ -77,6 +81,10 @@
   <pre class="language-dart"><code class="language-dart">AuthConfig copyWith({
   TokenProvider? tokenProvider,
   RefreshCallback? onRefresh,
+  String? refreshEndpoint,
+  Map&lt;String, String&gt;? refreshHeaders,
+  OnTokenRefreshedCallback? onTokenRefreshed,
+  String? refreshTokenBodyKey,
   String? headerName,
   String? headerPrefix,
   List&lt;int&gt;? refreshStatusCodes,
@@ -84,6 +92,10 @@
   return AuthConfig(
     tokenProvider: tokenProvider ?? this.tokenProvider,
     onRefresh: onRefresh ?? this.onRefresh,
+    refreshEndpoint: refreshEndpoint ?? this.refreshEndpoint,
+    refreshHeaders: refreshHeaders ?? this.refreshHeaders,
+    onTokenRefreshed: onTokenRefreshed ?? this.onTokenRefreshed,
+    refreshTokenBodyKey: refreshTokenBodyKey ?? this.refreshTokenBodyKey,
     headerName: headerName ?? this.headerName,
     headerPrefix: headerPrefix ?? this.headerPrefix,
     refreshStatusCodes: refreshStatusCodes ?? this.refreshStatusCodes,

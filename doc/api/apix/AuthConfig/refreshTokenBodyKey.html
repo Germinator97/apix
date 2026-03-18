@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the onRefresh property from the AuthConfig class, for the Dart programming language.">
-  <title>onRefresh property - AuthConfig class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the refreshTokenBodyKey property from the AuthConfig class, for the Dart programming language.">
+  <title>refreshTokenBodyKey property - AuthConfig class - apix library - Dart API</title>
 
 
   
@@ -27,9 +27,9 @@
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
     <li><a href="../../apix/AuthConfig-class.html">AuthConfig</a></li>
-    <li class="self-crumb">onRefresh property</li>
+    <li class="self-crumb">refreshTokenBodyKey property</li>
   </ol>
-  <div class="self-name">onRefresh</div>
+  <div class="self-name">refreshTokenBodyKey</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -49,30 +49,27 @@
     data-above-sidebar="apix&#47;AuthConfig-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">onRefresh</span> property 
+<h1><span class="kind-property">refreshTokenBodyKey</span> property 
 </h1></div>
 
     
       <section class="multi-line-signature">
         
-        <a href="../../apix/RefreshCallback.html">RefreshCallback</a>?
-        <span class="name ">onRefresh</span>
+        <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>
+        <span class="name ">refreshTokenBodyKey</span>
         <div class="features"><span class="feature">final</span></div>
 
       </section>
       
 <section class="desc markdown">
-  <p>Callback to refresh tokens when a refresh-triggering status code is received.</p>
-<p>This is the legacy approach. Consider using <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> with
-<a href="../../apix/AuthConfig/onTokenRefreshed.html">onTokenRefreshed</a> for a simpler flow.</p>
-<p>If both <a href="../../apix/AuthConfig/onRefresh.html">onRefresh</a> and <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> are null, no automatic refresh
-will be attempted. If both are provided, <a href="../../apix/AuthConfig/refreshEndpoint.html">refreshEndpoint</a> takes priority.</p>
+  <p>Key name for the refresh token in the request body.</p>
+<p>Defaults to 'refresh_token'.</p>
 </section>
 
       
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final RefreshCallback? onRefresh;</code></pre>
+  <pre class="language-dart"><code class="language-dart">final String refreshTokenBodyKey;</code></pre>
 </section>
 
 
@@ -89,7 +86,7 @@ will be attempted. If both are provided, <a href="../../apix/AuthConfig/refreshE
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
     <li><a href="../../apix/AuthConfig-class.html">AuthConfig</a></li>
-    <li class="self-crumb">onRefresh property</li>
+    <li class="self-crumb">refreshTokenBodyKey property</li>
 </ol>
 
   <h5>AuthConfig class</h5>
