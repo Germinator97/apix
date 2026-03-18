@@ -1,16 +1,54 @@
+import 'package:dio/dio.dart';
+
 import 'token_provider.dart';
 
-/// Callback for refreshing tokens.
+/// Callback for refreshing tokens (legacy approach).
 ///
 /// Should use the refresh token to obtain new access/refresh tokens,
 /// then call [TokenProvider.saveTokens] with the new values.
 ///
 /// Returns `true` if refresh was successful, `false` otherwise.
+///
+/// Consider using [refreshEndpoint] with [OnTokenRefreshedCallback] instead
+/// for a simpler refresh flow.
 typedef RefreshCallback = Future<bool> Function(TokenProvider tokenProvider);
+
+/// Callback invoked after successful token refresh with raw response.
+///
+/// The developer is responsible for parsing the response and saving tokens.
+///
+/// Example:
+/// ```dart
+/// onTokenRefreshed: (response) async {
+///   final data = response.data;
+///   await tokenProvider.saveTokens(
+///     data['access_token'],
+///     data['refresh_token'],
+///   );
+/// },
+/// ```
+typedef OnTokenRefreshedCallback = Future<void> Function(Response response);
 
 /// Configuration for authentication handling.
 ///
-/// Example:
+/// There are two approaches for token refresh:
+///
+/// **1. Simplified approach (recommended):** Use [refreshEndpoint] with [onTokenRefreshed]
+/// ```dart
+/// final authConfig = AuthConfig(
+///   tokenProvider: SecureTokenProvider(),
+///   refreshEndpoint: '/auth/refresh',
+///   onTokenRefreshed: (response) async {
+///     final data = response.data;
+///     await tokenProvider.saveTokens(
+///       data['access_token'],
+///       data['refresh_token'],
+///     );
+///   },
+/// );
+/// ```
+///
+/// **2. Legacy approach:** Use [onRefresh] callback for full control
 /// ```dart
 /// final authConfig = AuthConfig(
 ///   tokenProvider: MyTokenProvider(),
@@ -36,8 +74,39 @@ class AuthConfig {
 
   /// Callback to refresh tokens when a refresh-triggering status code is received.
   ///
-  /// If null, no automatic refresh will be attempted.
+  /// This is the legacy approach. Consider using [refreshEndpoint] with
+  /// [onTokenRefreshed] for a simpler flow.
+  ///
+  /// If both [onRefresh] and [refreshEndpoint] are null, no automatic refresh
+  /// will be attempted. If both are provided, [refreshEndpoint] takes priority.
   final RefreshCallback? onRefresh;
+
+  /// Endpoint for token refresh, relative to the base URL.
+  ///
+  /// When provided, ApiX automatically handles the refresh HTTP call.
+  /// The refresh token is sent in the request body using [refreshTokenBodyKey].
+  ///
+  /// Example: '/auth/refresh' or '/api/v1/token/refresh'
+  final String? refreshEndpoint;
+
+  /// Optional headers to include in the refresh request.
+  ///
+  /// These headers are added to the refresh request in addition to any
+  /// default headers configured on the client.
+  final Map<String, String>? refreshHeaders;
+
+  /// Callback invoked with the raw [Response] after a successful refresh.
+  ///
+  /// The developer is responsible for parsing the response and calling
+  /// [TokenProvider.saveTokens] with the new tokens.
+  ///
+  /// Only used when [refreshEndpoint] is provided.
+  final OnTokenRefreshedCallback? onTokenRefreshed;
+
+  /// Key name for the refresh token in the request body.
+  ///
+  /// Defaults to 'refresh_token'.
+  final String refreshTokenBodyKey;
 
   /// The header name for the authorization token.
   ///
@@ -58,6 +127,10 @@ class AuthConfig {
   const AuthConfig({
     required this.tokenProvider,
     this.onRefresh,
+    this.refreshEndpoint,
+    this.refreshHeaders,
+    this.onTokenRefreshed,
+    this.refreshTokenBodyKey = 'refresh_token',
     this.headerName = 'Authorization',
     this.headerPrefix = 'Bearer',
     this.refreshStatusCodes = const [401],
@@ -76,10 +149,17 @@ class AuthConfig {
     return refreshStatusCodes.contains(statusCode);
   }
 
+  /// Returns true if simplified refresh flow is configured.
+  bool get hasSimplifiedRefresh => refreshEndpoint != null;
+
   /// Creates a copy of this config with the given fields replaced.
   AuthConfig copyWith({
     TokenProvider? tokenProvider,
     RefreshCallback? onRefresh,
+    String? refreshEndpoint,
+    Map<String, String>? refreshHeaders,
+    OnTokenRefreshedCallback? onTokenRefreshed,
+    String? refreshTokenBodyKey,
     String? headerName,
     String? headerPrefix,
     List<int>? refreshStatusCodes,
@@ -87,6 +167,10 @@ class AuthConfig {
     return AuthConfig(
       tokenProvider: tokenProvider ?? this.tokenProvider,
       onRefresh: onRefresh ?? this.onRefresh,
+      refreshEndpoint: refreshEndpoint ?? this.refreshEndpoint,
+      refreshHeaders: refreshHeaders ?? this.refreshHeaders,
+      onTokenRefreshed: onTokenRefreshed ?? this.onTokenRefreshed,
+      refreshTokenBodyKey: refreshTokenBodyKey ?? this.refreshTokenBodyKey,
       headerName: headerName ?? this.headerName,
       headerPrefix: headerPrefix ?? this.headerPrefix,
       refreshStatusCodes: refreshStatusCodes ?? this.refreshStatusCodes,

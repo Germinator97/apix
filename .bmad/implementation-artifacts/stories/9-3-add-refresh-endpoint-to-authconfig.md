@@ -1,6 +1,6 @@
 # Story 9.3: Add refreshEndpoint to AuthConfig
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -28,22 +28,23 @@ so that ApiX can handle token refresh automatically.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update AuthConfig class
-  - [ ] Add refreshEndpoint (String?) - relative URL
-  - [ ] Add refreshHeaders (Map<String, String>?) - optional custom headers
-  - [ ] Add onTokenRefreshed (Future<void> Function(Response)?) - callback
-  - [ ] Add refreshTokenBodyKey (String) - default: 'refresh_token'
-  - [ ] Update copyWith() method
-  - [ ] Keep onRefresh for backward compatibility
+- [x] Task 1: Update AuthConfig class
+  - [x] Add refreshEndpoint (String?) - relative URL
+  - [x] Add refreshHeaders (Map<String, String>?) - optional custom headers
+  - [x] Add onTokenRefreshed (Future<void> Function(Response)?) - callback
+  - [x] Add refreshTokenBodyKey (String) - default: 'refresh_token'
+  - [x] Update copyWith() method
+  - [x] Keep onRefresh for backward compatibility
+  - [x] Add hasSimplifiedRefresh getter
 
-- [ ] Task 2: Add Response type callback
-  - [ ] Import dio Response type
-  - [ ] Define OnTokenRefreshedCallback typedef
+- [x] Task 2: Add Response type callback
+  - [x] Import dio Response type
+  - [x] Define OnTokenRefreshedCallback typedef
 
-- [ ] Task 3: Write unit tests
-  - [ ] Test new fields default to null
-  - [ ] Test copyWith with new fields
-  - [ ] Test backward compatibility with existing onRefresh
+- [x] Task 3: Write unit tests
+  - [x] Test new fields default to null
+  - [x] Test copyWith with new fields
+  - [x] Test backward compatibility with existing onRefresh
 
 ## Dev Notes
 

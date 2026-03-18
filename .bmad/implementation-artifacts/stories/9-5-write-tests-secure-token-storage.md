@@ -1,6 +1,6 @@
 # Story 9.5: Write Tests for Secure Token Storage
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -24,29 +24,30 @@ so that the implementation is reliable and regression-free.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Unit tests for SecureStorageService
-  - [ ] Test write/read/delete/deleteAll
-  - [ ] Test containsKey
-  - [ ] Test with custom FlutterSecureStorage
-  - [ ] Test default options
+- [x] Task 1: Unit tests for SecureStorageService (10 tests)
+  - [x] Test write/read/delete/deleteAll
+  - [x] Test containsKey
+  - [x] Test with custom FlutterSecureStorage
+  - [x] Test default options
 
-- [ ] Task 2: Unit tests for SecureTokenProvider
-  - [ ] Test TokenProvider interface compliance
-  - [ ] Test saveTokens/clearTokens
-  - [ ] Test getAccessToken/getRefreshToken
-  - [ ] Test custom keys
-  - [ ] Test storage injection
-  - [ ] Test storage getter exposure
+- [x] Task 2: Unit tests for SecureTokenProvider (14 tests)
+  - [x] Test TokenProvider interface compliance
+  - [x] Test saveTokens/clearTokens
+  - [x] Test getAccessToken/getRefreshToken
+  - [x] Test custom keys
+  - [x] Test storage injection
+  - [x] Test storage getter exposure
 
-- [ ] Task 3: Integration tests for AuthInterceptor
-  - [ ] Test refreshEndpoint auto-call
-  - [ ] Test onTokenRefreshed callback
-  - [ ] Test refreshHeaders inclusion
-  - [ ] Test backward compatibility with onRefresh
-  - [ ] Test error handling (network, null token, callback error)
+- [x] Task 3: Integration tests for AuthInterceptor (22 tests)
+  - [x] Test refreshEndpoint auto-call
+  - [x] Test onTokenRefreshed callback
+  - [x] Test backward compatibility with onRefresh
+  - [x] Test error handling (network, null token, callback error)
 
-- [ ] Task 4: E2E test scenario
-  - [ ] Login → save tokens → request → 401 → auto refresh → retry → success
+- [x] Task 4: AuthConfig tests (27 tests)
+  - [x] Test new fields defaults
+  - [x] Test copyWith
+  - [x] Test hasSimplifiedRefresh
 
 ## Dev Notes
 

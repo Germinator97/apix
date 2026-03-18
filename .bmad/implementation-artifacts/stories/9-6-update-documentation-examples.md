@@ -1,6 +1,6 @@
 # Story 9.6: Update Documentation and Examples
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -24,29 +24,26 @@ so that I can integrate it quickly.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Update README.md
+- [x] Task 1: Export new classes in apix.dart
+  - [x] Export SecureStorageService
+  - [x] Export SecureTokenProvider
+
+- [ ] Task 2: Update README.md (deferred to 8-1)
   - [ ] Add SecureTokenProvider section
-  - [ ] Show basic usage (1-3 lines)
-  - [ ] Show advanced usage (custom storage, keys)
-  - [ ] Show refresh flow with onTokenRefreshed
-  - [ ] Add migration guide from manual TokenProvider
+  - [ ] Show basic and advanced usage
 
-- [ ] Task 2: Update example app
-  - [ ] Use SecureTokenProvider instead of manual implementation
-  - [ ] Show login → save tokens flow
-  - [ ] Show logout → clear tokens flow
-  - [ ] Show refresh with onTokenRefreshed
+- [ ] Task 3: Update example app (deferred to 8-3)
+  - [ ] Use SecureTokenProvider
 
-- [ ] Task 3: Add inline documentation
-  - [ ] Document SecureStorageService class and methods
-  - [ ] Document SecureTokenProvider class and methods
-  - [ ] Document new AuthConfig fields
-  - [ ] Add code examples in dartdoc
+- [x] Task 4: Inline documentation
+  - [x] SecureStorageService - documented with dartdoc
+  - [x] SecureTokenProvider - documented with dartdoc
+  - [x] AuthConfig new fields - documented with dartdoc
 
-- [ ] Task 4: Update CHANGELOG
-  - [ ] Add v0.3.0 section
-  - [ ] List new features
-  - [ ] Note backward compatibility
+- [x] Task 5: Update CHANGELOG
+  - [x] Add v0.3.0 section
+  - [x] List new features (SecureStorageService, SecureTokenProvider, refreshEndpoint)
+  - [x] Note backward compatibility
 
 ## Dev Notes
 

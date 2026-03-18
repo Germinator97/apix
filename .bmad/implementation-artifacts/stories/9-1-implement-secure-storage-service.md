@@ -1,6 +1,6 @@
 # Story 9.1: Implement SecureStorageService
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -24,23 +24,24 @@ so that I can securely store key-value pairs without boilerplate.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create SecureStorageService class
-  - [ ] Constructor with optional FlutterSecureStorage injection
-  - [ ] Default FlutterSecureStorage with AndroidOptions(encryptedSharedPreferences: true)
-  - [ ] write(String key, String value) → Future<void>
-  - [ ] read(String key) → Future<String?>
-  - [ ] delete(String key) → Future<void>
-  - [ ] deleteAll() → Future<void>
-  - [ ] containsKey(String key) → Future<bool>
+- [x] Task 1: Create SecureStorageService class
+  - [x] Constructor with optional FlutterSecureStorage injection
+  - [x] Default FlutterSecureStorage with AndroidOptions(encryptedSharedPreferences: true)
+  - [x] write(String key, String value) → Future<void>
+  - [x] read(String key) → Future<String?>
+  - [x] delete(String key) → Future<void>
+  - [x] deleteAll() → Future<void>
+  - [x] containsKey(String key) → Future<bool>
+  - [x] readAll() → Future<Map<String, String>> (bonus)
 
-- [ ] Task 2: Add flutter_secure_storage dependency
-  - [ ] Add to pubspec.yaml as optional peer dependency
-  - [ ] Document installation in README
+- [x] Task 2: Add flutter_secure_storage dependency
+  - [x] Add to pubspec.yaml (^9.0.0)
+  - [ ] Document installation in README (deferred to 8-1)
 
-- [ ] Task 3: Write unit tests
-  - [ ] Test all CRUD operations
-  - [ ] Test with mock FlutterSecureStorage
-  - [ ] Test default options
+- [x] Task 3: Write unit tests
+  - [x] Test all CRUD operations
+  - [x] Test with mock FlutterSecureStorage
+  - [x] Test default options
 
 ## Dev Notes
 

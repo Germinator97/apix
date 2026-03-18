@@ -1,6 +1,6 @@
 # Story 9.2: Implement SecureTokenProvider
 
-Status: backlog
+Status: done
 
 ## Story
 
@@ -28,24 +28,24 @@ so that I don't have to implement TokenProvider manually.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create SecureTokenProvider class
-  - [ ] Implement TokenProvider interface
-  - [ ] Constructor with optional SecureStorageService injection
-  - [ ] Configurable storage keys (default: 'apix_access_token', 'apix_refresh_token')
-  - [ ] getAccessToken() using SecureStorageService.read()
-  - [ ] getRefreshToken() using SecureStorageService.read()
-  - [ ] saveTokens() using SecureStorageService.write()
-  - [ ] clearTokens() using SecureStorageService.delete()
+- [x] Task 1: Create SecureTokenProvider class
+  - [x] Implement TokenProvider interface
+  - [x] Constructor with optional SecureStorageService injection
+  - [x] Configurable storage keys (default: 'apix_access_token', 'apix_refresh_token')
+  - [x] getAccessToken() using SecureStorageService.read()
+  - [x] getRefreshToken() using SecureStorageService.read()
+  - [x] saveTokens() using SecureStorageService.write()
+  - [x] clearTokens() using SecureStorageService.delete()
 
-- [ ] Task 2: Expose storage for secondary usage
-  - [ ] Getter for SecureStorageService instance
-  - [ ] Document usage for other secrets (Firebase Auth, API keys)
+- [x] Task 2: Expose storage for secondary usage
+  - [x] Getter for SecureStorageService instance
+  - [x] Document usage for other secrets (Firebase Auth, API keys)
 
-- [ ] Task 3: Write unit tests
-  - [ ] Test TokenProvider interface compliance
-  - [ ] Test with mock SecureStorageService
-  - [ ] Test custom keys configuration
-  - [ ] Test storage sharing scenario
+- [x] Task 3: Write unit tests
+  - [x] Test TokenProvider interface compliance
+  - [x] Test with mock SecureStorageService
+  - [x] Test custom keys configuration
+  - [x] Test storage sharing scenario
 
 ## Dev Notes
 
