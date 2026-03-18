@@ -213,10 +213,9 @@ final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
 );
 
-// Add Sentry interceptor
+// Add Sentry interceptor (environment already set in SentrySetup.init)
 client.interceptors.add(SentryInterceptor(
   config: SentryConfig(
-    environment: 'production',
     captureException: (e, {stackTrace, extra, tags}) async {
       await Sentry.captureException(e, stackTrace: stackTrace);
     },
@@ -335,6 +334,23 @@ try {
 | `LogLevel.info` | Info, warnings, errors |
 | `LogLevel.trace` | Everything |
 
+## Example App
+
+A complete Flutter app demonstrating all ApiX features is available on GitHub:
+
+👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
+
+<p align="center">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App" width="300">
+</p>
+
+Features demonstrated:
+- 🔐 SecureTokenProvider with simplified refresh flow
+- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache)
+- 🔄 Retry logic with exponential backoff
+- 🐛 Sentry integration with error testing
+- 📊 Request metrics and logging
+
 ## Contributing
 
 Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) first.
@@ -353,3 +369,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built on top of [Dio](https://pub.dev/packages/dio)
 - Inspired by best practices from production Flutter apps
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://germinator-space.com">Germinator</a>
+</p>
