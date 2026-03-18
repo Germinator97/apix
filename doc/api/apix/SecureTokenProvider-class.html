@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the TokenProvider class from the apix library, for the Dart programming language.">
-  <title>TokenProvider class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the SecureTokenProvider class from the apix library, for the Dart programming language.">
+  <title>SecureTokenProvider class - apix library - Dart API</title>
 
 
   
@@ -26,9 +26,9 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../index.html">apix</a></li>
     <li><a href="../apix/">apix.dart</a></li>
-    <li class="self-crumb">TokenProvider class</li>
+    <li class="self-crumb">SecureTokenProvider class</li>
   </ol>
-  <div class="self-name">TokenProvider</div>
+  <div class="self-name">SecureTokenProvider</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,42 +46,44 @@
     id="dartdoc-main-content"
     class="main-content"
     data-above-sidebar="apix&#47;apix-library-sidebar.html"
-    data-below-sidebar="apix&#47;TokenProvider-class-sidebar.html">
+    data-below-sidebar="apix&#47;SecureTokenProvider-class-sidebar.html">
     <div>
-<h1><span class="kind-class">TokenProvider</span> class 
-    <a href="https://dart.dev/language/class-modifiers#abstract" class="feature feature-abstract" title="This type can not be directly constructed.">abstract</a>
+<h1><span class="kind-class">SecureTokenProvider</span> class 
  
 </h1></div>
 
     
 <section class="desc markdown">
-  <p>Interface for providing authentication tokens.</p>
-<p>Implement this interface to integrate your token storage with apix.
-All methods are async for compatibility with secure storage solutions.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">class MyTokenProvider implements TokenProvider {
-  final FlutterSecureStorage _storage;
+  <p>A ready-to-use <a href="../apix/TokenProvider-class.html">TokenProvider</a> implementation using <a href="../apix/SecureStorageService-class.html">SecureStorageService</a>.</p>
+<p>This class provides secure token storage out of the box, eliminating the
+need for developers to implement their own <a href="../apix/TokenProvider-class.html">TokenProvider</a>.</p>
+<p>Example usage:</p>
+<pre class="language-dart"><code class="language-dart">final tokenProvider = SecureTokenProvider();
 
-  MyTokenProvider(this._storage);
+// Use with ApiClient
+final client = ApiClient(
+  baseUrl: 'https://api.example.com',
+  authConfig: AuthConfig(tokenProvider: tokenProvider),
+);
 
-  @override
-  Future&lt;String?&gt; getAccessToken() =&gt; _storage.read(key: 'access_token');
+// Save tokens after login
+await tokenProvider.saveTokens(accessToken, refreshToken);
 
-  @override
-  Future&lt;String?&gt; getRefreshToken() =&gt; _storage.read(key: 'refresh_token');
+// Clear tokens on logout
+await tokenProvider.clearTokens();
+</code></pre>
+<p>You can also inject a custom <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> to share storage:</p>
+<pre class="language-dart"><code class="language-dart">final storage = SecureStorageService();
+final tokenProvider = SecureTokenProvider(storage: storage);
 
-  @override
-  Future&lt;void&gt; saveTokens(String accessToken, String refreshToken) async {
-    await _storage.write(key: 'access_token', value: accessToken);
-    await _storage.write(key: 'refresh_token', value: refreshToken);
-  }
-
-  @override
-  Future&lt;void&gt; clearTokens() async {
-    await _storage.delete(key: 'access_token');
-    await _storage.delete(key: 'refresh_token');
-  }
-}
+// Use storage for other secrets
+await storage.write('firebase_token', firebaseToken);
+</code></pre>
+<p>Custom storage keys can be configured:</p>
+<pre class="language-dart"><code class="language-dart">final tokenProvider = SecureTokenProvider(
+  accessTokenKey: 'my_access_token',
+  refreshTokenKey: 'my_refresh_token',
+);
 </code></pre>
 </section>
 
@@ -91,12 +93,14 @@ All methods are async for compatibility with secure storage solutions.</p>
         
 
         
+  <dt>Implemented types</dt>
+  <dd>
+    <ul class="comma-separated clazz-relationships">
+        <li><a href="../apix/TokenProvider-class.html">TokenProvider</a></li>
+    </ul>
+  </dd>
         
 
-          <dt>Implementers</dt>
-          <dd><ul class="comma-separated clazz-relationships">
-              <li><a href="../apix/SecureTokenProvider-class.html">SecureTokenProvider</a></li>
-          </ul></dd>
 
         
         
@@ -109,20 +113,32 @@ All methods are async for compatibility with secure storage solutions.</p>
   <section class="summary offset-anchor" id="constructors">
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
-        <dt id="TokenProvider.new" class="callable">
-          <span class="name"><a href="../apix/TokenProvider/TokenProvider.html">TokenProvider.new</a></span><span class="signature">()</span>
+        <dt id="SecureTokenProvider.new" class="callable">
+          <span class="name"><a href="../apix/SecureTokenProvider/SecureTokenProvider.html">SecureTokenProvider.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="../apix/SecureStorageService-class.html">SecureStorageService</a>?</span> <span class="parameter-name">storage</span>, </span><span class="parameter" id="-param-accessTokenKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">accessTokenKey</span> = <span class="default-value">&#39;apix_access_token&#39;</span>, </span><span class="parameter" id="-param-refreshTokenKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">refreshTokenKey</span> = <span class="default-value">&#39;apix_refresh_token&#39;</span></span>})</span>
         </dt>
         <dd>
-          
+          Creates a <a href="../apix/SecureTokenProvider-class.html">SecureTokenProvider</a> with optional custom storage and keys.
         </dd>
     </dl>
   </section>
     
   <section
-      class="summary offset-anchor inherited"
+      class="summary offset-anchor"
       id="instance-properties">
     <h2>Properties</h2>
     <dl class="properties">
+        <dt id="accessTokenKey" class="property">
+  <span class="name"><a href="../apix/SecureTokenProvider/accessTokenKey.html">accessTokenKey</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  The key used to store the access token.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
         <dt id="hashCode" class="property inherited">
   <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
@@ -132,6 +148,18 @@ All methods are async for compatibility with secure storage solutions.</p>
 <dd class="inherited">
   The hash code for this object.
   <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="refreshTokenKey" class="property">
+  <span class="name"><a href="../apix/SecureTokenProvider/refreshTokenKey.html">refreshTokenKey</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  The key used to store the refresh token.
+  <div class="features"><span class="feature">final</span></div>
 
 </dd>
 
@@ -147,6 +175,18 @@ All methods are async for compatibility with secure storage solutions.</p>
 
 </dd>
 
+        <dt id="storage" class="property">
+  <span class="name"><a href="../apix/SecureTokenProvider/storage.html">storage</a></span>
+  <span class="signature">&#8594; <a href="../apix/SecureStorageService-class.html">SecureStorageService</a></span>
+  
+
+</dt>
+<dd>
+  Access to the underlying <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> for secondary usage.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
     </dl>
   </section>
 
@@ -157,7 +197,7 @@ All methods are async for compatibility with secure storage solutions.</p>
     <h2>Methods</h2>
     <dl class="callables">
         <dt id="clearTokens" class="callable">
-  <span class="name"><a href="../apix/TokenProvider/clearTokens.html">clearTokens</a></span><span class="signature">(<wbr>)
+  <span class="name"><a href="../apix/SecureTokenProvider/clearTokens.html">clearTokens</a></span><span class="signature">(<wbr>)
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
   </span>
   
@@ -165,12 +205,12 @@ All methods are async for compatibility with secure storage solutions.</p>
 </dt>
 <dd>
   Clears all tokens (e.g., on logout).
-  
+  <div class="features"><span class="feature">override</span></div>
 
 </dd>
 
         <dt id="getAccessToken" class="callable">
-  <span class="name"><a href="../apix/TokenProvider/getAccessToken.html">getAccessToken</a></span><span class="signature">(<wbr>)
+  <span class="name"><a href="../apix/SecureTokenProvider/getAccessToken.html">getAccessToken</a></span><span class="signature">(<wbr>)
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>&gt;</span></span>
   </span>
   
@@ -178,12 +218,12 @@ All methods are async for compatibility with secure storage solutions.</p>
 </dt>
 <dd>
   Returns the current access token, or null if not available.
-  
+  <div class="features"><span class="feature">override</span></div>
 
 </dd>
 
         <dt id="getRefreshToken" class="callable">
-  <span class="name"><a href="../apix/TokenProvider/getRefreshToken.html">getRefreshToken</a></span><span class="signature">(<wbr>)
+  <span class="name"><a href="../apix/SecureTokenProvider/getRefreshToken.html">getRefreshToken</a></span><span class="signature">(<wbr>)
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>&gt;</span></span>
   </span>
   
@@ -191,7 +231,7 @@ All methods are async for compatibility with secure storage solutions.</p>
 </dt>
 <dd>
   Returns the current refresh token, or null if not available.
-  
+  <div class="features"><span class="feature">override</span></div>
 
 </dd>
 
@@ -209,7 +249,7 @@ All methods are async for compatibility with secure storage solutions.</p>
 </dd>
 
         <dt id="saveTokens" class="callable">
-  <span class="name"><a href="../apix/TokenProvider/saveTokens.html">saveTokens</a></span><span class="signature">(<wbr><span class="parameter" id="saveTokens-param-accessToken"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">accessToken</span>, </span><span class="parameter" id="saveTokens-param-refreshToken"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">refreshToken</span></span>)
+  <span class="name"><a href="../apix/SecureTokenProvider/saveTokens.html">saveTokens</a></span><span class="signature">(<wbr><span class="parameter" id="saveTokens-param-accessToken"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">accessToken</span>, </span><span class="parameter" id="saveTokens-param-refreshToken"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">refreshToken</span></span>)
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
   </span>
   
@@ -217,7 +257,7 @@ All methods are async for compatibility with secure storage solutions.</p>
 </dt>
 <dd>
   Saves both tokens after a successful authentication or refresh.
-  
+  <div class="features"><span class="feature">override</span></div>
 
 </dd>
 
@@ -272,7 +312,7 @@ All methods are async for compatibility with secure storage solutions.</p>
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../index.html">apix</a></li>
     <li><a href="../apix/">apix</a></li>
-    <li class="self-crumb">TokenProvider class</li>
+    <li class="self-crumb">SecureTokenProvider class</li>
 </ol>
 
     <h5>apix library</h5>

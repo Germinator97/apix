@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the RefreshCallback typedef from the apix library, for the Dart programming language.">
-  <title>RefreshCallback typedef - apix library - Dart API</title>
+  <meta name="description" content="API docs for the OnTokenRefreshedCallback typedef from the apix library, for the Dart programming language.">
+  <title>OnTokenRefreshedCallback typedef - apix library - Dart API</title>
 
 
   
@@ -26,9 +26,9 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../index.html">apix</a></li>
     <li><a href="../apix/">apix.dart</a></li>
-    <li class="self-crumb">RefreshCallback typedef</li>
+    <li class="self-crumb">OnTokenRefreshedCallback typedef</li>
   </ol>
-  <div class="self-name">RefreshCallback</div>
+  <div class="self-name">OnTokenRefreshedCallback</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -48,29 +48,35 @@
       data-above-sidebar="apix&#47;apix-library-sidebar.html"
       data-below-sidebar="">
       <div>
-<h1><span class="kind-typedef">RefreshCallback</span> typedef 
+<h1><span class="kind-typedef">OnTokenRefreshedCallback</span> typedef 
  
 </h1></div>
     <section class="multi-line-signature">
-        <span class="name ">RefreshCallback</span> =
-     <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-tokenProvider"><span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a></span> <span class="parameter-name">tokenProvider</span></span>)</span></span>
+        <span class="name ">OnTokenRefreshedCallback</span> =
+     <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
 
     </section>
 
     
 <section class="desc markdown">
-  <p>Callback for refreshing tokens (legacy approach).</p>
-<p>Should use the refresh token to obtain new access/refresh tokens,
-then call <a href="../apix/TokenProvider/saveTokens.html">TokenProvider.saveTokens</a> with the new values.</p>
-<p>Returns <code>true</code> if refresh was successful, <code>false</code> otherwise.</p>
-<p>Consider using <code>refreshEndpoint</code> with <code>OnTokenRefreshedCallback</code> instead
-for a simpler refresh flow.</p>
+  <p>Callback invoked after successful token refresh with raw response.</p>
+<p>The developer is responsible for parsing the response and saving tokens.</p>
+<p>Example:</p>
+<pre class="language-dart"><code class="language-dart">onTokenRefreshed: (response) async {
+  final data = response.data;
+  await tokenProvider.saveTokens(
+    data['access_token'],
+    data['refresh_token'],
+  );
+},
+</code></pre>
 </section>
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">typedef RefreshCallback = Future&lt;bool&gt; Function(TokenProvider tokenProvider);</code></pre>
+  <pre class="language-dart"><code class="language-dart">typedef OnTokenRefreshedCallback = Future&lt;void&gt; Function(
+    Response&lt;dynamic&gt; response);</code></pre>
 </section>
 
   </div> <!-- /.main-content -->
@@ -84,7 +90,7 @@ for a simpler refresh flow.</p>
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../index.html">apix</a></li>
     <li><a href="../apix/">apix</a></li>
-    <li class="self-crumb">RefreshCallback typedef</li>
+    <li class="self-crumb">OnTokenRefreshedCallback typedef</li>
 </ol>
 
     <h5>apix library</h5>

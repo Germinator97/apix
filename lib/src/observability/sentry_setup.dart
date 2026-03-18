@@ -201,6 +201,14 @@ class SentrySetup {
       return options.customBeforeSend!(event, hint);
     }
 
+    // Log in development environment
+    if (options.environment == 'development') {
+      final exception = event.exceptions?.firstOrNull;
+      debugPrint(
+        '🚨 [Sentry] Event sent: ${exception?.type ?? event.eventId}',
+      );
+    }
+
     return event;
   }
 

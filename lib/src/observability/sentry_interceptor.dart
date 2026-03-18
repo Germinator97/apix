@@ -44,6 +44,9 @@ class SentryConfig {
   final bool enabled;
 
   /// Environment name (e.g., 'production', 'staging', 'development').
+  ///
+  /// Optional if using [SentrySetup.init] which already sets the environment
+  /// globally. Only needed when using the interceptor standalone.
   final String? environment;
 
   /// Callback to capture exceptions.
