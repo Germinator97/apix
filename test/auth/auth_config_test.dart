@@ -242,7 +242,8 @@ void main() {
     });
 
     group('backward compatibility', () {
-      test('should work with only tokenProvider and onRefresh (legacy)', () async {
+      test('should work with only tokenProvider and onRefresh (legacy)',
+          () async {
         var refreshCalled = false;
 
         final config = AuthConfig(

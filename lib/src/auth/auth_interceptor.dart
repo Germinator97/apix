@@ -142,7 +142,7 @@ class AuthInterceptor extends Interceptor {
     }
 
     try {
-      final response = await dio.post(
+      final response = await dio.post<dynamic>(
         config.refreshEndpoint!,
         data: {config.refreshTokenBodyKey: refreshToken},
         options: Options(headers: config.refreshHeaders),

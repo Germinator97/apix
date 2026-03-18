@@ -403,13 +403,10 @@ void main() {
     });
 
     test('uses refreshEndpoint when configured', () async {
-      Response? capturedResponse;
-
       final config = AuthConfig(
         tokenProvider: tokenProvider,
         refreshEndpoint: '/auth/refresh',
         onTokenRefreshed: (response) async {
-          capturedResponse = response;
           await tokenProvider.saveTokens('new_access', 'new_refresh');
         },
       );
@@ -562,4 +559,3 @@ class TestErrorHandler extends ErrorInterceptorHandler {
     lastRejectedError = err;
   }
 }
-

@@ -18,12 +18,14 @@ void main() {
   group('SecureStorageService', () {
     group('write', () {
       test('should write value to storage', () async {
-        when(() => mockStorage.write(key: any(named: 'key'), value: any(named: 'value')))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.write(
+            key: any(named: 'key'),
+            value: any(named: 'value'))).thenAnswer((_) async {});
 
         await service.write('test_key', 'test_value');
 
-        verify(() => mockStorage.write(key: 'test_key', value: 'test_value')).called(1);
+        verify(() => mockStorage.write(key: 'test_key', value: 'test_value'))
+            .called(1);
       });
     });
 

@@ -67,20 +67,20 @@ void main() {
 
     group('saveTokens', () {
       test('should write both tokens to storage', () async {
-        when(() => mockStorage.write(any(), any()))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.write(any(), any())).thenAnswer((_) async {});
 
         await provider.saveTokens('new_access', 'new_refresh');
 
-        verify(() => mockStorage.write('apix_access_token', 'new_access')).called(1);
-        verify(() => mockStorage.write('apix_refresh_token', 'new_refresh')).called(1);
+        verify(() => mockStorage.write('apix_access_token', 'new_access'))
+            .called(1);
+        verify(() => mockStorage.write('apix_refresh_token', 'new_refresh'))
+            .called(1);
       });
     });
 
     group('clearTokens', () {
       test('should delete both tokens from storage', () async {
-        when(() => mockStorage.delete(any()))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.delete(any())).thenAnswer((_) async {});
 
         await provider.clearTokens();
 
@@ -125,8 +125,7 @@ void main() {
           refreshTokenKey: 'custom_refresh',
         );
 
-        when(() => mockStorage.write(any(), any()))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.write(any(), any())).thenAnswer((_) async {});
 
         await customProvider.saveTokens('access', 'refresh');
 
@@ -141,8 +140,7 @@ void main() {
           refreshTokenKey: 'custom_refresh',
         );
 
-        when(() => mockStorage.delete(any()))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.delete(any())).thenAnswer((_) async {});
 
         await customProvider.clearTokens();
 
@@ -157,8 +155,7 @@ void main() {
       });
 
       test('should allow using storage for other secrets', () async {
-        when(() => mockStorage.write(any(), any()))
-            .thenAnswer((_) async {});
+        when(() => mockStorage.write(any(), any())).thenAnswer((_) async {});
         when(() => mockStorage.read(any()))
             .thenAnswer((_) async => 'firebase_token_value');
 
@@ -166,12 +163,14 @@ void main() {
         final firebaseToken = await provider.storage.read('firebase_token');
 
         expect(firebaseToken, 'firebase_token_value');
-        verify(() => mockStorage.write('firebase_token', 'my_firebase_token')).called(1);
+        verify(() => mockStorage.write('firebase_token', 'my_firebase_token'))
+            .called(1);
       });
     });
 
     group('default constructor', () {
-      test('should create provider with default storage when none provided', () {
+      test('should create provider with default storage when none provided',
+          () {
         final defaultProvider = SecureTokenProvider();
 
         expect(defaultProvider, isA<SecureTokenProvider>());
