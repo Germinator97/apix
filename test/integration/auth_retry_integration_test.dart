@@ -23,14 +23,10 @@ void main() {
       });
 
       test('creates with onTokenRefreshed callback', () {
-        var callbackCalled = false;
-
         final config = AuthConfig(
           tokenProvider: _TestTokenProvider(),
           refreshEndpoint: '/auth/refresh',
-          onTokenRefreshed: (_) async {
-            callbackCalled = true;
-          },
+          onTokenRefreshed: (_) async {},
         );
 
         expect(config.onTokenRefreshed, isNotNull);

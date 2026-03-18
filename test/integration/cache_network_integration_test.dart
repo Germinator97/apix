@@ -45,10 +45,14 @@ void main() {
       });
 
       test('clears all entries', () async {
-        await storage.set('key1', CacheEntry.withTtl(
-          data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
-        await storage.set('key2', CacheEntry.withTtl(
-          data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
+        await storage.set(
+            'key1',
+            CacheEntry.withTtl(
+                data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
+        await storage.set(
+            'key2',
+            CacheEntry.withTtl(
+                data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
 
         await storage.clear();
 
@@ -57,8 +61,10 @@ void main() {
       });
 
       test('checks if key exists', () async {
-        await storage.set('exists', CacheEntry.withTtl(
-          data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
+        await storage.set(
+            'exists',
+            CacheEntry.withTtl(
+                data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)));
 
         expect(await storage.has('exists'), true);
         expect(await storage.has('missing'), false);

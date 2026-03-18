@@ -5,14 +5,14 @@ void main() {
   group('Observability Integration Tests', () {
     group('LoggerConfig', () {
       test('default values are sensible', () {
-        final config = LoggerConfig();
+        const config = LoggerConfig();
 
         expect(config.level, LogLevel.info);
         expect(config.redactedHeaders, contains('Authorization'));
       });
 
       test('custom log level is respected', () {
-        final config = LoggerConfig(level: LogLevel.trace);
+        const config = LoggerConfig(level: LogLevel.trace);
         expect(config.level, LogLevel.trace);
       });
 
@@ -26,7 +26,7 @@ void main() {
       });
 
       test('redacted headers can be customized', () {
-        final config = LoggerConfig(
+        const config = LoggerConfig(
           redactedHeaders: ['X-Custom-Secret', 'Api-Key'],
         );
 
@@ -141,7 +141,7 @@ void main() {
 
     group('SentryConfig', () {
       test('default capture status codes include 5xx', () {
-        final config = SentryConfig();
+        const config = SentryConfig();
         expect(config.captureStatusCodes, contains(500));
         expect(config.captureStatusCodes, contains(502));
         expect(config.captureStatusCodes, contains(503));
@@ -168,13 +168,13 @@ void main() {
       });
 
       test('redacted headers include sensitive data', () {
-        final config = SentryConfig();
+        const config = SentryConfig();
         expect(config.redactedHeaders, contains('Authorization'));
         expect(config.redactedHeaders, contains('Cookie'));
       });
 
       test('can customize capture status codes', () {
-        final config = SentryConfig(
+        const config = SentryConfig(
           captureStatusCodes: {400, 401, 500},
         );
 
@@ -187,7 +187,7 @@ void main() {
 
     group('SentrySetupOptions', () {
       test('creates with DSN and environment', () {
-        final options = SentrySetupOptions(
+        const options = SentrySetupOptions(
           dsn: 'https://test@sentry.io/123',
           environment: 'test',
         );
@@ -197,7 +197,7 @@ void main() {
       });
 
       test('has sensible defaults', () {
-        final options = SentrySetupOptions(
+        const options = SentrySetupOptions(
           dsn: 'https://test@sentry.io/123',
           environment: 'test',
         );

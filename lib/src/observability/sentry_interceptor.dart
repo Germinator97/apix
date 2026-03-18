@@ -45,7 +45,7 @@ class SentryConfig {
 
   /// Environment name (e.g., 'production', 'staging', 'development').
   ///
-  /// Optional if using [SentrySetup.init] which already sets the environment
+  /// Optional if using `SentrySetup.init` which already sets the environment
   /// globally. Only needed when using the interceptor standalone.
   final String? environment;
 

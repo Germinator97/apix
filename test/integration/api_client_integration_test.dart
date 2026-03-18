@@ -8,7 +8,7 @@ class MockHttpClientAdapter extends Mock implements HttpClientAdapter {}
 void main() {
   setUpAll(() {
     registerFallbackValue(RequestOptions(path: ''));
-    registerFallbackValue(Stream<List<int>>.empty());
+    registerFallbackValue(const Stream<List<int>>.empty());
   });
 
   group('ApiClient Integration Tests', () {
@@ -60,9 +60,9 @@ void main() {
       });
 
       test('creates client from config', () {
-        final config = ApiClientConfig(
+        const config = ApiClientConfig(
           baseUrl: 'https://api.example.com',
-          connectTimeout: const Duration(seconds: 60),
+          connectTimeout: Duration(seconds: 60),
           headers: {'Authorization': 'Bearer test'},
         );
 
@@ -126,15 +126,17 @@ void main() {
           (_) async => ResponseBody.fromString(
             '{"id": 1, "name": "Test"}',
             200,
-            headers: {'content-type': ['application/json']},
+            headers: {
+              'content-type': ['application/json']
+            },
           ),
         );
 
-        final response = await client.get('/users/1');
+        final response = await client.get<Map<String, dynamic>>('/users/1');
 
         expect(response.statusCode, 200);
-        expect(response.data['id'], 1);
-        expect(response.data['name'], 'Test');
+        expect(response.data!['id'], 1);
+        expect(response.data!['name'], 'Test');
       });
 
       test('successful POST request', () async {
@@ -142,17 +144,19 @@ void main() {
           (_) async => ResponseBody.fromString(
             '{"id": 1, "created": true}',
             201,
-            headers: {'content-type': ['application/json']},
+            headers: {
+              'content-type': ['application/json']
+            },
           ),
         );
 
-        final response = await client.post(
+        final response = await client.post<Map<String, dynamic>>(
           '/users',
           data: {'name': 'New User'},
         );
 
         expect(response.statusCode, 201);
-        expect(response.data['created'], true);
+        expect(response.data!['created'], true);
       });
 
       test('handles 404 response as DioException', () async {
@@ -160,12 +164,14 @@ void main() {
           (_) async => ResponseBody.fromString(
             '{"error": "Not found"}',
             404,
-            headers: {'content-type': ['application/json']},
+            headers: {
+              'content-type': ['application/json']
+            },
           ),
         );
 
         expect(
-          () => client.get('/nonexistent'),
+          () => client.get<dynamic>('/nonexistent'),
           throwsA(isA<DioException>().having(
             (e) => e.response?.statusCode,
             'statusCode',
@@ -179,12 +185,14 @@ void main() {
           (_) async => ResponseBody.fromString(
             '{"error": "Server error"}',
             500,
-            headers: {'content-type': ['application/json']},
+            headers: {
+              'content-type': ['application/json']
+            },
           ),
         );
 
         expect(
-          () => client.get('/broken'),
+          () => client.get<dynamic>('/broken'),
           throwsA(isA<DioException>().having(
             (e) => e.response?.statusCode,
             'statusCode',
@@ -203,7 +211,7 @@ void main() {
         );
 
         expect(
-          () => client.get('/test'),
+          () => client.get<dynamic>('/test'),
           throwsA(isA<DioException>().having(
             (e) => e.type,
             'type',
@@ -221,7 +229,7 @@ void main() {
         );
 
         expect(
-          () => client.get('/test'),
+          () => client.get<dynamic>('/test'),
           throwsA(isA<DioException>().having(
             (e) => e.type,
             'type',
@@ -282,7 +290,8 @@ void main() {
       });
 
       test('ServerException requires statusCode', () {
-        const error = ServerException(message: 'Internal error', statusCode: 500);
+        const error =
+            ServerException(message: 'Internal error', statusCode: 500);
         expect(error.statusCode, 500);
         expect(error, isA<HttpException>());
       });
