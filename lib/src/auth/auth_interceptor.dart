@@ -55,10 +55,9 @@ class AuthInterceptor extends Interceptor {
   ) async {
     final statusCode = err.response?.statusCode;
 
-    // Check if we should refresh
-    if (statusCode != null &&
-        config.shouldRefresh(statusCode) &&
-        config.onRefresh != null) {
+    // Check if we should refresh (simplified or legacy approach)
+    final canRefresh = config.hasSimplifiedRefresh || config.onRefresh != null;
+    if (statusCode != null && config.shouldRefresh(statusCode) && canRefresh) {
       // Wait for refresh and retry
       final refreshSuccess = await _handleRefresh();
 
@@ -92,6 +91,13 @@ class AuthInterceptor extends Interceptor {
   ///
   /// If a refresh is already in progress, waits for it to complete.
   /// Otherwise, initiates a new refresh and notifies all waiting requests.
+  ///
+  /// Supports two approaches:
+  /// 1. **Simplified flow:** Uses [AuthConfig.refreshEndpoint] to make the
+  ///    refresh call automatically, then invokes [AuthConfig.onTokenRefreshed].
+  /// 2. **Legacy flow:** Delegates to [AuthConfig.onRefresh] callback.
+  ///
+  /// The simplified flow takes priority if [AuthConfig.refreshEndpoint] is set.
   Future<bool> _handleRefresh() async {
     // If refresh is already in progress, wait for it
     if (_refreshCompleter != null) {
@@ -102,7 +108,19 @@ class AuthInterceptor extends Interceptor {
     _refreshCompleter = Completer<bool>();
 
     try {
-      final success = await config.onRefresh!(config.tokenProvider);
+      bool success;
+
+      // Simplified refresh flow (priority)
+      if (config.hasSimplifiedRefresh) {
+        success = await _performSimplifiedRefresh();
+      }
+      // Legacy refresh flow
+      else if (config.onRefresh != null) {
+        success = await config.onRefresh!(config.tokenProvider);
+      } else {
+        success = false;
+      }
+
       _refreshCompleter!.complete(success);
       return success;
     } catch (e) {
@@ -110,6 +128,33 @@ class AuthInterceptor extends Interceptor {
       return false;
     } finally {
       _refreshCompleter = null;
+    }
+  }
+
+  /// Performs the simplified refresh flow using [AuthConfig.refreshEndpoint].
+  ///
+  /// Makes a POST request to the refresh endpoint with the refresh token,
+  /// then invokes [AuthConfig.onTokenRefreshed] with the response.
+  Future<bool> _performSimplifiedRefresh() async {
+    final refreshToken = await config.tokenProvider.getRefreshToken();
+    if (refreshToken == null) {
+      return false;
+    }
+
+    try {
+      final response = await dio.post(
+        config.refreshEndpoint!,
+        data: {config.refreshTokenBodyKey: refreshToken},
+        options: Options(headers: config.refreshHeaders),
+      );
+
+      if (config.onTokenRefreshed != null) {
+        await config.onTokenRefreshed!(response);
+      }
+
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 

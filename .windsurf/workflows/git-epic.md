@@ -22,6 +22,7 @@ git push origin epic/{epic-num}-{epic-name}
 - `epic/6-caching`
 - `epic/7-observability`
 - `epic/8-documentation`
+- `epic/9-secure-token-storage`
 
 ### Finish epic branch
 
