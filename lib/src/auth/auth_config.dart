@@ -9,7 +9,7 @@ import 'token_provider.dart';
 ///
 /// Returns `true` if refresh was successful, `false` otherwise.
 ///
-/// Consider using [refreshEndpoint] with [OnTokenRefreshedCallback] instead
+/// Consider using `refreshEndpoint` with `OnTokenRefreshedCallback` instead
 /// for a simpler refresh flow.
 typedef RefreshCallback = Future<bool> Function(TokenProvider tokenProvider);
 
@@ -27,7 +27,8 @@ typedef RefreshCallback = Future<bool> Function(TokenProvider tokenProvider);
 ///   );
 /// },
 /// ```
-typedef OnTokenRefreshedCallback = Future<void> Function(Response response);
+typedef OnTokenRefreshedCallback = Future<void> Function(
+    Response<dynamic> response);
 
 /// Configuration for authentication handling.
 ///
