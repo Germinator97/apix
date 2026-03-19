@@ -139,42 +139,45 @@ void main() {
       });
     });
 
-    group('SentryConfig', () {
+    group('ErrorTrackingConfig', () {
       test('default capture status codes include 5xx', () {
-        const config = SentryConfig();
+        const config = ErrorTrackingConfig();
         expect(config.captureStatusCodes, contains(500));
         expect(config.captureStatusCodes, contains(502));
         expect(config.captureStatusCodes, contains(503));
       });
 
-      test('can set custom capture exception callback', () {
+      test('can set custom onError callback', () {
         final exceptions = <Object>[];
-        final config = SentryConfig(
-          captureException: (e, {stackTrace, extra, tags}) async {
+        final config = ErrorTrackingConfig(
+          onError: (Object e,
+              {StackTrace? stackTrace,
+              Map<String, dynamic>? extra,
+              Map<String, String>? tags}) async {
             exceptions.add(e);
           },
         );
 
-        expect(config.captureException, isNotNull);
+        expect(config.onError, isNotNull);
       });
 
       test('can set custom breadcrumb callback', () {
         final breadcrumbs = <Map<String, dynamic>>[];
-        final config = SentryConfig(
-          addBreadcrumb: (data) => breadcrumbs.add(data),
+        final config = ErrorTrackingConfig(
+          onBreadcrumb: (Map<String, dynamic> data) => breadcrumbs.add(data),
         );
 
-        expect(config.addBreadcrumb, isNotNull);
+        expect(config.onBreadcrumb, isNotNull);
       });
 
       test('redacted headers include sensitive data', () {
-        const config = SentryConfig();
+        const config = ErrorTrackingConfig();
         expect(config.redactedHeaders, contains('Authorization'));
         expect(config.redactedHeaders, contains('Cookie'));
       });
 
       test('can customize capture status codes', () {
-        const config = SentryConfig(
+        const config = ErrorTrackingConfig(
           captureStatusCodes: {400, 401, 500},
         );
 

@@ -5,20 +5,22 @@
 library;
 
 import 'package:apix/apix.dart';
+import 'package:flutter/material.dart';
 
 /// Simple example showing API client creation and usage.
 void main() async {
   // ============================================================
-  // SECURE TOKEN STORAGE (NEW in v0.3)
+  // SECURE TOKEN STORAGE
   // ============================================================
   // SecureTokenProvider uses flutter_secure_storage under the hood
   final tokenProvider = SecureTokenProvider();
 
-  // Create an API client with authentication
+  // Create an API client with authentication and retry
   final client = ApiClientFactory.create(
     baseUrl: 'https://api.example.com',
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
+    // Authentication configuration (v1.0.1+)
     authConfig: AuthConfig(
       tokenProvider: tokenProvider,
       // Simplified refresh flow (recommended)
@@ -31,36 +33,36 @@ void main() async {
         );
       },
     ),
-  );
-
-  // Add retry interceptor
-  client.dio.interceptors.add(
-    RetryInterceptor(
-      config: const RetryConfig(
-        maxAttempts: 3,
-        retryStatusCodes: [500, 502, 503, 504],
-      ),
-      dio: client.dio,
+    // Retry configuration (v1.0.1+)
+    retryConfig: const RetryConfig(
+      maxAttempts: 3,
+      retryStatusCodes: [500, 502, 503, 504],
     ),
-  );
-
-  // Add cache interceptor
-  final cacheInterceptor = CacheInterceptor(
-    config: CacheConfig(
+    // Cache configuration (v1.0.1+)
+    cacheConfig: CacheConfig(
       strategy: CacheStrategy.networkFirst,
       defaultTtl: const Duration(minutes: 5),
     ),
-  );
-  cacheInterceptor.setDio(client.dio);
-  client.dio.interceptors.add(cacheInterceptor);
-
-  // Add logger interceptor
-  client.dio.interceptors.add(
-    LoggerInterceptor(
-      config: const LoggerConfig(
-        level: LogLevel.info,
-        redactedHeaders: ['Authorization'],
-      ),
+    // Logger configuration (v1.0.1+)
+    loggerConfig: const LoggerConfig(
+      level: LogLevel.info,
+      redactedHeaders: ['Authorization'],
+    ),
+    // Error tracking configuration (v1.0.1+)
+    errorTrackingConfig: ErrorTrackingConfig(
+      onError: (Object e,
+          {StackTrace? stackTrace,
+          Map<String, dynamic>? extra,
+          Map<String, String>? tags}) async {
+        debugPrint('Error captured: $e');
+      },
+    ),
+    // Metrics configuration (v1.0.1+)
+    metricsConfig: MetricsConfig(
+      onMetrics: (metrics) {
+        debugPrint(
+            'API: ${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
+      },
     ),
   );
 
@@ -70,18 +72,18 @@ void main() async {
       '/users/1',
       (json) => User.fromJson(json),
     );
-    print('User: ${user.name}');
+    debugPrint('User: ${user.name}');
   } on HttpException catch (e) {
-    print('HTTP Error: ${e.statusCode}');
+    debugPrint('HTTP Error: ${e.statusCode}');
   } on NetworkException catch (e) {
-    print('Network Error: ${e.message}');
+    debugPrint('Network Error: ${e.message}');
   }
 
   // Use Result type for functional error handling
-  final result = await client.get('/users').getResult();
+  final result = await client.get<Map<String, dynamic>>('/users').getResult();
   result.when(
-    success: (response) => print('Got ${response.data}'),
-    failure: (error) => print('Error: ${error.message}'),
+    success: (response) => debugPrint('Got ${response.data}'),
+    failure: (error) => debugPrint('Error: ${error.message}'),
   );
 
   // ============================================================

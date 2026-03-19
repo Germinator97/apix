@@ -18,3 +18,5 @@ pubspec.lock
 
 # Generated
 .metadata
+.flutter-plugins
+.flutter-plugins-dependencies

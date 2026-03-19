@@ -43,7 +43,7 @@ Aucune solution n'offre : refresh token avec queue + retry intelligent + cache +
 - Retry intelligent avec backoff et codes configurables
 - Cache opt-in par annotations (@Cacheable) avec strategies (CacheFirst, NetworkFirst, HttpCacheAware)
 - Hiérarchie d'erreurs granulaire et typée + `.getResult()` optionnel pour pattern fonctionnel
-- Observabilité : SentryInterceptor built-in + custom interceptors pour autres (Firebase, etc.)
+- Observabilité : ErrorTrackingInterceptor built-in (Sentry, Crashlytics, etc.)
 - Deux modes : simple (API directe) et codegen (annotations Retrofit-like)
 
 ### Key Differentiators
@@ -214,11 +214,31 @@ Aucune solution n'offre : refresh token avec queue + retry intelligent + cache +
 
 ---
 
+### Current Status (v1.0.1)
+
+**Completed :**
+- v0.1-v0.2 : Core API Client, Auth, Retry, Cache, Logging ✅
+- v0.3 : SecureTokenProvider, simplified refresh flow ✅
+- v1.0.0 : First stable release, 401 tests ✅
+- v1.0.1 : Unified Configuration API ✅
+
+**Unified API (v1.0.1) :**
+```dart
+ApiClientFactory.create(
+  baseUrl: '...',
+  authConfig: AuthConfig(...),
+  retryConfig: RetryConfig(...),
+  cacheConfig: CacheConfig(...),
+  loggerConfig: LoggerConfig(...),
+  errorTrackingConfig: ErrorTrackingConfig(...),
+  metricsConfig: MetricsConfig(...),
+);
+```
+
 ### Future Vision
 
-**Post-MVP :**
-- v0.3 : apix_generator (codegen Retrofit-like)
-- v1.0 : Stable, battle-tested
+**Next :**
+- v1.x : apix_generator (codegen Retrofit-like)
 - v1.x : Offline sync, Mock server
 - Future : apix_live (WebSocket/SSE)
 

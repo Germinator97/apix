@@ -214,7 +214,7 @@ class MetricsConfig {
 /// dio.interceptors.add(MetricsInterceptor(
 ///   config: MetricsConfig(
 ///     onMetrics: (metrics) {
-///       analytics.track('api_request', metrics.toMap());
+///       debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
 ///     },
 ///     onBreadcrumb: (breadcrumb) {
 ///       Sentry.addBreadcrumb(Breadcrumb(

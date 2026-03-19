@@ -7,79 +7,129 @@
 <p align="center">
   <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
   <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
-  <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/main/graph/badge.svg" alt="coverage"></a>
+  <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/develop/graph/badge.svg" alt="coverage"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
 
 <p align="center">
-  🚀 Production-ready Flutter/Dart API client — auth refresh queue, exponential retry with backoff, smart & flexible caching, and built-in Sentry. Zero boilerplate, maximum reliability. Powered by <a href="https://pub.dev/packages/dio">Dio</a>.
+  Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching and error tracking (Sentry-ready). Powered by <a href="https://pub.dev/packages/dio">Dio</a>.
 </p>
+
+---
+
+## Why ApiX?
+
+Les développeurs Flutter passent un temps considérable à réimplémenter les mêmes patterns : refresh token, retry, cache, gestion d'erreurs. **ApiX** combine tout cela dans une solution clé-en-main.
+
+| Problème | Solution ApiX |
+|----------|---------------|
+| Race conditions refresh token | **Refresh queue automatique** |
+| Retry avec backoff manuel | **RetryInterceptor intégré** |
+| Cache complexe à configurer | **Strategies prêtes à l'emploi** |
+| Erreurs mal typées | **Hiérarchie d'exceptions granulaire** |
+
+---
 
 ## Quick Start
 
 ```dart
 import 'package:apix/apix.dart';
 
+// Simple - fonctionne immédiatement
 final client = ApiClientFactory.create(baseUrl: 'https://api.example.com');
-final response = await client.get('/users');
+final response = await client.get<Map<String, dynamic>>('/users');
 ```
 
-**That's it!** You have a fully configured API client with sensible defaults.
+**30 secondes** du `pub add` à la première requête.
 
-## Features
-
-| Feature | Description |
-|---------|-------------|
-| 🔐 **Auth Refresh Queue** | Automatic token refresh with request queuing |
-| � **Secure Token Storage** | Built-in secure storage with `flutter_secure_storage` |
-| �🔄 **Retry Logic** | Exponential backoff with jitter |
-| 💾 **Smart Caching** | CacheFirst, NetworkFirst, HttpCacheAware strategies |
-| 📊 **Logging** | Configurable request/response logging |
-| 🐛 **Sentry Integration** | Built-in error tracking and breadcrumbs |
-| 📈 **Metrics** | Request timing and performance tracking |
+---
 
 ## Installation
 
-Add to your `pubspec.yaml`:
-
 ```yaml
 dependencies:
-  apix: ^0.0.1
+  apix: ^1.0.0
 ```
-
-Then run:
 
 ```bash
 flutter pub get
 ```
 
-## Usage
+---
 
-### Basic Client
+## Configuration Complète
+
+ApiX supporte une configuration déclarative avec 6 paramètres optionnels :
 
 ```dart
-import 'package:apix/apix.dart';
+final tokenProvider = SecureTokenProvider();
 
-// Create a simple client
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
+  
+  // 🔐 Authentication avec refresh automatique
+  authConfig: AuthConfig(
+    tokenProvider: tokenProvider,
+    refreshEndpoint: '/auth/refresh',
+    onTokenRefreshed: (response) async {
+      final data = response.data as Map<String, dynamic>;
+      await tokenProvider.saveTokens(
+        data['access_token'] as String,
+        data['refresh_token'] as String,
+      );
+    },
+  ),
+  
+  // 🔄 Retry avec exponential backoff
+  retryConfig: const RetryConfig(
+    maxAttempts: 3,
+    retryStatusCodes: [500, 502, 503, 504],
+  ),
+  
+  // 💾 Cache intelligent
+  cacheConfig: CacheConfig(
+    strategy: CacheStrategy.networkFirst,
+    defaultTtl: const Duration(minutes: 5),
+  ),
+  
+  // 📊 Logging configurable
+  loggerConfig: const LoggerConfig(
+    level: LogLevel.info,
+    redactedHeaders: ['Authorization'],
+  ),
+  
+  // 🐛 Error tracking (Sentry, Crashlytics, etc.)
+  errorTrackingConfig: ErrorTrackingConfig(
+    onError: (e, {stackTrace, extra, tags}) async {
+      // Sentry
+      await Sentry.captureException(e, stackTrace: stackTrace);
+
+      // Firebase Crashlytics
+      FirebaseCrashlytics.instance.recordError(e, stackTrace);
+
+      // Custom / Debug
+      debugPrint('Error: $e');
+    },
+  ),
+  
+  // 📈 Request metrics (Firebase, Amplitude, etc.)
+  metricsConfig: const MetricsConfig(
+    onMetrics: (metrics) {
+      // Exemple avec votre service d'analytics
+      debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
+    },
+  ),
 );
-
-// GET request
-final users = await client.get('/users');
-
-// POST request
-final newUser = await client.post('/users', data: {
-  'name': 'John Doe',
-  'email': 'john@example.com',
-});
 ```
 
-### With Authentication (Recommended)
+---
 
-Using `SecureTokenProvider` for zero-boilerplate secure token management:
+## Features
+
+### 🔐 Authentication & Secure Storage
 
 ```dart
+// SecureTokenProvider utilise flutter_secure_storage
 final tokenProvider = SecureTokenProvider();
 
 final client = ApiClientFactory.create(
@@ -88,138 +138,146 @@ final client = ApiClientFactory.create(
     tokenProvider: tokenProvider,
     refreshEndpoint: '/auth/refresh',
     onTokenRefreshed: (response) async {
-      final data = response.data;
+      final data = response.data as Map<String, dynamic>;
       await tokenProvider.saveTokens(
-        data['access_token'],
-        data['refresh_token'],
+        data['access_token'] as String,
+        data['refresh_token'] as String,
       );
     },
   ),
 );
 
-// After login, save tokens
+// Après login
 await tokenProvider.saveTokens(accessToken, refreshToken);
 
-// On logout, clear tokens
+// Logout
 await tokenProvider.clearTokens();
 ```
 
-### Secure Token Storage
+**Refresh token queue** : Si plusieurs requêtes échouent avec 401, une seule refresh est lancée et toutes les requêtes attendent puis réessaient automatiquement.
 
-`SecureTokenProvider` uses `flutter_secure_storage` under the hood with secure defaults:
+---
 
-```dart
-// Basic usage - tokens stored securely
-final tokenProvider = SecureTokenProvider();
-
-// Custom storage keys
-final tokenProvider = SecureTokenProvider(
-  accessTokenKey: 'my_access_token',
-  refreshTokenKey: 'my_refresh_token',
-);
-
-// Share storage with other secrets
-final storage = SecureStorageService();
-final tokenProvider = SecureTokenProvider(storage: storage);
-
-// Store other secrets using the same storage
-await storage.write('firebase_token', firebaseToken);
-await storage.write('api_key', apiKey);
-```
-
-### With Retry
+### 🔄 Retry avec Exponential Backoff
 
 ```dart
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
-  retryConfig: RetryConfig(
-    maxRetries: 3,
-    retryableStatusCodes: {408, 429, 500, 502, 503, 504},
-    initialDelay: Duration(milliseconds: 500),
-    maxDelay: Duration(seconds: 30),
+  retryConfig: const RetryConfig(
+    maxAttempts: 3,
+    retryStatusCodes: [500, 502, 503, 504],
+    baseDelayMs: 1000,
+    multiplier: 2.0,  // 1s → 2s → 4s
   ),
 );
 
-// Disable retry for specific request
-final response = await client.get(
+// Désactiver retry pour une requête spécifique
+final response = await client.get<Map<String, dynamic>>(
   '/critical-endpoint',
-  options: Options(extra: {'noRetry': true}),
+  options: Options(extra: {noRetryKey: true}),
 );
 ```
 
-### With Caching
+---
+
+### 💾 Cache Intelligent
 
 ```dart
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
   cacheConfig: CacheConfig(
-    defaultStrategy: CacheStrategy.networkFirst,
-    defaultTtl: Duration(minutes: 5),
+    strategy: CacheStrategy.networkFirst,
+    defaultTtl: const Duration(minutes: 5),
   ),
 );
 
-// Use cache-first for static data
-final config = await client.get(
+// Override par requête
+final config = await client.get<Map<String, dynamic>>(
   '/app-config',
   options: Options(extra: {
     'cacheStrategy': CacheStrategy.cacheFirst,
-    'cacheTtl': Duration(hours: 24),
+    'cacheTtl': const Duration(hours: 24),
   }),
 );
 
-// Force refresh
-final freshData = await client.get(
+// Forcer refresh
+final fresh = await client.get<Map<String, dynamic>>(
   '/users',
   options: Options(extra: {'forceRefresh': true}),
 );
 ```
 
-### With Logging
+| Strategy | Comportement |
+|----------|--------------|
+| `cacheFirst` | Cache d'abord, network en background |
+| `networkFirst` | Network d'abord, fallback cache |
+| `cacheOnly` | Cache uniquement |
+| `networkOnly` | Network uniquement |
+
+---
+
+### 📊 Logging
 
 ```dart
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
-  loggerConfig: LoggerConfig(
+  loggerConfig: const LoggerConfig(
     level: LogLevel.info,
-    logRequestHeaders: true,
-    logResponseBody: true,
     redactedHeaders: ['Authorization', 'Cookie'],
   ),
 );
 ```
 
-### With Sentry
+| Level | Description |
+|-------|-------------|
+| `none` | Aucun log |
+| `error` | Erreurs uniquement |
+| `warn` | Warnings + erreurs |
+| `info` | Info + warnings + erreurs |
+| `trace` | Tout (debug) |
+
+---
+
+### 🐛 Sentry Integration
+
+**1. Initialisation Sentry (dans `main.dart`) :**
 
 ```dart
-import 'package:sentry_flutter/sentry_flutter.dart';
-
 void main() async {
-  // Optional: ensures Flutter errors are captured before runApp
-  SentryWidgetsFlutterBinding.ensureInitialized();
-
   await SentrySetup.init(
-    options: SentrySetupOptions(
-      dsn: 'your-sentry-dsn',
-      environment: 'production',
+    options: SentrySetupOptions.production(
+      dsn: 'https://xxx@xxx.ingest.sentry.io/xxx',
     ),
-    appRunner: () async {
-      runApp(const MyApp());
-    },
+    appRunner: () => runApp(const MyApp()),
   );
 }
 
-// In your app
+// Ou mode développement (pas de traces/replays)
+await SentrySetup.init(
+  options: SentrySetupOptions.development(
+    dsn: 'your-sentry-dsn',
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+**2. Configuration du client API :**
+
+```dart
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
-);
-
-// Add Sentry interceptor (environment already set in SentrySetup.init)
-client.interceptors.add(SentryInterceptor(
-  config: SentryConfig(
-    captureException: (e, {stackTrace, extra, tags}) async {
-      await Sentry.captureException(e, stackTrace: stackTrace);
+  errorTrackingConfig: ErrorTrackingConfig(
+    onError: (e, {stackTrace, extra, tags}) async {
+      await Sentry.captureException(
+        e,
+        stackTrace: stackTrace,
+        withScope: (scope) {
+          extra?.forEach((key, value) => scope.setExtra(key, value));
+          tags?.forEach((key, value) => scope.setTag(key, value));
+        },
+      );
     },
-    addBreadcrumb: (data) {
+    onBreadcrumb: (data) {
       Sentry.addBreadcrumb(Breadcrumb(
         message: data['message'] as String?,
         category: data['category'] as String?,
@@ -227,112 +285,99 @@ client.interceptors.add(SentryInterceptor(
       ));
     },
   ),
-));
-```
-
-### With Metrics
-
-```dart
-client.interceptors.add(MetricsInterceptor(
-  config: MetricsConfig(
-    onMetrics: (metrics) {
-      analytics.track('api_request', {
-        'method': metrics.method,
-        'path': metrics.path,
-        'duration_ms': metrics.durationMs,
-        'status_code': metrics.statusCode,
-        'success': metrics.success,
-      });
-    },
-    onBreadcrumb: (breadcrumb) {
-      // Track navigation breadcrumbs
-    },
-  ),
-));
-```
-
-### Full Configuration
-
-```dart
-final client = ApiClientFactory.create(
-  baseUrl: 'https://api.example.com',
-  config: ApiClientConfig(
-    connectTimeout: Duration(seconds: 30),
-    receiveTimeout: Duration(seconds: 30),
-    defaultHeaders: {
-      'X-App-Version': '1.0.0',
-      'X-Platform': Platform.operatingSystem,
-    },
-  ),
-  authConfig: AuthConfig(...),
-  retryConfig: RetryConfig(...),
-  cacheConfig: CacheConfig(...),
-  loggerConfig: LoggerConfig(...),
 );
 ```
 
-## Result Type
+| Option | Description |
+|--------|-------------|
+| `captureStatusCodes` | Status HTTP à capturer (défaut: 5xx) |
+| `captureRequestBody` | Inclure le body request (défaut: false) |
+| `captureResponseBody` | Inclure le body response (défaut: true) |
+| `redactedHeaders` | Headers à masquer (Authorization, Cookie...) |
 
-Apix provides a `Result<T>` type for safe error handling:
-
-```dart
-final result = await client.getResult<User>('/users/1');
-
-result.when(
-  success: (user) => print('Got user: ${user.name}'),
-  failure: (error) => print('Error: ${error.message}'),
-);
-
-// Or use pattern matching
-if (result.isSuccess) {
-  final user = result.data;
-}
-```
+---
 
 ## Error Handling
 
+### Hiérarchie d'exceptions
+
+```
+ApiException
+├── NetworkException
+│   ├── TimeoutException
+│   └── ConnectionException
+└── HttpException
+    ├── ClientException (4xx)
+    │   ├── UnauthorizedException (401)
+    │   ├── ForbiddenException (403)
+    │   └── NotFoundException (404)
+    └── ServerException (5xx)
+```
+
+### Try-catch classique
+
 ```dart
 try {
-  final response = await client.get('/users');
-} on HttpException catch (e) {
-  print('HTTP ${e.statusCode}: ${e.message}');
+  final response = await client.get<Map<String, dynamic>>('/users');
+} on NotFoundException catch (e) {
+  print('User not found: ${e.message}');
+} on UnauthorizedException catch (e) {
+  print('Please login again');
 } on NetworkException catch (e) {
-  print('Network error: ${e.message}');
+  print('Check your connection: ${e.message}');
 } on ApiException catch (e) {
   print('API error: ${e.message}');
 }
 ```
 
+### Result pattern (fonctionnel)
+
+```dart
+final result = await client.get<Map<String, dynamic>>('/users').getResult();
+
+result.when(
+  success: (response) => print('Got ${response.data}'),
+  failure: (error) => print('Error: ${error.message}'),
+);
+
+// Ou avec pattern matching
+if (result.isSuccess) {
+  final data = result.valueOrNull;
+}
+```
+
+---
+
 ## API Reference
 
-### Interceptors
+### ApiClientFactory.create
 
-| Interceptor | Description |
-|-------------|-------------|
-| `AuthInterceptor` | Handles token injection and refresh |
-| `RetryInterceptor` | Retries failed requests with backoff |
-| `CacheInterceptor` | Caches responses with configurable strategies |
-| `LoggerInterceptor` | Logs requests and responses |
-| `SentryInterceptor` | Captures errors and breadcrumbs |
-| `MetricsInterceptor` | Tracks request metrics |
+| Paramètre | Type | Description |
+|-----------|------|-------------|
+| `baseUrl` | `String` | URL de base (required) |
+| `connectTimeout` | `Duration` | Timeout connexion (30s) |
+| `receiveTimeout` | `Duration` | Timeout réception (30s) |
+| `headers` | `Map<String, dynamic>` | Headers par défaut |
+| `authConfig` | `AuthConfig?` | Configuration auth |
+| `retryConfig` | `RetryConfig?` | Configuration retry |
+| `cacheConfig` | `CacheConfig?` | Configuration cache |
+| `loggerConfig` | `LoggerConfig?` | Configuration logging |
+| `errorTrackingConfig` | `ErrorTrackingConfig?` | Configuration error tracking |
+| `metricsConfig` | `MetricsConfig?` | Configuration metrics |
+| `interceptors` | `List<Interceptor>?` | Interceptors custom |
 
-### Cache Strategies
+### Interceptors intégrés
 
-| Strategy | Description |
-|----------|-------------|
-| `CacheStrategy.cacheFirst` | Return cache, fetch in background |
-| `CacheStrategy.networkFirst` | Try network, fallback to cache |
-| `CacheStrategy.httpCacheAware` | Respect HTTP cache headers |
+| Interceptor | Ajouté via | Description |
+|-------------|------------|-------------|
+| `AuthInterceptor` | `authConfig` | Token injection + refresh queue |
+| `RetryInterceptor` | `retryConfig` | Retry avec backoff |
+| `CacheInterceptor` | `cacheConfig` | Cache multi-stratégies |
+| `LoggerInterceptor` | `loggerConfig` | Logging request/response |
+| `ErrorTrackingInterceptor` | `errorTrackingConfig` | Error tracking |
+| `MetricsInterceptor` | `metricsConfig` | Request metrics |
 
-### Log Levels
-
-| Level | Description |
-|-------|-------------|
-| `LogLevel.none` | No logging |
-| `LogLevel.error` | Errors only |
-| `LogLevel.warn` | Warnings and errors |
-| `LogLevel.info` | Info, warnings, errors |
-| `LogLevel.trace` | Everything |
+---
 
 ## Example App
 
@@ -373,5 +418,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://germinator-space.com">Germinator</a>
+  Made with ❤️ by <a href="https://github.com/Germinator97">Germinator</a>
 </p>

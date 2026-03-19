@@ -61,6 +61,12 @@
 <li><span class="parameter" id="create-param-sendTimeout"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Duration-class.html">Duration</a></span> <span class="parameter-name">sendTimeout</span> = <span class="default-value">const Duration(seconds: 30)</span>, </span></li>
 <li><span class="parameter" id="create-param-defaultContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">defaultContentType</span> = <span class="default-value">&#39;application&#47;json&#39;</span>, </span></li>
 <li><span class="parameter" id="create-param-headers"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">headers</span>, </span></li>
+<li><span class="parameter" id="create-param-authConfig"><span class="type-annotation"><a href="../../apix/AuthConfig-class.html">AuthConfig</a>?</span> <span class="parameter-name">authConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-retryConfig"><span class="type-annotation"><a href="../../apix/RetryConfig-class.html">RetryConfig</a>?</span> <span class="parameter-name">retryConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-cacheConfig"><span class="type-annotation"><a href="../../apix/CacheConfig-class.html">CacheConfig</a>?</span> <span class="parameter-name">cacheConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-loggerConfig"><span class="type-annotation"><a href="../../apix/LoggerConfig-class.html">LoggerConfig</a>?</span> <span class="parameter-name">loggerConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-errorTrackingConfig"><span class="type-annotation"><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a>?</span> <span class="parameter-name">errorTrackingConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-metricsConfig"><span class="type-annotation"><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a>?</span> <span class="parameter-name">metricsConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-interceptors"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?</span> <span class="parameter-name">interceptors</span>, </span></li>
 <li><span class="parameter" id="create-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
 </ol>})
@@ -73,7 +79,21 @@
   <p>Creates an <a href="../../apix/ApiClient-class.html">ApiClient</a> with the given <code>baseUrl</code>.</p>
 <p>All timeout values default to 30 seconds.</p>
 <p>Example:</p>
-<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(baseUrl: 'https://api.example.com');
+<pre class="language-dart"><code class="language-dart">final tokenProvider = SecureTokenProvider();
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  authConfig: AuthConfig(
+    tokenProvider: tokenProvider,
+    refreshEndpoint: '/auth/refresh',
+    onTokenRefreshed: (response) async {
+      await tokenProvider.saveTokens(
+        response.data['access_token'],
+        response.data['refresh_token'],
+      );
+    },
+  ),
+  retryConfig: const RetryConfig(),
+);
 </code></pre>
 </section>
 
@@ -88,6 +108,12 @@
   Duration sendTimeout = const Duration(seconds: 30),
   String? defaultContentType = &#39;application&#47;json&#39;,
   Map&lt;String, dynamic&gt;? headers,
+  AuthConfig? authConfig,
+  RetryConfig? retryConfig,
+  CacheConfig? cacheConfig,
+  LoggerConfig? loggerConfig,
+  ErrorTrackingConfig? errorTrackingConfig,
+  MetricsConfig? metricsConfig,
   List&lt;Interceptor&gt;? interceptors,
   HttpClientAdapter? httpClientAdapter,
 }) {
@@ -100,7 +126,16 @@
     headers: headers,
     interceptors: interceptors,
   );
-  return fromConfig(config, httpClientAdapter: httpClientAdapter);
+  return fromConfig(
+    config,
+    authConfig: authConfig,
+    retryConfig: retryConfig,
+    cacheConfig: cacheConfig,
+    loggerConfig: loggerConfig,
+    errorTrackingConfig: errorTrackingConfig,
+    metricsConfig: metricsConfig,
+    httpClientAdapter: httpClientAdapter,
+  );
 }</code></pre>
 </section>
 
@@ -129,7 +164,7 @@
 <footer>
   <span class="no-break">
     apix
-      0.0.1
+      1.0.1
   </span>
   
 </footer>
