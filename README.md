@@ -379,7 +379,26 @@ if (result.isSuccess) {
 
 ---
 
+## Example App
+
+A complete Flutter app demonstrating all ApiX features is available on GitHub:
+
+👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
+
+<p align="center">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App" width="300">
+</p>
+
+Features demonstrated:
+- 🔐 SecureTokenProvider with simplified refresh flow
+- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache)
+- 🔄 Retry logic with exponential backoff
+- 🐛 Sentry integration with error testing
+- 📊 Request metrics and logging
+
 ## Contributing
+
+Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTING.md) first.
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -387,11 +406,14 @@ if (result.isSuccess) {
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
----
-
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Built on top of [Dio](https://pub.dev/packages/dio)
+- Inspired by best practices from production Flutter apps
 
 ---
 
