@@ -53,7 +53,7 @@ This document provides the complete epic and story breakdown for apix, decomposi
 - FR37: System can report errors with full context (request, response, stack)
 - FR38: Developer can create custom interceptors for monitoring (Sentry, Firebase, etc.)
 - FR39: Developer can use `.getResult()` for functional Result<T,E> pattern instead of exceptions
-- FR40: System provides built-in SentryInterceptor with SentryConfig (dsn, environment, enabled)
+- FR40: System provides built-in ErrorTrackingInterceptor with ErrorTrackingConfig (onError, onBreadcrumb, environment)
 - FR41: Developer can enable/disable Sentry reporting per environment
 - FR42: System automatically captures API errors to Sentry with request context
 - FR43: Developer can use SecureStorageService for secure key-value storage
@@ -592,7 +592,7 @@ So that I can integrate with my logging solution.
 **Then** all logs go through my handler
 **And** I receive structured log data (not just strings)
 
-### Story 7.3: Implement SentryInterceptor
+### Story 7.3: Implement ErrorTrackingInterceptor
 
 As a developer,
 I want Sentry error reporting built-in,
@@ -600,8 +600,8 @@ So that I don't have to implement it myself.
 
 **Acceptance Criteria:**
 
-**Given** SentryConfig with dsn and environment
-**Then** API errors are captured to Sentry
+**Given** ErrorTrackingConfig with onError callback
+**Then** API errors are captured to error tracking service
 **And** request context (URL, method, headers) is included
 **And** I can enable/disable per environment via enabled flag
 
@@ -784,3 +784,51 @@ So that I can integrate it quickly.
 **And** basic and advanced usage examples are provided
 **And** example app uses SecureTokenProvider
 **And** CHANGELOG documents v0.3.0 changes
+
+---
+
+## Epic 10: Unified Configuration API (v1.0.1)
+
+Le développeur peut configurer tous les interceptors via des paramètres déclaratifs dans `ApiClientFactory.create`.
+
+### Story 10.1: Add Config Parameters to ApiClientFactory
+
+As a developer,
+I want to configure auth, retry, cache, logger, and sentry via factory parameters,
+So that I don't need to manually create and add interceptors.
+
+**Acceptance Criteria:**
+
+**Given** ApiClientFactory.create
+**When** I provide authConfig, retryConfig, cacheConfig, loggerConfig, errorTrackingConfig, metricsConfig
+**Then** the corresponding interceptors are automatically created and added
+**And** interceptors are added in correct order (auth, retry, cache, logger, sentry, custom)
+**And** all parameters are optional for backward compatibility
+
+**Implementation:**
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  authConfig: AuthConfig(...),
+  retryConfig: const RetryConfig(...),
+  cacheConfig: CacheConfig(...),
+  loggerConfig: const LoggerConfig(...),
+  errorTrackingConfig: ErrorTrackingConfig(...),
+  metricsConfig: MetricsConfig(...),
+);
+```
+
+### Story 10.2: Update Documentation for Unified API
+
+As a developer,
+I want README and examples to showcase the unified configuration API,
+So that I can adopt it quickly.
+
+**Acceptance Criteria:**
+
+**Given** README.md
+**Then** Configuration Complète section shows all 5 parameters
+**And** Each feature section uses the unified API style
+**And** example.dart uses unified configuration
+**And** CHANGELOG documents v1.0.1 changes

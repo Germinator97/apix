@@ -223,15 +223,16 @@ abstract class TokenProvider {
 
 ### ADR-008: Sentry Built-in Integration
 
-**Decision:** Fournir SentryInterceptor et SentryConfig comme built-in, pas juste custom.
+**Decision:** Fournir ErrorTrackingInterceptor et ErrorTrackingConfig comme built-in, pas juste custom.
 
 ```dart
 final client = ApiClient(
   baseUrl: 'https://api.example.com',
-  sentryConfig: SentryConfig(
-    dsn: 'https://xxx@sentry.io/123',
+  errorTrackingConfig: ErrorTrackingConfig(
     environment: 'production',
-    enabled: !kDebugMode,
+    onError: (e, {stackTrace, extra, tags}) async {
+      await Sentry.captureException(e, stackTrace: stackTrace);
+    },
   ),
 );
 ```

@@ -145,6 +145,22 @@ and handles token refresh on configured status codes.
   Abstract interface for cache storage backends.
 </dd>
 
+          <dt id="ErrorTrackingConfig">
+  <span class="name "><a href="../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a></span> 
+
+</dt>
+<dd>
+  Configuration for the error tracking interceptor.
+</dd>
+
+          <dt id="ErrorTrackingInterceptor">
+  <span class="name "><a href="../apix/ErrorTrackingInterceptor-class.html">ErrorTrackingInterceptor</a></span> 
+
+</dt>
+<dd>
+  Interceptor that captures API errors to error tracking services.
+</dd>
+
           <dt id="Failure">
   <span class="name "><a href="../apix/Failure-class.html">Failure</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>, <span class="type-parameter">E extends <a href="../apix/ApiException-class.html">ApiException</a></span>&gt;</span></span> 
 
@@ -272,22 +288,6 @@ secure key-value storage operations.
 </dt>
 <dd>
   A ready-to-use <a href="../apix/TokenProvider-class.html">TokenProvider</a> implementation using <a href="../apix/SecureStorageService-class.html">SecureStorageService</a>.
-</dd>
-
-          <dt id="SentryConfig">
-  <span class="name "><a href="../apix/SentryConfig-class.html">SentryConfig</a></span> 
-
-</dt>
-<dd>
-  Configuration for the Sentry interceptor.
-</dd>
-
-          <dt id="SentryInterceptor">
-  <span class="name "><a href="../apix/SentryInterceptor-class.html">SentryInterceptor</a></span> 
-
-</dt>
-<dd>
-  Interceptor that captures API errors to Sentry or similar services.
 </dd>
 
           <dt id="SentrySetup">
@@ -596,6 +596,14 @@ secure key-value storage operations.
   Exception for HTTP-related errors (4xx, 5xx responses).
 </dd>
 
+          <dt id="HttpTrackingException">
+  <span class="name "><a href="../apix/HttpTrackingException-class.html">HttpTrackingException</a></span> 
+
+</dt>
+<dd>
+  Exception representing an HTTP error captured by error tracking.
+</dd>
+
           <dt id="NetworkException">
   <span class="name "><a href="../apix/NetworkException-class.html">NetworkException</a></span> 
 
@@ -610,14 +618,6 @@ secure key-value storage operations.
 </dt>
 <dd>
   Exception thrown when a resource is not found (404 Not Found).
-</dd>
-
-          <dt id="SentryHttpException">
-  <span class="name "><a href="../apix/SentryHttpException-class.html">SentryHttpException</a></span> 
-
-</dt>
-<dd>
-  Exception representing an HTTP error captured by Sentry.
 </dd>
 
           <dt id="ServerException">
@@ -673,7 +673,7 @@ secure key-value storage operations.
 <footer>
   <span class="no-break">
     apix
-      0.0.1
+      1.0.1
   </span>
   
 </footer>

@@ -56,6 +56,12 @@
       
 <span class="returntype"><a href="../../apix/ApiClient-class.html">ApiClient</a></span>
 <span class="name ">fromConfig</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="fromConfig-param-config"><span class="type-annotation"><a href="../../apix/ApiClientConfig-class.html">ApiClientConfig</a></span> <span class="parameter-name">config</span>, {</span></li>
+<li><span class="parameter" id="fromConfig-param-authConfig"><span class="type-annotation"><a href="../../apix/AuthConfig-class.html">AuthConfig</a>?</span> <span class="parameter-name">authConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-retryConfig"><span class="type-annotation"><a href="../../apix/RetryConfig-class.html">RetryConfig</a>?</span> <span class="parameter-name">retryConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-cacheConfig"><span class="type-annotation"><a href="../../apix/CacheConfig-class.html">CacheConfig</a>?</span> <span class="parameter-name">cacheConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-loggerConfig"><span class="type-annotation"><a href="../../apix/LoggerConfig-class.html">LoggerConfig</a>?</span> <span class="parameter-name">loggerConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-errorTrackingConfig"><span class="type-annotation"><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a>?</span> <span class="parameter-name">errorTrackingConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-metricsConfig"><span class="type-annotation"><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a>?</span> <span class="parameter-name">metricsConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
 </ol>})
 
@@ -77,6 +83,12 @@ final client = ApiClientFactory.fromConfig(config);
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">static ApiClient fromConfig(
   ApiClientConfig config, {
+  AuthConfig? authConfig,
+  RetryConfig? retryConfig,
+  CacheConfig? cacheConfig,
+  LoggerConfig? loggerConfig,
+  ErrorTrackingConfig? errorTrackingConfig,
+  MetricsConfig? metricsConfig,
   HttpClientAdapter? httpClientAdapter,
 }) {
   final dio = Dio();
@@ -99,6 +111,40 @@ final client = ApiClientFactory.fromConfig(config);
     MultipartInterceptor(defaultContentType: config.defaultContentType),
   );
 
+  &#47;&#47; Add auth interceptor if configured
+  if (authConfig != null) {
+    dio.interceptors.add(AuthInterceptor(authConfig, dio));
+  }
+
+  &#47;&#47; Add retry interceptor if configured
+  if (retryConfig != null) {
+    dio.interceptors.add(RetryInterceptor(config: retryConfig, dio: dio));
+  }
+
+  &#47;&#47; Add cache interceptor if configured
+  if (cacheConfig != null) {
+    final cacheInterceptor = CacheInterceptor(config: cacheConfig);
+    cacheInterceptor.setDio(dio);
+    dio.interceptors.add(cacheInterceptor);
+  }
+
+  &#47;&#47; Add logger interceptor if configured
+  if (loggerConfig != null) {
+    dio.interceptors.add(LoggerInterceptor(config: loggerConfig));
+  }
+
+  &#47;&#47; Add error tracking interceptor if configured
+  if (errorTrackingConfig != null) {
+    dio.interceptors
+        .add(ErrorTrackingInterceptor(config: errorTrackingConfig));
+  }
+
+  &#47;&#47; Add metrics interceptor if configured
+  if (metricsConfig != null) {
+    dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
+  }
+
+  &#47;&#47; Add custom interceptors
   if (config.interceptors != null) {
     dio.interceptors.addAll(config.interceptors!);
   }
@@ -132,7 +178,7 @@ final client = ApiClientFactory.fromConfig(config);
 <footer>
   <span class="no-break">
     apix
-      0.0.1
+      1.0.1
   </span>
   
 </footer>

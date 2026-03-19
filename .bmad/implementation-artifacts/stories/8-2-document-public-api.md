@@ -60,10 +60,11 @@ So that I understand every class and method.
   - [x] LogEntry - documented
 
 - [x] Task 8: Review Observability module documentation
-  - [x] SentryConfig - documented with example
-  - [x] SentryInterceptor - documented with example
+  - [x] ErrorTrackingConfig - documented with example
+  - [x] ErrorTrackingInterceptor - documented with example
   - [x] MetricsConfig - documented
   - [x] MetricsInterceptor - documented with example
+  - [x] SentrySetup - documented with example
 
 - [x] Task 9: Fix dartdoc warnings
   - [x] Escape brackets in status code defaults
