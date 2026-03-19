@@ -35,7 +35,7 @@ classification:
 2. **Refresh token queue** — Gestion automatique des race conditions (unique sur le marche)
 3. **Config simple + overridable** — Fonctionne out-of-the-box, tout personnalisable
 4. **Exceptions + Result optionnel** — Idiomatique par defaut, `.getResult()` pour pattern fonctionnel
-5. **Sentry built-in** — SentryInterceptor pret a l'emploi avec SentryConfig (dsn, environment)
+5. **Error tracking built-in** — ErrorTrackingInterceptor pret a l'emploi (Sentry, Crashlytics, etc.)
 6. **Deux modes** — API simple pour demarrer, codegen optionnel pour type-safety
 
 **Moment aha! :** "Je n'ai plus a gerer plusieurs composants — tout est integre."
@@ -297,22 +297,28 @@ apix/
 
 ### Post-MVP Features
 
-**Phase 2 (v0.3 - SecureTokenProvider) :**
+**Phase 2 (v0.3 - SecureTokenProvider) :** ✅
 - SecureStorageService (wrapper flutter_secure_storage)
 - SecureTokenProvider (implementation prete a l'emploi de TokenProvider)
 - AuthConfig updates (refreshEndpoint, refreshHeaders, onTokenRefreshed)
 - Simplified refresh flow (URL only, raw Response returned)
 
-**Phase 3 (v0.4 - Growth) :**
-- apix_generator (codegen Retrofit-like)
-- Annotations pour type-safe API definitions
-
-**Phase 4 (v1.0 - Stable) :**
+**Phase 3 (v1.0.0 - First Stable Release) :** ✅
 - Stabilisation, bug fixes
 - Documentation complete
-- 160/160 pub points
+- 401 tests passants
+
+**Phase 4 (v1.0.1 - Unified Configuration API) :** ✅
+- `authConfig` parameter in ApiClientFactory.create
+- `retryConfig` parameter in ApiClientFactory.create
+- `cacheConfig` parameter in ApiClientFactory.create
+- `loggerConfig` parameter in ApiClientFactory.create
+- `errorTrackingConfig` parameter in ApiClientFactory.create
+- `metricsConfig` parameter in ApiClientFactory.create
+- README reecrit avec nouvelle API unifiee
 
 **Phase 5 (v1.x - Expansion) :**
+- apix_generator (codegen Retrofit-like)
 - Offline sync (mutations persistees)
 - Mock server (tests integration)
 - apix_live (WebSocket/SSE)
@@ -389,7 +395,7 @@ apix/
 - FR36: Developer can track request/response metrics (timing, status)
 - FR37: System can report errors with full context (request, response, stack)
 - FR38: Developer can create custom interceptors for monitoring (Sentry, Firebase, etc.)
-- FR40: System provides built-in SentryInterceptor with SentryConfig (dsn, environment, enabled)
+- FR40: System provides built-in ErrorTrackingInterceptor with ErrorTrackingConfig (onError, onBreadcrumb, environment)
 - FR41: Developer can enable/disable Sentry reporting per environment
 - FR42: System automatically captures API errors to Sentry with request context
 

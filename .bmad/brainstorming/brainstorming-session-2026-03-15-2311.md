@@ -43,7 +43,7 @@ Interceptor Layer
 ├── AuthInterceptor      → gère refresh token
 ├── RetryInterceptor     → retry intelligent & backoff
 ├── LoggerInterceptor    → console/log
-├── SentryInterceptor    → remontée erreurs / monitoring
+├── ErrorTrackingInterceptor → remontée erreurs / monitoring
 ├── MultipartInterceptor → upload fichiers
 └── ... autres plugins
      │
@@ -182,7 +182,7 @@ Result / Model
 
 **Eliminate:**
 - [E #1] Notre propre cache (pas dio_cache_interceptor)
-- [E #2] Interceptors built-in gardés avec *Config modifiables (RetryConfig, AuthConfig, CacheConfig, SentryConfig, etc.)
+- [E #2] Interceptors built-in gardés avec *Config modifiables (RetryConfig, AuthConfig, CacheConfig, ErrorTrackingConfig, etc.)
 
 **Reverse:**
 - [R #1] Response-driven avec overrides + code généré modifiable (approche hybride: base générée + extension manuelle)

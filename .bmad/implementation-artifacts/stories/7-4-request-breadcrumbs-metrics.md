@@ -55,13 +55,7 @@ dio.interceptors.add(MetricsInterceptor(
   config: MetricsConfig(
     onMetrics: (metrics) {
       // Send to analytics
-      analytics.track('api_request', {
-        'method': metrics.method,
-        'path': metrics.path,
-        'duration_ms': metrics.durationMs,
-        'status_code': metrics.statusCode,
-        'success': metrics.success,
-      });
+      debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
     },
     onBreadcrumb: (breadcrumb) {
       // Add to Sentry

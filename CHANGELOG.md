@@ -1,3 +1,21 @@
+## 1.1.0
+
+### Added
+
+* **`authConfig` parameter** in `ApiClientFactory.create` - Configure authentication directly
+* **`retryConfig` parameter** in `ApiClientFactory.create` - Configure retry logic directly
+* **`cacheConfig` parameter** in `ApiClientFactory.create` - Configure caching directly
+* **`loggerConfig` parameter** in `ApiClientFactory.create` - Configure logging directly
+* **`errorTrackingConfig` parameter** in `ApiClientFactory.create` - Configure error tracking directly (Sentry, Crashlytics, etc.)
+* **`metricsConfig` parameter** in `ApiClientFactory.create` - Configure request metrics directly
+
+### Changed
+
+* Renamed `captureException` → `onError`, `addBreadcrumb` → `onBreadcrumb`
+* Updated README documentation to match actual API signatures
+
+---
+
 ## 1.0.0
 
 ### 🎉 First Stable Release
@@ -63,5 +81,5 @@ ApiX is now production-ready with a complete feature set for Flutter/Dart API cl
   - RetryInterceptor with exponential backoff
   - CacheInterceptor with multiple strategies
   - LoggerInterceptor for debugging
-  - SentryInterceptor for error reporting
+  - ErrorTrackingInterceptor for error reporting
   - Result pattern for functional error handling

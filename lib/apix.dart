@@ -4,7 +4,9 @@
 // - Auth refresh queue with automatic token management
 // - Exponential retry with configurable backoff
 // - Smart caching (CacheFirst, NetworkFirst, HttpCacheAware)
-// - Built-in Sentry integration
+// - Logging with configurable levels
+// - Error tracking with Sentry integration
+// - Request metrics and breadcrumbs
 
 // Auth
 export 'src/auth/auth_config.dart';
@@ -43,6 +45,6 @@ export 'src/logging/logger_config.dart';
 export 'src/logging/logger_interceptor.dart';
 
 // Observability
+export 'src/observability/error_tracking_interceptor.dart';
 export 'src/observability/metrics_interceptor.dart';
-export 'src/observability/sentry_interceptor.dart';
 export 'src/observability/sentry_setup.dart';
