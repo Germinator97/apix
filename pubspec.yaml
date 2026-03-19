@@ -1,8 +1,8 @@
 name: apix
 
-description: "Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching and built-in Sentry. Powered by Dio."
+description: "Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching and error tracking (Sentry-ready). Powered by Dio."
 
-version: 1.0.0
+version: 1.1.0
 
 homepage: https://github.com/Germinator97/apix
 

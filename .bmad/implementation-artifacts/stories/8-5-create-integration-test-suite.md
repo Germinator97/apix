@@ -43,4 +43,4 @@ Total: 64 integration tests covering:
 - CacheEntry, CacheConfig, CacheStorage
 - LoggerConfig, LogLevel, LogEntry
 - MetricsConfig, RequestMetrics
-- SentryConfig, SentrySetupOptions
+- ErrorTrackingConfig, SentrySetupOptions
