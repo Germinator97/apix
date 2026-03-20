@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^1.0.0
+  apix: ^1.1.1
 ```
 
 ```bash
@@ -299,6 +299,21 @@ final client = ApiClientFactory.create(
 
 ## Error Handling
 
+### Transformation automatique des erreurs
+
+ApiX transforme automatiquement toutes les erreurs Dio en exceptions typées grâce à `ErrorMapperInterceptor` (ajouté automatiquement) :
+
+| Erreur Dio | Exception ApiX |
+|------------|----------------|
+| `connectionTimeout`, `sendTimeout`, `receiveTimeout` | `TimeoutException` |
+| `connectionError` | `ConnectionException` |
+| HTTP 401 | `UnauthorizedException` |
+| HTTP 403 | `ForbiddenException` |
+| HTTP 404 | `NotFoundException` |
+| HTTP 4xx/5xx | `HttpException` |
+
+Le **message** est extrait automatiquement de la réponse API (`message`, `error`, `detail`, `error_description`) ou fallback sur `"HTTP {statusCode}"`.
+
 ### Hiérarchie d'exceptions
 
 ```
@@ -376,6 +391,7 @@ if (result.isSuccess) {
 | `LoggerInterceptor` | `loggerConfig` | Logging request/response |
 | `ErrorTrackingInterceptor` | `errorTrackingConfig` | Error tracking |
 | `MetricsInterceptor` | `metricsConfig` | Request metrics |
+| `ErrorMapperInterceptor` | Automatique | Transforme DioException → ApiException |
 
 ---
 

@@ -11,7 +11,8 @@ See `example.dart` for:
 - Cache interceptor with strategies
 - Logger interceptor with header redaction
 - Typed response deserialization
-- Error handling with `Result` type
+- Error handling with `Result` type and typed `ApiException`
+- Automatic `DioException` → `ApiException` transformation
 - Token management (save, clear, storage access)
 
 ## Full Example App

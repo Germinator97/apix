@@ -23,6 +23,7 @@ export 'src/client/multipart_interceptor.dart';
 
 // Errors
 export 'src/errors/api_exception.dart';
+export 'src/errors/error_mapper_interceptor.dart';
 export 'src/errors/http_exception.dart';
 export 'src/errors/network_exception.dart';
 
