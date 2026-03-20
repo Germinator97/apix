@@ -177,7 +177,7 @@ class SentrySetup {
             );
 
         sentryOptions.beforeSendTransaction =
-            (transaction) => _beforeSendTransaction(
+            (transaction, hint) => _beforeSendTransaction(
                   transaction,
                   options,
                 );
