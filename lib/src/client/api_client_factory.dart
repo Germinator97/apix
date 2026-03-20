@@ -4,6 +4,7 @@ import '../auth/auth_config.dart';
 import '../auth/auth_interceptor.dart';
 import '../cache/cache_config.dart';
 import '../cache/cache_interceptor.dart';
+import '../errors/error_mapper_interceptor.dart';
 import '../logging/logger_config.dart';
 import '../logging/logger_interceptor.dart';
 import '../observability/error_tracking_interceptor.dart';
@@ -156,6 +157,10 @@ class ApiClientFactory {
     if (config.interceptors != null) {
       dio.interceptors.addAll(config.interceptors!);
     }
+
+    // Add error mapper interceptor last to transform all DioExceptions
+    // into typed ApiExceptions
+    dio.interceptors.add(const ErrorMapperInterceptor());
 
     return ApiClient(dio, config);
   }

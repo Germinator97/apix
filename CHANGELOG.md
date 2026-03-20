@@ -1,3 +1,19 @@
+## 1.1.1
+
+### Fixed
+
+* **`ErrorMapperInterceptor`** - `DioException` is now correctly transformed into typed `ApiException` subclasses as documented
+  - Timeout errors → `TimeoutException`
+  - Connection errors → `ConnectionException`
+  - HTTP 401 → `UnauthorizedException`
+  - HTTP 403 → `ForbiddenException`
+  - HTTP 404 → `NotFoundException`
+  - Other HTTP errors → `HttpException`
+  - Message extracted from response body (`message`, `error`, `detail`, `error_description`)
+  - Added automatically to all clients created via `ApiClientFactory`
+
+---
+
 ## 1.1.0
 
 ### Added
