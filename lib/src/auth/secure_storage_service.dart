@@ -36,14 +36,13 @@ class SecureStorageService {
   /// Creates a [SecureStorageService] with optional custom storage.
   ///
   /// If no [storage] is provided, a default [FlutterSecureStorage] is created
-  /// with `AndroidOptions.encryptedSharedPreferences` set to `true` for
-  /// better security on Android devices.
+  /// with secure defaults (RSA OAEP + AES-GCM on Android).
   /// On iOS, the accessibility is set to `KeychainAccessibility.first_unlock`
   /// to ensure the data is accessible only when the device is unlocked.
   SecureStorageService({FlutterSecureStorage? storage})
       : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+              aOptions: AndroidOptions(),
               iOptions:
                   IOSOptions(accessibility: KeychainAccessibility.first_unlock),
             );
