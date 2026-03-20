@@ -1,8 +1,8 @@
-## 1.1.1
+## 1.2.0
 
-### Fixed
+### Added
 
-* **`ErrorMapperInterceptor`** - `DioException` is now correctly transformed into typed `ApiException` subclasses as documented
+* **`ErrorMapperInterceptor`** - Automatically transforms `DioException` into typed `ApiException` subclasses
   - Timeout errors → `TimeoutException`
   - Connection errors → `ConnectionException`
   - HTTP 401 → `UnauthorizedException`
@@ -11,6 +11,15 @@
   - Other HTTP errors → `HttpException`
   - Message extracted from response body (`message`, `error`, `detail`, `error_description`)
   - Added automatically to all clients created via `ApiClientFactory`
+
+### Changed
+
+* **Dependencies updated** for latest versions compatibility:
+  - `dio`: `>=5.4.0 <7.0.0` (was `>=5.0.0`)
+  - `sentry_flutter`: `>=9.0.0 <10.0.0` (was `>=8.0.0`)
+  - `flutter_secure_storage`: `>=10.0.0 <11.0.0` (was `>=9.0.0`)
+* **`SecureStorageService`** - Uses new secure defaults (RSA OAEP + AES-GCM) on Android
+* **`SentrySetup`** - Updated for sentry_flutter 9.x API compatibility
 
 ---
 
