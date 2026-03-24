@@ -11,6 +11,21 @@
   - Simplifies error tracking configuration to a single line
   - Example: `errorTrackingConfig: ErrorTrackingConfig(onError: SentrySetup.captureException, onBreadcrumb: SentrySetup.addBreadcrumbFromMap)`
 
+* **`Result` functional methods** - Enhanced Result type with Either-like operations
+  - `getOrElse(defaultValue)` - Returns value or default on failure
+  - `flatMap(transform)` / `flatMapAsync` - Chains Result-returning operations
+  - `mapError(transform)` - Transforms the error type
+  - `recover(fallback)` - Recovers from failure with fallback value
+
+* **`ApiClient` flexible parsing methods** - Support for any response type, not just JSON
+  - `getAndParse(path, parser)` - Parse any response type (int, String, DateTime, etc.)
+  - `getAndParseOrNull` / `postAndParseOrNull` - Nullable variants
+  - `getAndDecodeOrNull` / `postAndDecodeOrNull` - Nullable JSON variants
+  - `getListAndParse(path, parser)` - Parse list of any type
+  - `getListAndDecodeOrNull` / `getListAndParseOrNull` - Nullable list variants
+  - `getListAndDecodeOrEmpty` / `getListAndParseOrEmpty` - Returns `[]` if null
+  - `putAndParse`, `patchAndParse` - PUT/PATCH variants
+
 ### Fixed
 
 * **`SecureStorageService`** - Auto-clear storage on bad padding exception

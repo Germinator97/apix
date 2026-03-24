@@ -169,7 +169,64 @@ class ApiClient {
 
   // ========== Typed Response Methods ==========
 
-  /// Sends a GET request and deserializes the response.
+  /// Sends a GET request and parses the response using [parser].
+  ///
+  /// Unlike [getAndDecode], accepts any response type (not just JSON objects).
+  ///
+  /// Example:
+  /// ```dart
+  /// // Parse JSON object
+  /// final user = await client.getAndParse('/users/1', User.fromJson);
+  ///
+  /// // Parse primitive
+  /// final count = await client.getAndParse('/users/count', (data) => data as int);
+  ///
+  /// // Parse with DateTime
+  /// final date = await client.getAndParse(
+  ///   '/server/time',
+  ///   (data) => DateTime.parse(data as String),
+  /// );
+  /// ```
+  Future<T> getAndParse<T>(
+    String path,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return parser(response.data);
+  }
+
+  /// Sends a GET request and parses the response, returning null if response is null.
+  ///
+  /// Example:
+  /// ```dart
+  /// final user = await client.getAndParseOrNull('/users/1', User.fromJson);
+  /// if (user == null) print('User not found');
+  /// ```
+  Future<T?> getAndParseOrNull<T>(
+    String path,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return response.data == null ? null : parser(response.data);
+  }
+
+  /// Sends a GET request and deserializes a JSON object response.
   ///
   /// Example:
   /// ```dart
@@ -192,6 +249,62 @@ class ApiClient {
       cancelToken: cancelToken,
     );
     return fromJson(response.data!);
+  }
+
+  /// Sends a GET request and deserializes a JSON object, returning null if empty.
+  Future<T?> getAndDecodeOrNull<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return null;
+    return fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Sends a POST request and parses the response using [parser].
+  Future<T> postAndParse<T>(
+    String path,
+    dynamic data,
+    T Function(dynamic responseData) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await post<dynamic>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return parser(response.data);
+  }
+
+  /// Sends a POST request and parses the response, returning null if empty.
+  Future<T?> postAndParseOrNull<T>(
+    String path,
+    dynamic data,
+    T Function(dynamic responseData) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await post<dynamic>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return response.data == null ? null : parser(response.data);
   }
 
   /// Sends a POST request and deserializes the response.
@@ -222,6 +335,45 @@ class ApiClient {
     return fromJson(response.data!);
   }
 
+  /// Sends a POST request and deserializes, returning null if empty.
+  Future<T?> postAndDecodeOrNull<T>(
+    String path,
+    dynamic data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await post<dynamic>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return null;
+    return fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Sends a PUT request and parses the response using [parser].
+  Future<T> putAndParse<T>(
+    String path,
+    dynamic data,
+    T Function(dynamic responseData) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await put<dynamic>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return parser(response.data);
+  }
+
   /// Sends a PUT request and deserializes the response.
   Future<T> putAndDecode<T>(
     String path,
@@ -239,6 +391,25 @@ class ApiClient {
       cancelToken: cancelToken,
     );
     return fromJson(response.data!);
+  }
+
+  /// Sends a PATCH request and parses the response using [parser].
+  Future<T> patchAndParse<T>(
+    String path,
+    dynamic data,
+    T Function(dynamic responseData) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await patch<dynamic>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return parser(response.data);
   }
 
   /// Sends a PATCH request and deserializes the response.
@@ -285,6 +456,124 @@ class ApiClient {
     return response.data!
         .cast<Map<String, dynamic>>()
         .map((json) => fromJson(json))
+        .toList();
+  }
+
+  /// Sends a GET request and parses a list response using [parser].
+  ///
+  /// More flexible than [getListAndDecode], works with any list item type.
+  ///
+  /// Example:
+  /// ```dart
+  /// final ids = await client.getListAndParse('/user-ids', (item) => item as int);
+  /// ```
+  Future<List<T>> getListAndParse<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<List<dynamic>>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    return response.data!.map((item) => parser(item)).toList();
+  }
+
+  /// Sends a GET request and deserializes a list, returning null if response is null.
+  ///
+  /// Example:
+  /// ```dart
+  /// final users = await client.getListAndDecodeOrNull('/users', User.fromJson);
+  /// if (users == null) print('No data');
+  /// ```
+  Future<List<T>?> getListAndDecodeOrNull<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return null;
+    return (response.data as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((json) => fromJson(json))
+        .toList();
+  }
+
+  /// Sends a GET request and deserializes a list, returning empty list if null.
+  ///
+  /// Example:
+  /// ```dart
+  /// final users = await client.getListAndDecodeOrEmpty('/users', User.fromJson);
+  /// // Always returns a list, never null
+  /// ```
+  Future<List<T>> getListAndDecodeOrEmpty<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return <T>[];
+    return (response.data as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map((json) => fromJson(json))
+        .toList();
+  }
+
+  /// Sends a GET request and parses a list, returning null if response is null.
+  Future<List<T>?> getListAndParseOrNull<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return null;
+    return (response.data as List<dynamic>)
+        .map((item) => parser(item))
+        .toList();
+  }
+
+  /// Sends a GET request and parses a list, returning empty list if null.
+  Future<List<T>> getListAndParseOrEmpty<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    final response = await get<dynamic>(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+    if (response.data == null) return <T>[];
+    return (response.data as List<dynamic>)
+        .map((item) => parser(item))
         .toList();
   }
 }
