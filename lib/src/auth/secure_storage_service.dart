@@ -47,6 +47,41 @@ class SecureStorageService {
                   IOSOptions(accessibility: KeychainAccessibility.first_unlock),
             );
 
+  /// Creates a [SecureStorageService] with biometric protection.
+  ///
+  /// On iOS, uses `KeychainAccessibility.passcode` with `userPresence` flag
+  /// requiring Face ID/Touch ID or passcode.
+  /// On Android, uses biometric-backed encryption (API 28+).
+  ///
+  /// **Flow:**
+  /// 1. User logs in → tokens stored securely
+  /// 2. User enables biometrics → protects access to storage
+  /// 3. On app resume → biometric prompt → access to refreshToken
+  ///
+  /// Example:
+  /// ```dart
+  /// final storage = SecureStorageService.withBiometrics();
+  /// final tokenProvider = SecureTokenProvider(storage: storage);
+  /// ```
+  factory SecureStorageService.withBiometrics({
+    String biometricPromptTitle = 'Authentication required',
+    String biometricPromptSubtitle = 'Authenticate to access your account',
+  }) {
+    return SecureStorageService(
+      storage: FlutterSecureStorage(
+        aOptions: AndroidOptions.biometric(
+          enforceBiometrics: true,
+          biometricPromptTitle: biometricPromptTitle,
+          biometricPromptSubtitle: biometricPromptSubtitle,
+        ),
+        iOptions: const IOSOptions(
+          accessibility: KeychainAccessibility.passcode,
+          accessControlFlags: [AccessControlFlag.userPresence],
+        ),
+      ),
+    );
+  }
+
   /// Writes a [value] for the given [key] to secure storage.
   ///
   /// If a value already exists for the key, it will be overwritten.
@@ -57,8 +92,30 @@ class SecureStorageService {
   /// Reads the value for the given [key] from secure storage.
   ///
   /// Returns `null` if no value exists for the key.
+  /// If a bad padding exception occurs (corrupted data), the storage is cleared.
   Future<String?> read(String key) async {
-    return _storage.read(key: key);
+    try {
+      return await _storage.read(key: key);
+    } catch (e) {
+      if (_isBadPaddingException(e)) {
+        await deleteAll();
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  /// Checks if the exception is a bad padding exception.
+  ///
+  /// This typically occurs when encrypted data is corrupted,
+  /// e.g., after app reinstall or key rotation.
+  bool _isBadPaddingException(Object e) {
+    final message = e.toString().toLowerCase();
+    return message.contains('bad padding') ||
+        message.contains('badpaddingexception') ||
+        message.contains('pad block corrupted') ||
+        message.contains('bad_decrypt') ||
+        message.contains('error:1e000065');
   }
 
   /// Deletes the value for the given [key] from secure storage.
@@ -78,14 +135,32 @@ class SecureStorageService {
   /// Checks if a value exists for the given [key].
   ///
   /// Returns `true` if a value exists, `false` otherwise.
+  /// If a bad padding exception occurs (corrupted data), the storage is cleared.
   Future<bool> containsKey(String key) async {
-    return _storage.containsKey(key: key);
+    try {
+      return await _storage.containsKey(key: key);
+    } catch (e) {
+      if (_isBadPaddingException(e)) {
+        await deleteAll();
+        return false;
+      }
+      rethrow;
+    }
   }
 
   /// Reads all key-value pairs from secure storage.
   ///
   /// Returns an empty map if no values exist.
+  /// If a bad padding exception occurs (corrupted data), the storage is cleared.
   Future<Map<String, String>> readAll() async {
-    return _storage.readAll();
+    try {
+      return await _storage.readAll();
+    } catch (e) {
+      if (_isBadPaddingException(e)) {
+        await deleteAll();
+        return {};
+      }
+      rethrow;
+    }
   }
 }

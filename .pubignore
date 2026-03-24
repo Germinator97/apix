@@ -2,3 +2,5 @@ coverage/
 doc/
 test/
 *.log
+_bmad/
+build/
