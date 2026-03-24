@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^1.2.0
+  apix: ^1.3.0
 ```
 
 ```bash
@@ -98,11 +98,16 @@ final client = ApiClientFactory.create(
     redactedHeaders: ['Authorization'],
   ),
   
-  // 🐛 Error tracking (Sentry, Crashlytics, etc.)
+  // 🐛 Error tracking (SentrySetup helper, Firebase Crashlytics)
   errorTrackingConfig: ErrorTrackingConfig(
     onError: (e, {stackTrace, extra, tags}) async {
-      // Sentry
-      await Sentry.captureException(e, stackTrace: stackTrace);
+      // SentrySetup
+      await SentrySetup.captureException(
+        e,
+        stackTrace: stackTrace,
+        extra: extra,
+        tags: tags,
+      );
 
       // Firebase Crashlytics
       FirebaseCrashlytics.instance.recordError(e, stackTrace);
@@ -267,23 +272,8 @@ await SentrySetup.init(
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
   errorTrackingConfig: ErrorTrackingConfig(
-    onError: (e, {stackTrace, extra, tags}) async {
-      await Sentry.captureException(
-        e,
-        stackTrace: stackTrace,
-        withScope: (scope) {
-          extra?.forEach((key, value) => scope.setExtra(key, value));
-          tags?.forEach((key, value) => scope.setTag(key, value));
-        },
-      );
-    },
-    onBreadcrumb: (data) {
-      Sentry.addBreadcrumb(Breadcrumb(
-        message: data['message'] as String?,
-        category: data['category'] as String?,
-        data: data['data'] as Map<String, dynamic>?,
-      ));
-    },
+    onError: SentrySetup.captureException,
+    onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
   ),
 );
 ```

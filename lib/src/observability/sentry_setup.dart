@@ -323,6 +323,26 @@ class SentrySetup {
     );
   }
 
+  /// Adds a breadcrumb from a map (for use with ErrorTrackingConfig.onBreadcrumb).
+  ///
+  /// Example:
+  /// ```dart
+  /// errorTrackingConfig: ErrorTrackingConfig(
+  ///   onError: SentrySetup.captureException,
+  ///   onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
+  /// ),
+  /// ```
+  static void addBreadcrumbFromMap(Map<String, dynamic> data) {
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: data['message'] as String?,
+        category: data['category'] as String?,
+        data: data['data'] as Map<String, dynamic>?,
+        level: SentryLevel.info,
+      ),
+    );
+  }
+
   /// Sets a user for the current scope.
   static void setUser({
     String? id,

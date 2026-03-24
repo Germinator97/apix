@@ -1,3 +1,25 @@
+## 1.3.0
+
+### Added
+
+* **`SecureStorageService.withBiometrics()`** - Factory constructor for biometric-protected storage
+  - iOS: Face ID / Touch ID via `userPresence` access control flag
+  - Android: Biometric-backed encryption via `AndroidOptions.biometric()` (API 28+)
+  - Customizable prompt titles for Android
+
+* **`SentrySetup.addBreadcrumbFromMap()`** - Helper method for `ErrorTrackingConfig.onBreadcrumb`
+  - Simplifies error tracking configuration to a single line
+  - Example: `errorTrackingConfig: ErrorTrackingConfig(onError: SentrySetup.captureException, onBreadcrumb: SentrySetup.addBreadcrumbFromMap)`
+
+### Fixed
+
+* **`SecureStorageService`** - Auto-clear storage on bad padding exception
+  - Handles corrupted encrypted data (e.g., after app reinstall or key rotation)
+  - Affected methods: `read()`, `readAll()`, `containsKey()`
+  - Returns safe defaults (`null`, `{}`, `false`) instead of throwing
+
+---
+
 ## 1.2.0
 
 ### Added
