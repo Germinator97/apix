@@ -37,6 +37,14 @@ sealed class Result<T, E extends ApiException> {
   /// Returns the success value or throws the error if this is a failure.
   T get valueOrThrow;
 
+  /// Returns the success value or the result of [defaultValue] if this is a failure.
+  ///
+  /// Example:
+  /// ```dart
+  /// final name = result.getOrElse(() => 'Unknown');
+  /// ```
+  T getOrElse(T Function() defaultValue);
+
   /// Transforms the result by applying [onSuccess] or [onFailure].
   ///
   /// Example:
@@ -72,6 +80,38 @@ sealed class Result<T, E extends ApiException> {
 
   /// Maps the success value using an async [transform].
   Future<Result<R, E>> mapAsync<R>(Future<R> Function(T value) transform);
+
+  /// Chains another Result-returning operation.
+  ///
+  /// If this is a success, applies [transform] to the value.
+  /// If this is a failure, returns the same failure.
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = userId.flatMap((id) => repository.getUser(id));
+  /// ```
+  Result<R, E> flatMap<R>(Result<R, E> Function(T value) transform);
+
+  /// Async version of [flatMap].
+  Future<Result<R, E>> flatMapAsync<R>(
+      Future<Result<R, E>> Function(T value) transform);
+
+  /// Transforms the error using [transform].
+  ///
+  /// If this is a success, returns the same success.
+  /// If this is a failure, applies [transform] to create a new error.
+  Result<T, F> mapError<F extends ApiException>(F Function(E error) transform);
+
+  /// Recovers from a failure by providing a fallback value.
+  ///
+  /// If this is a success, returns the same success.
+  /// If this is a failure, returns a success with the result of [recover].
+  ///
+  /// Example:
+  /// ```dart
+  /// final result = fetchUser().recover((error) => User.guest());
+  /// ```
+  Result<T, E> recover(T Function(E error) recover);
 }
 
 /// A successful result containing a [value].
@@ -98,6 +138,9 @@ final class Success<T, E extends ApiException> extends Result<T, E> {
   T get valueOrThrow => value;
 
   @override
+  T getOrElse(T Function() defaultValue) => value;
+
+  @override
   R fold<R>({
     required R Function(T value) onSuccess,
     required R Function(E error) onFailure,
@@ -119,6 +162,23 @@ final class Success<T, E extends ApiException> extends Result<T, E> {
   Future<Result<R, E>> mapAsync<R>(
           Future<R> Function(T value) transform) async =>
       Result.success(await transform(value));
+
+  @override
+  Result<R, E> flatMap<R>(Result<R, E> Function(T value) transform) =>
+      transform(value);
+
+  @override
+  Future<Result<R, E>> flatMapAsync<R>(
+          Future<Result<R, E>> Function(T value) transform) =>
+      transform(value);
+
+  @override
+  Result<T, F> mapError<F extends ApiException>(
+          F Function(E error) transform) =>
+      Success<T, F>(value);
+
+  @override
+  Result<T, E> recover(T Function(E error) recover) => this;
 
   @override
   bool operator ==(Object other) =>
@@ -158,6 +218,9 @@ final class Failure<T, E extends ApiException> extends Result<T, E> {
   T get valueOrThrow => throw error;
 
   @override
+  T getOrElse(T Function() defaultValue) => defaultValue();
+
+  @override
   R fold<R>({
     required R Function(T value) onSuccess,
     required R Function(E error) onFailure,
@@ -178,6 +241,24 @@ final class Failure<T, E extends ApiException> extends Result<T, E> {
   Future<Result<R, E>> mapAsync<R>(
           Future<R> Function(T value) transform) async =>
       Failure<R, E>(error);
+
+  @override
+  Result<R, E> flatMap<R>(Result<R, E> Function(T value) transform) =>
+      Failure<R, E>(error);
+
+  @override
+  Future<Result<R, E>> flatMapAsync<R>(
+          Future<Result<R, E>> Function(T value) transform) async =>
+      Failure<R, E>(error);
+
+  @override
+  Result<T, F> mapError<F extends ApiException>(
+          F Function(E error) transform) =>
+      Failure<T, F>(transform(error));
+
+  @override
+  Result<T, E> recover(T Function(E error) recover) =>
+      Success<T, E>(recover(error));
 
   @override
   bool operator ==(Object other) =>
