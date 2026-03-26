@@ -270,4 +270,501 @@ void main() {
       });
     });
   });
+
+  // ========== Typed Response Methods ==========
+
+  group('ApiClient Parse/Decode Methods', () {
+    void stubGet(dynamic data) {
+      when(() => mockDio.get<dynamic>(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse(data));
+    }
+
+    void stubGetTyped<T>(T data) {
+      when(() => mockDio.get<T>(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse<T>(data));
+    }
+
+    void stubPost(dynamic data) {
+      when(() => mockDio.post<dynamic>(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onSendProgress: any(named: 'onSendProgress'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse(data));
+    }
+
+    void stubPostTyped<T>(T data) {
+      when(() => mockDio.post<T>(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onSendProgress: any(named: 'onSendProgress'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse<T>(data));
+    }
+
+    group('getAndParse', () {
+      test('parses response.data with parser', () async {
+        stubGet(42);
+
+        final result =
+            await client.getAndParse('/count', (data) => data as int);
+
+        expect(result, equals(42));
+      });
+    });
+
+    group('getAndDecode', () {
+      test('deserializes response.data as Map', () async {
+        stubGetTyped<Map<String, dynamic>>({'id': 1, 'name': 'John'});
+
+        final result = await client.getAndDecode(
+          '/users/1',
+          (json) => json['name'] as String,
+        );
+
+        expect(result, equals('John'));
+      });
+    });
+
+    group('postAndParse', () {
+      test('parses response.data with parser', () async {
+        stubPost('created');
+
+        final result = await client.postAndParse(
+          '/action',
+          {'key': 'value'},
+          (data) => data as String,
+        );
+
+        expect(result, equals('created'));
+      });
+    });
+
+    group('postAndDecode', () {
+      test('deserializes response.data as Map', () async {
+        stubPostTyped<Map<String, dynamic>>({'id': 1, 'name': 'John'});
+
+        final result = await client.postAndDecode(
+          '/users',
+          {'name': 'John'},
+          (json) => json['name'] as String,
+        );
+
+        expect(result, equals('John'));
+      });
+    });
+  });
+
+  // ========== Data Extraction Methods ==========
+
+  group('ApiClient Data Methods (envelope unwrapping)', () {
+    void stubGet(dynamic data) {
+      when(() => mockDio.get<dynamic>(
+            any(),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse(data));
+    }
+
+    void stubPost(dynamic data) {
+      when(() => mockDio.post<dynamic>(
+            any(),
+            data: any(named: 'data'),
+            queryParameters: any(named: 'queryParameters'),
+            options: any(named: 'options'),
+            cancelToken: any(named: 'cancelToken'),
+            onSendProgress: any(named: 'onSendProgress'),
+            onReceiveProgress: any(named: 'onReceiveProgress'),
+          )).thenAnswer((_) async => createResponse(data));
+    }
+
+    // ---------- GET Data ----------
+
+    group('getAndParseData', () {
+      test('extracts and parses data from envelope', () async {
+        stubGet({'data': '2024-01-01'});
+
+        final result = await client.getAndParseData(
+          '/time',
+          (data) => DateTime.parse(data as String),
+        );
+
+        expect(result, equals(DateTime(2024, 1, 1)));
+      });
+    });
+
+    group('getAndParseDataOrNull', () {
+      test('returns parsed data when present', () async {
+        stubGet({'data': 42});
+
+        final result = await client.getAndParseDataOrNull(
+          '/count',
+          (data) => data as int,
+        );
+
+        expect(result, equals(42));
+      });
+
+      test('returns null when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getAndParseDataOrNull(
+          '/count',
+          (data) => data as int,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('getAndDecodeData', () {
+      test('extracts and deserializes JSON object from envelope', () async {
+        stubGet({
+          'data': {'id': 1, 'name': 'John'},
+        });
+
+        final result = await client.getAndDecodeData(
+          '/users/1',
+          (json) => json['name'] as String,
+        );
+
+        expect(result, equals('John'));
+      });
+    });
+
+    group('getAndDecodeDataOrNull', () {
+      test('returns deserialized object when present', () async {
+        stubGet({
+          'data': {'id': 1, 'name': 'John'},
+        });
+
+        final result = await client.getAndDecodeDataOrNull(
+          '/users/1',
+          (json) => json['name'] as String,
+        );
+
+        expect(result, equals('John'));
+      });
+
+      test('returns null when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getAndDecodeDataOrNull(
+          '/users/1',
+          (json) => json['name'] as String,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('getListAndDecodeData', () {
+      test('extracts and deserializes list from envelope', () async {
+        stubGet({
+          'data': [
+            {'id': 1},
+            {'id': 2},
+          ],
+        });
+
+        final result = await client.getListAndDecodeData(
+          '/users',
+          (json) => json['id'] as int,
+        );
+
+        expect(result, equals([1, 2]));
+      });
+    });
+
+    group('getListAndDecodeDataOrNull', () {
+      test('returns list when present', () async {
+        stubGet({
+          'data': [
+            {'id': 1},
+          ],
+        });
+
+        final result = await client.getListAndDecodeDataOrNull(
+          '/users',
+          (json) => json['id'] as int,
+        );
+
+        expect(result, equals([1]));
+      });
+
+      test('returns null when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getListAndDecodeDataOrNull(
+          '/users',
+          (json) => json['id'] as int,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('getListAndDecodeDataOrEmpty', () {
+      test('returns list when present', () async {
+        stubGet({
+          'data': [
+            {'id': 1},
+          ],
+        });
+
+        final result = await client.getListAndDecodeDataOrEmpty(
+          '/users',
+          (json) => json['id'] as int,
+        );
+
+        expect(result, equals([1]));
+      });
+
+      test('returns empty list when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getListAndDecodeDataOrEmpty(
+          '/users',
+          (json) => json['id'] as int,
+        );
+
+        expect(result, isEmpty);
+      });
+    });
+
+    group('getListAndParseData', () {
+      test('extracts and parses list from envelope', () async {
+        stubGet({
+          'data': ['admin', 'editor'],
+        });
+
+        final result = await client.getListAndParseData(
+          '/roles',
+          (item) => item as String,
+        );
+
+        expect(result, equals(['admin', 'editor']));
+      });
+    });
+
+    group('getListAndParseDataOrNull', () {
+      test('returns null when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getListAndParseDataOrNull(
+          '/roles',
+          (item) => item as String,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('getListAndParseDataOrEmpty', () {
+      test('returns empty list when data key is null', () async {
+        stubGet({'data': null});
+
+        final result = await client.getListAndParseDataOrEmpty(
+          '/roles',
+          (item) => item as String,
+        );
+
+        expect(result, isEmpty);
+      });
+    });
+
+    // ---------- POST Data ----------
+
+    group('postAndParseData', () {
+      test('extracts and parses data from envelope', () async {
+        stubPost({'data': 'token-123'});
+
+        final result = await client.postAndParseData(
+          '/auth',
+          {'email': 'test@test.com'},
+          (data) => data as String,
+        );
+
+        expect(result, equals('token-123'));
+      });
+    });
+
+    group('postAndParseDataOrNull', () {
+      test('returns null when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postAndParseDataOrNull(
+          '/auth',
+          {'email': 'test@test.com'},
+          (data) => data as String,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('postAndDecodeData', () {
+      test('extracts and deserializes JSON object from envelope', () async {
+        stubPost({
+          'data': {'id': 1, 'name': 'John'},
+        });
+
+        final result = await client.postAndDecodeData(
+          '/users',
+          {'name': 'John'},
+          (json) => json['id'] as int,
+        );
+
+        expect(result, equals(1));
+      });
+    });
+
+    group('postAndDecodeDataOrNull', () {
+      test('returns null when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postAndDecodeDataOrNull(
+          '/users',
+          {'name': 'John'},
+          (json) => json['id'] as int,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('postListAndDecodeData', () {
+      test('extracts and deserializes list from envelope', () async {
+        stubPost({
+          'data': [
+            {'id': 1},
+            {'id': 2},
+          ],
+        });
+
+        final result = await client.postListAndDecodeData(
+          '/search',
+          {'query': 'test'},
+          (json) => json['id'] as int,
+        );
+
+        expect(result, equals([1, 2]));
+      });
+    });
+
+    group('postListAndDecodeDataOrNull', () {
+      test('returns null when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postListAndDecodeDataOrNull(
+          '/search',
+          {'query': 'test'},
+          (json) => json['id'] as int,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('postListAndDecodeDataOrEmpty', () {
+      test('returns empty list when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postListAndDecodeDataOrEmpty(
+          '/search',
+          {'query': 'test'},
+          (json) => json['id'] as int,
+        );
+
+        expect(result, isEmpty);
+      });
+    });
+
+    group('postListAndParseData', () {
+      test('extracts and parses list from envelope', () async {
+        stubPost({
+          'data': [1, 2, 3],
+        });
+
+        final result = await client.postListAndParseData(
+          '/ids',
+          {'filter': 'active'},
+          (item) => item as int,
+        );
+
+        expect(result, equals([1, 2, 3]));
+      });
+    });
+
+    group('postListAndParseDataOrNull', () {
+      test('returns null when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postListAndParseDataOrNull(
+          '/ids',
+          {'filter': 'active'},
+          (item) => item as int,
+        );
+
+        expect(result, isNull);
+      });
+    });
+
+    group('postListAndParseDataOrEmpty', () {
+      test('returns empty list when data key is null', () async {
+        stubPost({'data': null});
+
+        final result = await client.postListAndParseDataOrEmpty(
+          '/ids',
+          {'filter': 'active'},
+          (item) => item as int,
+        );
+
+        expect(result, isEmpty);
+      });
+    });
+
+    // ---------- Custom dataKey ----------
+
+    group('custom dataKey', () {
+      test('uses config dataKey for extraction', () async {
+        final customClient = ApiClient(
+          mockDio,
+          const ApiClientConfig(
+            baseUrl: 'https://api.example.com',
+            dataKey: 'result',
+          ),
+        );
+
+        stubGet({
+          'result': {'id': 1, 'name': 'John'},
+        });
+
+        final result = await customClient.getAndDecodeData(
+          '/users/1',
+          (json) => json['name'] as String,
+        );
+
+        expect(result, equals('John'));
+      });
+    });
+  });
 }

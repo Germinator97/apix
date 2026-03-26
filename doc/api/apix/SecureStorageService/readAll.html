@@ -63,7 +63,8 @@
     
 <section class="desc markdown">
   <p>Reads all key-value pairs from secure storage.</p>
-<p>Returns an empty map if no values exist.</p>
+<p>Returns an empty map if no values exist.
+If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
 </section>
 
 
@@ -71,7 +72,15 @@
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Future&lt;Map&lt;String, String&gt;&gt; readAll() async {
-  return _storage.readAll();
+  try {
+    return await _storage.readAll();
+  } catch (e) {
+    if (_isBadPaddingException(e)) {
+      await deleteAll();
+      return {};
+    }
+    rethrow;
+  }
 }</code></pre>
 </section>
 
@@ -100,7 +109,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

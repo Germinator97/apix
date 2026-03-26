@@ -317,7 +317,13 @@ apix/
 - `metricsConfig` parameter in ApiClientFactory.create
 - README reecrit avec nouvelle API unifiee
 
-**Phase 5 (v1.x - Expansion) :**
+**Phase 5 (v1.4.0 - Typed Response Methods Redesign) :**
+- 3-level response handling: Standard / Parse+Decode / Data
+- `ApiClientConfig.dataKey` for envelope unwrapping
+- 20 new Data methods (GET & POST) with OrNull/List/ListOrEmpty variants
+- Removed legacy OrNull and List methods (replaced by Data family)
+
+**Phase 6 (v1.x+ - Expansion) :**
 - apix_generator (codegen Retrofit-like)
 - Offline sync (mutations persistees)
 - Mock server (tests integration)
@@ -398,6 +404,18 @@ apix/
 - FR40: System provides built-in ErrorTrackingInterceptor with ErrorTrackingConfig (onError, onBreadcrumb, environment)
 - FR41: Developer can enable/disable Sentry reporting per environment
 - FR42: System automatically captures API errors to Sentry with request context
+
+### Typed Response Methods (v1.4)
+
+- FR54: Developer can format response.data directly via parse/decode methods (non-nullable, all verbs)
+- FR55: Developer can configure a global dataKey in ApiClientConfig for envelope unwrapping (default: 'data')
+- FR56: System can extract response.data[dataKey] from envelope responses via Data methods
+- FR57: Developer can use DecodeData methods for JSON objects with fromJson tear-off support
+- FR58: Developer can use ParseData methods for flexible types (primitives, custom parsing)
+- FR59: Developer can use OrNull variants that return null when extracted data is null
+- FR60: Developer can use List variants to deserialize lists from envelope responses
+- FR61: Developer can use ListOrEmpty variants that return empty list when data is null
+- FR62: Data methods are available for GET and POST verbs only
 
 ### Secure Token Storage (v0.3)
 

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the SecureStorageService.withBiometrics constructor from Class SecureStorageService from the apix library, for the Dart programming language.">
+  <title>SecureStorageService.withBiometrics constructor - SecureStorageService - apix library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../../static-assets/styles.css?v1">
+  <link rel="icon" href="../../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../../index.html">apix</a></li>
+    <li><a href="../../apix/">apix.dart</a></li>
+    <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
+    <li class="self-crumb">SecureStorageService.withBiometrics factory constructor</li>
+  </ol>
+  <div class="self-name">SecureStorageService.withBiometrics</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+  <div
+      id="dartdoc-main-content"
+      class="main-content"
+      data-above-sidebar="apix&#47;SecureStorageService-class-sidebar.html"
+      data-below-sidebar="">
+      <div>
+<h1><span class="kind-constructor">SecureStorageService.withBiometrics</span> constructor 
+</h1></div>
+
+    <section class="multi-line-signature">
+      
+      <span class="name ">SecureStorageService.withBiometrics</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="withBiometrics-param-biometricPromptTitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptTitle</span> = <span class="default-value">&#39;Authentication required&#39;</span>, </span></li>
+<li><span class="parameter" id="withBiometrics-param-biometricPromptSubtitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptSubtitle</span> = <span class="default-value">&#39;Authenticate to access your account&#39;</span>, </span></li>
+</ol>})
+    </section>
+    
+<section class="desc markdown">
+  <p>Creates a <a href="../../apix/SecureStorageService-class.html">SecureStorageService</a> with biometric protection.</p>
+<p>On iOS, uses <code>KeychainAccessibility.passcode</code> with <code>userPresence</code> flag
+requiring Face ID/Touch ID or passcode.
+On Android, uses biometric-backed encryption (API 28+).</p>
+<p><strong>Flow:</strong></p>
+<ol>
+<li>User logs in → tokens stored securely</li>
+<li>User enables biometrics → protects access to storage</li>
+<li>On app resume → biometric prompt → access to refreshToken</li>
+</ol>
+<p>Example:</p>
+<pre class="language-dart"><code class="language-dart">final storage = SecureStorageService.withBiometrics();
+final tokenProvider = SecureTokenProvider(storage: storage);
+</code></pre>
+</section>
+
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">factory SecureStorageService.withBiometrics({
+  String biometricPromptTitle = &#39;Authentication required&#39;,
+  String biometricPromptSubtitle = &#39;Authenticate to access your account&#39;,
+}) {
+  return SecureStorageService(
+    storage: FlutterSecureStorage(
+      aOptions: AndroidOptions.biometric(
+        enforceBiometrics: true,
+        biometricPromptTitle: biometricPromptTitle,
+        biometricPromptSubtitle: biometricPromptSubtitle,
+      ),
+      iOptions: const IOSOptions(
+        accessibility: KeychainAccessibility.passcode,
+        accessControlFlags: [AccessControlFlag.userPresence],
+      ),
+    ),
+  );
+}</code></pre>
+</section>
+
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../../index.html">apix</a></li>
+    <li><a href="../../apix/">apix</a></li>
+    <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
+    <li class="self-crumb">SecureStorageService.withBiometrics factory constructor</li>
+</ol>
+
+    <h5>SecureStorageService class</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div><!--/.sidebar-offcanvas-left-->
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    apix
+      1.4.0
+  </span>
+  
+</footer>
+
+
+<script src="../../static-assets/highlight.pack.js?v1"></script>
+<script src="../../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

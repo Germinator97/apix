@@ -1,3 +1,34 @@
+## 1.4.0
+
+### Added
+
+* **`ApiClientConfig.dataKey`** - Configurable key for envelope unwrapping (default: `'data'`)
+  - Used by all `*Data` methods to extract payload from `response.data[dataKey]`
+  - Customizable per client: `ApiClientConfig(baseUrl: '...', dataKey: 'result')`
+
+* **Data methods (envelope unwrapping)** - Extract and format `response.data[dataKey]` for envelope APIs
+  - **GET single**: `getAndDecodeData`, `getAndDecodeDataOrNull`, `getAndParseData`, `getAndParseDataOrNull`
+  - **GET list**: `getListAndDecodeData`, `getListAndDecodeDataOrNull`, `getListAndDecodeDataOrEmpty`, `getListAndParseData`, `getListAndParseDataOrNull`, `getListAndParseDataOrEmpty`
+  - **POST single**: `postAndDecodeData`, `postAndDecodeDataOrNull`, `postAndParseData`, `postAndParseDataOrNull`
+  - **POST list**: `postListAndDecodeData`, `postListAndDecodeDataOrNull`, `postListAndDecodeDataOrEmpty`, `postListAndParseData`, `postListAndParseDataOrNull`, `postListAndParseDataOrEmpty`
+
+### Changed
+
+* **`ApiClient` typed response methods redesigned** - 3 clear levels of response handling:
+  - **Standard**: `get`, `post`, `put`, `delete`, `patch` → raw `Response<T>`
+  - **Parse/Decode**: `{verb}AndParse`, `{verb}AndDecode` → format `response.data` (non-nullable, all verbs)
+  - **Data**: `{verb}And{Parse|Decode}Data` → unwrap envelope then format (GET & POST only, with OrNull/List variants)
+
+### Removed
+
+* `getAndParseOrNull`, `getAndDecodeOrNull` - Replaced by `getAndParseDataOrNull`, `getAndDecodeDataOrNull`
+* `postAndParseOrNull`, `postAndDecodeOrNull` - Replaced by `postAndParseDataOrNull`, `postAndDecodeDataOrNull`
+* `getListAndDecode`, `getListAndParse` - Replaced by `getListAndDecodeData`, `getListAndParseData`
+* `getListAndDecodeOrNull`, `getListAndDecodeOrEmpty` - Replaced by `getListAndDecodeDataOrNull`, `getListAndDecodeDataOrEmpty`
+* `getListAndParseOrNull`, `getListAndParseOrEmpty` - Replaced by `getListAndParseDataOrNull`, `getListAndParseDataOrEmpty`
+
+---
+
 ## 1.3.0
 
 ### Added
@@ -19,12 +50,8 @@
 
 * **`ApiClient` flexible parsing methods** - Support for any response type, not just JSON
   - `getAndParse(path, parser)` - Parse any response type (int, String, DateTime, etc.)
-  - `getAndParseOrNull` / `postAndParseOrNull` - Nullable variants
-  - `getAndDecodeOrNull` / `postAndDecodeOrNull` - Nullable JSON variants
-  - `getListAndParse(path, parser)` - Parse list of any type
-  - `getListAndDecodeOrNull` / `getListAndParseOrNull` - Nullable list variants
-  - `getListAndDecodeOrEmpty` / `getListAndParseOrEmpty` - Returns `[]` if null
   - `putAndParse`, `patchAndParse` - PUT/PATCH variants
+  - _Note: OrNull and List variants were redesigned in 1.4.0 as Data methods with envelope unwrapping_
 
 ### Fixed
 

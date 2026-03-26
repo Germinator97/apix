@@ -41,6 +41,15 @@ class ApiClientConfig {
   /// Custom Dio interceptors to add.
   final List<Interceptor>? interceptors;
 
+  /// The key used to extract data from envelope responses.
+  ///
+  /// When using `*Data` methods (e.g. `getAndDecodeData`), the response
+  /// is expected to be wrapped: `{ "data": { ... } }`.
+  /// This key specifies which field contains the actual payload.
+  ///
+  /// Defaults to `'data'`.
+  final String dataKey;
+
   /// Creates an [ApiClientConfig].
   ///
   /// Only [baseUrl] is required. All other options have sensible defaults.
@@ -52,6 +61,7 @@ class ApiClientConfig {
     this.headers,
     this.defaultContentType = 'application/json',
     this.interceptors,
+    this.dataKey = 'data',
   });
 
   /// Creates a copy of this config with the given fields replaced.
@@ -63,6 +73,7 @@ class ApiClientConfig {
     Map<String, dynamic>? headers,
     String? defaultContentType,
     List<Interceptor>? interceptors,
+    String? dataKey,
   }) {
     return ApiClientConfig(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -72,6 +83,7 @@ class ApiClientConfig {
       headers: headers ?? this.headers,
       defaultContentType: defaultContentType ?? this.defaultContentType,
       interceptors: interceptors ?? this.interceptors,
+      dataKey: dataKey ?? this.dataKey,
     );
   }
 }
