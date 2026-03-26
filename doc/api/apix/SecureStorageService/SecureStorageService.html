@@ -54,15 +54,14 @@
 
     <section class="multi-line-signature">
       
-      <span class="name ">SecureStorageService</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span></li>
+      <span class="name ">SecureStorageService</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.0.0/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span></li>
 </ol>})
     </section>
     
 <section class="desc markdown">
   <p>Creates a <a href="../../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.</p>
-<p>If no <code>storage</code> is provided, a default <a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> is created
-with <code>AndroidOptions.encryptedSharedPreferences</code> set to <code>true</code> for
-better security on Android devices.
+<p>If no <code>storage</code> is provided, a default <a href="https://pub.dev/documentation/flutter_secure_storage/10.0.0/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> is created
+with secure defaults (RSA OAEP + AES-GCM on Android).
 On iOS, the accessibility is set to <code>KeychainAccessibility.first_unlock</code>
 to ensure the data is accessible only when the device is unlocked.</p>
 </section>
@@ -74,7 +73,7 @@ to ensure the data is accessible only when the device is unlocked.</p>
   <pre class="language-dart"><code class="language-dart">SecureStorageService({FlutterSecureStorage? storage})
     : _storage = storage ??
           const FlutterSecureStorage(
-            aOptions: AndroidOptions(encryptedSharedPreferences: true),
+            aOptions: AndroidOptions(),
             iOptions:
                 IOSOptions(accessibility: KeychainAccessibility.first_unlock),
           );</code></pre>
@@ -105,7 +104,7 @@ to ensure the data is accessible only when the device is unlocked.</p>
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

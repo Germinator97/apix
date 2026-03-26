@@ -50,12 +50,8 @@
 
 * **`ApiClient` flexible parsing methods** - Support for any response type, not just JSON
   - `getAndParse(path, parser)` - Parse any response type (int, String, DateTime, etc.)
-  - `getAndParseOrNull` / `postAndParseOrNull` - Nullable variants
-  - `getAndDecodeOrNull` / `postAndDecodeOrNull` - Nullable JSON variants
-  - `getListAndParse(path, parser)` - Parse list of any type
-  - `getListAndDecodeOrNull` / `getListAndParseOrNull` - Nullable list variants
-  - `getListAndDecodeOrEmpty` / `getListAndParseOrEmpty` - Returns `[]` if null
   - `putAndParse`, `patchAndParse` - PUT/PATCH variants
+  - _Note: OrNull and List variants were redesigned in 1.4.0 as Data methods with envelope unwrapping_
 
 ### Fixed
 
