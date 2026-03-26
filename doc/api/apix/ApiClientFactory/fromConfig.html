@@ -149,6 +149,10 @@ final client = ApiClientFactory.fromConfig(config);
     dio.interceptors.addAll(config.interceptors!);
   }
 
+  &#47;&#47; Add error mapper interceptor last to transform all DioExceptions
+  &#47;&#47; into typed ApiExceptions
+  dio.interceptors.add(const ErrorMapperInterceptor());
+
   return ApiClient(dio, config);
 }</code></pre>
 </section>
@@ -178,7 +182,7 @@ final client = ApiClientFactory.fromConfig(config);
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

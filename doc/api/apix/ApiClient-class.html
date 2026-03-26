@@ -203,20 +203,158 @@
 
 </dt>
 <dd>
-  Sends a GET request and deserializes the response.
+  Sends a GET request and deserializes a JSON object response.
   
 
 </dd>
 
-        <dt id="getListAndDecode" class="callable">
-  <span class="name"><a href="../apix/ApiClient/getListAndDecode.html">getListAndDecode</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndDecode-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndDecode-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getListAndDecode-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndDecode-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndDecode-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+        <dt id="getAndDecodeData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getAndDecodeData.html">getAndDecodeData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getAndDecodeData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getAndDecodeData-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getAndDecodeData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getAndDecodeData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getAndDecodeData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and deserializes <code>response.data[dataKey]</code> as a JSON object.
+  
+
+</dd>
+
+        <dt id="getAndDecodeDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getAndDecodeDataOrNull.html">getAndDecodeDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getAndDecodeDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getAndDecodeDataOrNull-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getAndDecodeDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getAndDecodeDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getAndDecodeDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and deserializes <code>response.data[dataKey]</code>, returning
+null if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="getAndParse" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getAndParse.html">getAndParse</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getAndParse-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getAndParse-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span></span>), {</span><span class="parameter" id="getAndParse-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getAndParse-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getAndParse-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses the response using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="getAndParseData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getAndParseData.html">getAndParseData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getAndParseData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span></span>), {</span><span class="parameter" id="getAndParseData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getAndParseData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getAndParseData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses <code>response.data[dataKey]</code> using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="getAndParseDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getAndParseDataOrNull.html">getAndParseDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getAndParseDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getAndParseDataOrNull-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span></span>), {</span><span class="parameter" id="getAndParseDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getAndParseDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getAndParseDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses <code>response.data[dataKey]</code>, returning null
+if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="getListAndDecodeData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndDecodeData.html">getListAndDecodeData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndDecodeData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndDecodeData-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getListAndDecodeData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndDecodeData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndDecodeData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
   </span>
   
 
 </dt>
 <dd>
-  Sends a GET request and deserializes a list response.
+  Sends a GET request and deserializes <code>response.data[dataKey]</code> as a list
+of JSON objects.
+  
+
+</dd>
+
+        <dt id="getListAndDecodeDataOrEmpty" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndDecodeDataOrEmpty.html">getListAndDecodeDataOrEmpty</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndDecodeDataOrEmpty-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndDecodeDataOrEmpty-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getListAndDecodeDataOrEmpty-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndDecodeDataOrEmpty-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndDecodeDataOrEmpty-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and deserializes <code>response.data[dataKey]</code> as a list,
+returning an empty list if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="getListAndDecodeDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndDecodeDataOrNull.html">getListAndDecodeDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndDecodeDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndDecodeDataOrNull-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="getListAndDecodeDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndDecodeDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndDecodeDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and deserializes <code>response.data[dataKey]</code> as a list,
+returning null if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="getListAndParseData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndParseData.html">getListAndParseData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndParseData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="getListAndParseData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndParseData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndParseData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses <code>response.data[dataKey]</code> as a list
+using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="getListAndParseDataOrEmpty" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndParseDataOrEmpty.html">getListAndParseDataOrEmpty</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndParseDataOrEmpty-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndParseDataOrEmpty-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="getListAndParseDataOrEmpty-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndParseDataOrEmpty-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndParseDataOrEmpty-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses <code>response.data[dataKey]</code> as a list,
+returning an empty list if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="getListAndParseDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/getListAndParseDataOrNull.html">getListAndParseDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="getListAndParseDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getListAndParseDataOrNull-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="getListAndParseDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="getListAndParseDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="getListAndParseDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a GET request and parses <code>response.data[dataKey]</code> as a list,
+returning null if the extracted data is null.
   
 
 </dd>
@@ -260,6 +398,19 @@
 
 </dd>
 
+        <dt id="patchAndParse" class="callable">
+  <span class="name"><a href="../apix/ApiClient/patchAndParse.html">patchAndParse</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="patchAndParse-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="patchAndParse-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="patchAndParse-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span>), {</span><span class="parameter" id="patchAndParse-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="patchAndParse-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="patchAndParse-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a PATCH request and parses the response using <code>parser</code>.
+  
+
+</dd>
+
         <dt id="post" class="callable">
   <span class="name"><a href="../apix/ApiClient/post.html">post</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="post-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, {</span><span class="parameter" id="post-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="post-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="post-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="post-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span>, </span><span class="parameter" id="post-param-onSendProgress"><span class="type-annotation">void</span> <span class="parameter-name">onSendProgress</span>(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>, </span><span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span></span>)?, </span><span class="parameter" id="post-param-onReceiveProgress"><span class="type-annotation">void</span> <span class="parameter-name">onReceiveProgress</span>(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>, </span><span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span></span>)?</span>})
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
@@ -286,6 +437,158 @@
 
 </dd>
 
+        <dt id="postAndDecodeData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postAndDecodeData.html">postAndDecodeData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postAndDecodeData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postAndDecodeData-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postAndDecodeData-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="postAndDecodeData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postAndDecodeData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postAndDecodeData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and deserializes <code>response.data[dataKey]</code> as a
+JSON object.
+  
+
+</dd>
+
+        <dt id="postAndDecodeDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postAndDecodeDataOrNull.html">postAndDecodeDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postAndDecodeDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postAndDecodeDataOrNull-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postAndDecodeDataOrNull-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="postAndDecodeDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postAndDecodeDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postAndDecodeDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and deserializes <code>response.data[dataKey]</code>, returning
+null if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="postAndParse" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postAndParse.html">postAndParse</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postAndParse-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postAndParse-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postAndParse-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span>), {</span><span class="parameter" id="postAndParse-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postAndParse-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postAndParse-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses the response using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="postAndParseData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postAndParseData.html">postAndParseData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postAndParseData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postAndParseData-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span>), {</span><span class="parameter" id="postAndParseData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postAndParseData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postAndParseData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses <code>response.data[dataKey]</code> using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="postAndParseDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postAndParseDataOrNull.html">postAndParseDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postAndParseDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postAndParseDataOrNull-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postAndParseDataOrNull-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span>), {</span><span class="parameter" id="postAndParseDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postAndParseDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postAndParseDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses <code>response.data[dataKey]</code>, returning null
+if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="postListAndDecodeData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndDecodeData.html">postListAndDecodeData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndDecodeData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndDecodeData-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndDecodeData-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="postListAndDecodeData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndDecodeData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndDecodeData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and deserializes <code>response.data[dataKey]</code> as a list
+of JSON objects.
+  
+
+</dd>
+
+        <dt id="postListAndDecodeDataOrEmpty" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndDecodeDataOrEmpty.html">postListAndDecodeDataOrEmpty</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndDecodeDataOrEmpty-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndDecodeDataOrEmpty-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndDecodeDataOrEmpty-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="postListAndDecodeDataOrEmpty-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndDecodeDataOrEmpty-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndDecodeDataOrEmpty-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and deserializes <code>response.data[dataKey]</code> as a list,
+returning an empty list if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="postListAndDecodeDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndDecodeDataOrNull.html">postListAndDecodeDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndDecodeDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndDecodeDataOrNull-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndDecodeDataOrNull-param-fromJson"><span class="type-annotation">T</span> <span class="parameter-name">fromJson</span>(<span class="parameter" id="param-json"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span></span> <span class="parameter-name">json</span></span>), {</span><span class="parameter" id="postListAndDecodeDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndDecodeDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndDecodeDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and deserializes <code>response.data[dataKey]</code> as a list,
+returning null if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="postListAndParseData" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndParseData.html">postListAndParseData</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndParseData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndParseData-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="postListAndParseData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndParseData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndParseData-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses <code>response.data[dataKey]</code> as a list
+using <code>parser</code>.
+  
+
+</dd>
+
+        <dt id="postListAndParseDataOrEmpty" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndParseDataOrEmpty.html">postListAndParseDataOrEmpty</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndParseDataOrEmpty-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndParseDataOrEmpty-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndParseDataOrEmpty-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="postListAndParseDataOrEmpty-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndParseDataOrEmpty-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndParseDataOrEmpty-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses <code>response.data[dataKey]</code> as a list,
+returning an empty list if the extracted data is null.
+  
+
+</dd>
+
+        <dt id="postListAndParseDataOrNull" class="callable">
+  <span class="name"><a href="../apix/ApiClient/postListAndParseDataOrNull.html">postListAndParseDataOrNull</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="postListAndParseDataOrNull-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="postListAndParseDataOrNull-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="postListAndParseDataOrNull-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-item"><span class="type-annotation">dynamic</span> <span class="parameter-name">item</span></span>), {</span><span class="parameter" id="postListAndParseDataOrNull-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="postListAndParseDataOrNull-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="postListAndParseDataOrNull-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a POST request and parses <code>response.data[dataKey]</code> as a list,
+returning null if the extracted data is null.
+  
+
+</dd>
+
         <dt id="put" class="callable">
   <span class="name"><a href="../apix/ApiClient/put.html">put</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="put-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, {</span><span class="parameter" id="put-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="put-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="put-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="put-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span>, </span><span class="parameter" id="put-param-onSendProgress"><span class="type-annotation">void</span> <span class="parameter-name">onSendProgress</span>(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>, </span><span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span></span>)?, </span><span class="parameter" id="put-param-onReceiveProgress"><span class="type-annotation">void</span> <span class="parameter-name">onReceiveProgress</span>(<span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>, </span><span class="parameter" id="param-"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span></span>)?</span>})
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>&gt;</span></span>
@@ -308,6 +611,19 @@
 </dt>
 <dd>
   Sends a PUT request and deserializes the response.
+  
+
+</dd>
+
+        <dt id="putAndParse" class="callable">
+  <span class="name"><a href="../apix/ApiClient/putAndParse.html">putAndParse</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="putAndParse-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="putAndParse-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span><span class="parameter" id="putAndParse-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span>), {</span><span class="parameter" id="putAndParse-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span><span class="parameter" id="putAndParse-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span><span class="parameter" id="putAndParse-param-cancelToken"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a>?</span> <span class="parameter-name">cancelToken</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sends a PUT request and parses the response using <code>parser</code>.
   
 
 </dd>
@@ -375,7 +691,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

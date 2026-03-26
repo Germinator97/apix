@@ -344,6 +344,39 @@ final client = ApiClientFactory.create(
 - L'utilisateur choisit l'adapter selon sa plateforme
 - Pas de conditional imports complexes dans le package
 
+### ADR-013: Typed Response Methods - 3-Level Architecture
+
+**Decision:** Structurer les méthodes de réponse typée en 3 niveaux distincts avec envelope unwrapping configurable.
+
+**Niveaux :**
+
+| Niveau | Méthodes | Source | Verbes | Variantes |
+|--------|----------|--------|--------|-----------|
+| **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | tous | — |
+| **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | tous | non-nullable uniquement |
+| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | GET, POST | OrNull, List, ListOrNull, ListOrEmpty |
+
+**Envelope Unwrapping :**
+
+```dart
+// ApiClientConfig.dataKey (default: 'data')
+// Pour une réponse : { "data": { "id": 1, "name": "John" } }
+final user = await client.getAndDecodeData('/users/1', User.fromJson);
+// Extrait response.data['data'] puis applique fromJson
+```
+
+**Parse vs Decode :**
+- `decode` : `T Function(Map<String, dynamic>)` — type-safe, tear-off `User.fromJson` direct
+- `parse` : `T Function(dynamic)` — flexible, pour primitifs, listes de strings, etc.
+
+Les deux sont nécessaires en Dart à cause de la contravariance des paramètres de fonction.
+
+**Rationale:**
+- Séparation claire des responsabilités entre formatage brut et unwrapping d'envelope
+- `dataKey` configurable globalement pour s'adapter à différentes conventions API
+- YAGNI : Data methods limités à GET & POST (PUT/PATCH/DELETE rarement enveloppés)
+- Parse + Decode coexistent pour l'ergonomie (tear-off vs flexibilité)
+
 ## Implementation Patterns & Consistency Rules
 
 ### Naming Conventions

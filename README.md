@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^1.3.0
+  apix: ^1.4.0
 ```
 
 ```bash
@@ -353,6 +353,104 @@ if (result.isSuccess) {
 
 ---
 
+## Typed Response Methods
+
+ApiX provides **3 levels** of response handling, from raw to fully typed with envelope unwrapping.
+
+### Level 1: Standard — Raw `Response<T>`
+
+```dart
+final response = await client.get<Map<String, dynamic>>('/users/1');
+final data = response.data; // Map<String, dynamic>
+```
+
+Available for all HTTP verbs: `get`, `post`, `put`, `delete`, `patch`.
+
+### Level 2: Parse & Decode — Format `response.data`
+
+Directly formats `response.data` (non-nullable). Available for all verbs.
+
+```dart
+// Decode: Map<String, dynamic> → typed object (tear-off friendly)
+final user = await client.getAndDecode('/users/1', User.fromJson);
+
+// Parse: dynamic → any type (flexible)
+final count = await client.getAndParse('/users/count', (data) => data as int);
+
+// POST variants
+final created = await client.postAndDecode('/users', {'name': 'John'}, User.fromJson);
+final token = await client.postAndParse('/auth', creds, (data) => data as String);
+
+// PUT / PATCH also available
+final updated = await client.putAndDecode('/users/1', body, User.fromJson);
+final patched = await client.patchAndDecode('/users/1', body, User.fromJson);
+```
+
+### Level 3: Data Methods — Envelope Unwrapping
+
+For APIs that wrap responses in an envelope like `{ "data": { ... } }`.
+Extracts `response.data[dataKey]` then formats. **GET & POST only.**
+
+```dart
+// Configure dataKey globally (default: 'data')
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  // dataKey defaults to 'data', customize if needed:
+  // Use ApiClientConfig(baseUrl: '...', dataKey: 'result') for { "result": { ... } }
+);
+```
+
+#### Single Object
+
+```dart
+// Response: { "data": { "id": 1, "name": "John" } }
+final user = await client.getAndDecodeData('/users/1', User.fromJson);
+
+// Response: { "data": null } → returns null
+final user = await client.getAndDecodeDataOrNull('/users/1', User.fromJson);
+
+// Parse variant for non-JSON types
+// Response: { "data": "2024-01-01T00:00:00Z" }
+final date = await client.getAndParseData('/time', (d) => DateTime.parse(d as String));
+final date = await client.getAndParseDataOrNull('/time', (d) => DateTime.parse(d as String));
+```
+
+#### Lists
+
+```dart
+// Response: { "data": [{ "id": 1 }, { "id": 2 }] }
+final users = await client.getListAndDecodeData('/users', User.fromJson);
+final users = await client.getListAndDecodeDataOrNull('/users', User.fromJson); // null if data is null
+final users = await client.getListAndDecodeDataOrEmpty('/users', User.fromJson); // [] if data is null
+
+// Response: { "data": ["admin", "editor"] }
+final roles = await client.getListAndParseData('/roles', (item) => item as String);
+final roles = await client.getListAndParseDataOrNull('/roles', (item) => item as String);
+final roles = await client.getListAndParseDataOrEmpty('/roles', (item) => item as String);
+```
+
+#### POST Data
+
+```dart
+// Response: { "data": { "id": 1, "name": "John" } }
+final user = await client.postAndDecodeData('/users', {'name': 'John'}, User.fromJson);
+final user = await client.postAndDecodeDataOrNull('/users', body, User.fromJson);
+
+// List responses
+final results = await client.postListAndDecodeData('/search', query, User.fromJson);
+final results = await client.postListAndDecodeDataOrEmpty('/search', query, User.fromJson);
+```
+
+### Method Summary
+
+| Level | Methods | Source | Verbs | Variants |
+|-------|---------|--------|-------|----------|
+| **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | all | — |
+| **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
+| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | GET, POST | OrNull, List, ListOrNull, ListOrEmpty |
+
+---
+
 ## API Reference
 
 ### ApiClientFactory.create
@@ -370,6 +468,19 @@ if (result.isSuccess) {
 | `errorTrackingConfig` | `ErrorTrackingConfig?` | Error tracking configuration |
 | `metricsConfig` | `MetricsConfig?` | Metrics configuration |
 | `interceptors` | `List<Interceptor>?` | Custom interceptors |
+
+### ApiClientConfig
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `baseUrl` | `String` | required | Base URL for all requests |
+| `connectTimeout` | `Duration` | 30s | Connection timeout |
+| `receiveTimeout` | `Duration` | 30s | Receive timeout |
+| `sendTimeout` | `Duration` | 30s | Send timeout |
+| `headers` | `Map<String, dynamic>?` | null | Default headers |
+| `defaultContentType` | `String?` | `'application/json'` | Default content type |
+| `interceptors` | `List<Interceptor>?` | null | Custom interceptors |
+| `dataKey` | `String` | `'data'` | Key for envelope unwrapping in `*Data` methods |
 
 ### Built-in Interceptors
 

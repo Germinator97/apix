@@ -13,6 +13,16 @@ void main() {
       expect(config.sendTimeout, equals(const Duration(seconds: 30)));
       expect(config.headers, isNull);
       expect(config.interceptors, isNull);
+      expect(config.dataKey, equals('data'));
+    });
+
+    test('creates with custom dataKey', () {
+      const config = ApiClientConfig(
+        baseUrl: 'https://api.example.com',
+        dataKey: 'result',
+      );
+
+      expect(config.dataKey, equals('result'));
     });
 
     test('creates with custom timeouts', () {
@@ -65,6 +75,15 @@ void main() {
       expect(copied.connectTimeout, equals(const Duration(seconds: 60)));
       expect(original.baseUrl, equals('https://api.example.com'));
       expect(original.connectTimeout, equals(const Duration(seconds: 30)));
+    });
+
+    test('copyWith updates dataKey', () {
+      const original = ApiClientConfig(baseUrl: 'https://api.example.com');
+
+      final copied = original.copyWith(dataKey: 'result');
+
+      expect(copied.dataKey, equals('result'));
+      expect(original.dataKey, equals('data'));
     });
   });
 

@@ -70,11 +70,12 @@
     
 <section class="desc markdown">
   <p>Sends a POST request and deserializes the response.</p>
+<p>Formats <code>response.data</code> as <code>Map&lt;String, dynamic&gt;</code>.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">final user = await client.postAndDecode(
   '/users',
   {'name': 'John'},
-  (json) =&gt; User.fromJson(json),
+  User.fromJson,
 );
 </code></pre>
 </section>
@@ -127,7 +128,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

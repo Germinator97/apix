@@ -206,6 +206,32 @@
       id="instance-methods">
     <h2>Methods</h2>
     <dl class="callables">
+        <dt id="flatMap" class="callable">
+  <span class="name"><a href="../apix/Failure/flatMap.html">flatMap</a></span><span class="signature">&lt;<wbr><span class="type-parameter">R</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="flatMap-param-transform"><span class="type-annotation"><a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">R</span>, <span class="type-parameter">E</span>&gt;</span></span> <span class="parameter-name">transform</span>(<span class="parameter" id="param-value"><span class="type-annotation">T</span> <span class="parameter-name">value</span></span>)</span>)
+    <span class="returntype parameter">&#8594; <a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">R</span>, <span class="type-parameter">E</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Chains another Result-returning operation.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="flatMapAsync" class="callable">
+  <span class="name"><a href="../apix/Failure/flatMapAsync.html">flatMapAsync</a></span><span class="signature">&lt;<wbr><span class="type-parameter">R</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="flatMapAsync-param-transform"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">R</span>, <span class="type-parameter">E</span>&gt;</span></span>&gt;</span></span> <span class="parameter-name">transform</span>(<span class="parameter" id="param-value"><span class="type-annotation">T</span> <span class="parameter-name">value</span></span>)</span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">R</span>, <span class="type-parameter">E</span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Async version of <a href="../apix/Failure/flatMap.html">flatMap</a>.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
         <dt id="fold" class="callable">
   <span class="name"><a href="../apix/Failure/fold.html">fold</a></span><span class="signature">&lt;<wbr><span class="type-parameter">R</span>&gt;</span><span class="signature">(<wbr>{<span class="parameter" id="fold-param-onSuccess"><span>required</span> <span class="type-annotation">R</span> <span class="parameter-name">onSuccess</span>(<span class="parameter" id="param-value"><span class="type-annotation">T</span> <span class="parameter-name">value</span></span>), </span><span class="parameter" id="fold-param-onFailure"><span>required</span> <span class="type-annotation">R</span> <span class="parameter-name">onFailure</span>(<span class="parameter" id="param-error"><span class="type-annotation">E</span> <span class="parameter-name">error</span></span>)</span>})
     <span class="returntype parameter">&#8594; R</span>
@@ -215,6 +241,19 @@
 </dt>
 <dd>
   Transforms the result by applying <code>onSuccess</code> or <code>onFailure</code>.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="getOrElse" class="callable">
+  <span class="name"><a href="../apix/Failure/getOrElse.html">getOrElse</a></span><span class="signature">(<wbr><span class="parameter" id="getOrElse-param-defaultValue"><span class="type-annotation">T</span> <span class="parameter-name">defaultValue</span>()</span>)
+    <span class="returntype parameter">&#8594; T</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the success value or the result of <code>defaultValue</code> if this is a failure.
   <div class="features"><span class="feature">override</span></div>
 
 </dd>
@@ -245,6 +284,19 @@
 
 </dd>
 
+        <dt id="mapError" class="callable">
+  <span class="name"><a href="../apix/Failure/mapError.html">mapError</a></span><span class="signature">&lt;<wbr><span class="type-parameter">F extends <a href="../apix/ApiException-class.html">ApiException</a></span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="mapError-param-transform"><span class="type-annotation">F</span> <span class="parameter-name">transform</span>(<span class="parameter" id="param-error"><span class="type-annotation">E</span> <span class="parameter-name">error</span></span>)</span>)
+    <span class="returntype parameter">&#8594; <a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>, <span class="type-parameter">F</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Transforms the error using <code>transform</code>.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
         <dt id="noSuchMethod" class="callable inherited">
   <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a></span><span class="signature">(<wbr><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span>)
     <span class="returntype parameter">&#8594; dynamic</span>
@@ -255,6 +307,19 @@
 <dd class="inherited">
   Invoked when a nonexistent method or property is accessed.
   <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="recover" class="callable">
+  <span class="name"><a href="../apix/Failure/recover.html">recover</a></span><span class="signature">(<wbr><span class="parameter" id="recover-param-recover"><span class="type-annotation">T</span> <span class="parameter-name">recover</span>(<span class="parameter" id="param-error"><span class="type-annotation">E</span> <span class="parameter-name">error</span></span>)</span>)
+    <span class="returntype parameter">&#8594; <a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>, <span class="type-parameter">E</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Recovers from a failure by providing a fallback value.
+  <div class="features"><span class="feature">override</span></div>
 
 </dd>
 
@@ -334,7 +399,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

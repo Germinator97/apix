@@ -54,7 +54,7 @@
 
     
 <section class="desc markdown">
-  <p>A wrapper service for <a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> providing simplified
+  <p>A wrapper service for <a href="https://pub.dev/documentation/flutter_secure_storage/10.0.0/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> providing simplified
 secure key-value storage operations.</p>
 <p>This service abstracts the underlying secure storage implementation,
 allowing for easy injection and testing.</p>
@@ -73,7 +73,7 @@ await storage.delete('api_key');
 // Clear all values
 await storage.deleteAll();
 </code></pre>
-<p>You can also inject a custom <a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> instance:</p>
+<p>You can also inject a custom <a href="https://pub.dev/documentation/flutter_secure_storage/10.0.0/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> instance:</p>
 <pre class="language-dart"><code class="language-dart">final customStorage = FlutterSecureStorage(
   iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
 );
@@ -88,10 +88,17 @@ final storage = SecureStorageService(storage: customStorage);
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="SecureStorageService.new" class="callable">
-          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/9.2.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span></span>})</span>
+          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.0.0/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span></span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.
+        </dd>
+        <dt id="SecureStorageService.withBiometrics" class="callable">
+          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a></span><span class="signature">({<span class="parameter" id="withBiometrics-param-biometricPromptTitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptTitle</span> = <span class="default-value">&#39;Authentication required&#39;</span>, </span><span class="parameter" id="withBiometrics-param-biometricPromptSubtitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptSubtitle</span> = <span class="default-value">&#39;Authenticate to access your account&#39;</span></span>})</span>
+        </dt>
+        <dd>
+          Creates a <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> with biometric protection.
+            <div class="constructor-modifier features">factory</div>
         </dd>
     </dl>
   </section>
@@ -288,7 +295,7 @@ final storage = SecureStorageService(storage: customStorage);
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>
