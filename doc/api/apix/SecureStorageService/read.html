@@ -64,7 +64,8 @@
     
 <section class="desc markdown">
   <p>Reads the value for the given <code>key</code> from secure storage.</p>
-<p>Returns <code>null</code> if no value exists for the key.</p>
+<p>Returns <code>null</code> if no value exists for the key.
+If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
 </section>
 
 
@@ -72,7 +73,15 @@
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Future&lt;String?&gt; read(String key) async {
-  return _storage.read(key: key);
+  try {
+    return await _storage.read(key: key);
+  } catch (e) {
+    if (_isBadPaddingException(e)) {
+      await deleteAll();
+      return null;
+    }
+    rethrow;
+  }
 }</code></pre>
 </section>
 
@@ -101,7 +110,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

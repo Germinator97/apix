@@ -64,7 +64,8 @@
     
 <section class="desc markdown">
   <p>Checks if a value exists for the given <code>key</code>.</p>
-<p>Returns <code>true</code> if a value exists, <code>false</code> otherwise.</p>
+<p>Returns <code>true</code> if a value exists, <code>false</code> otherwise.
+If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
 </section>
 
 
@@ -72,7 +73,15 @@
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Future&lt;bool&gt; containsKey(String key) async {
-  return _storage.containsKey(key: key);
+  try {
+    return await _storage.containsKey(key: key);
+  } catch (e) {
+    if (_isBadPaddingException(e)) {
+      await deleteAll();
+      return false;
+    }
+    rethrow;
+  }
 }</code></pre>
 </section>
 
@@ -101,7 +110,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>

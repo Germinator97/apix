@@ -68,12 +68,10 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and deserializes the response.</p>
+  <p>Sends a GET request and deserializes a JSON object response.</p>
+<p>Formats <code>response.data</code> as <code>Map&lt;String, dynamic&gt;</code>.</p>
 <p>Example:</p>
-<pre class="language-dart"><code class="language-dart">final user = await client.getAndDecode(
-  '/users/1',
-  (json) =&gt; User.fromJson(json),
-);
+<pre class="language-dart"><code class="language-dart">final user = await client.getAndDecode('/users/1', User.fromJson);
 </code></pre>
 </section>
 
@@ -123,7 +121,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.0.1
+      1.4.0
   </span>
   
 </footer>
