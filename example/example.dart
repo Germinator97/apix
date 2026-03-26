@@ -66,13 +66,71 @@ void main() async {
     ),
   );
 
-  // Make a GET request with typed response
+  // ============================================================
+  // TYPED RESPONSE METHODS (3 levels)
+  // ============================================================
+
   try {
-    final user = await client.getAndDecode(
-      '/users/1',
-      (json) => User.fromJson(json),
-    );
+    // --- Level 1: Standard (raw Response) ---
+    final response = await client.get<Map<String, dynamic>>('/users/1');
+    debugPrint('Raw: ${response.data}');
+
+    // --- Level 2: Parse & Decode (formats response.data) ---
+    // Decode: for JSON objects (tear-off friendly)
+    final user = await client.getAndDecode('/users/1', User.fromJson);
     debugPrint('User: ${user.name}');
+
+    // Parse: for any type (flexible)
+    final count = await client.getAndParse(
+      '/users/count',
+      (data) => data as int,
+    );
+    debugPrint('Count: $count');
+
+    // POST variants
+    final created = await client.postAndDecode(
+      '/users',
+      {'name': 'John'},
+      User.fromJson,
+    );
+    debugPrint('Created: ${created.name}');
+
+    // --- Level 3: Data Methods (envelope unwrapping) ---
+    // For APIs returning: { "data": { ... } }
+    // Extracts response.data[dataKey] then formats
+
+    // Single object from envelope
+    final profile = await client.getAndDecodeData('/profile', User.fromJson);
+    debugPrint('Profile: ${profile.name}');
+
+    // Nullable: returns null if data key is null
+    final maybe =
+        await client.getAndDecodeDataOrNull('/profile', User.fromJson);
+    debugPrint('Maybe: ${maybe?.name}');
+
+    // List from envelope: { "data": [{ ... }, { ... }] }
+    final users = await client.getListAndDecodeData('/users', User.fromJson);
+    debugPrint('Users: ${users.length}');
+
+    // List with fallback to empty
+    final empty =
+        await client.getListAndDecodeDataOrEmpty('/users', User.fromJson);
+    debugPrint('Users or empty: ${empty.length}');
+
+    // Parse variant for non-JSON: { "data": ["admin", "editor"] }
+    final roles = await client.getListAndParseData(
+      '/roles',
+      (item) => item as String,
+    );
+    debugPrint('Roles: $roles');
+
+    // POST Data variants
+    final searched = await client.postListAndDecodeData(
+      '/search',
+      {'query': 'john'},
+      User.fromJson,
+    );
+    debugPrint('Search results: ${searched.length}');
   } on HttpException catch (e) {
     debugPrint('HTTP Error: ${e.statusCode}');
   } on NetworkException catch (e) {
