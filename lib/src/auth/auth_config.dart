@@ -30,6 +30,29 @@ typedef RefreshCallback = Future<bool> Function(TokenProvider tokenProvider);
 typedef OnTokenRefreshedCallback = Future<void> Function(
     Response<dynamic> response);
 
+/// Callback invoked when token refresh fails.
+///
+/// Called for both simplified and legacy refresh flows when the refresh
+/// cannot complete (network error, invalid refresh token, server rejection, etc.).
+///
+/// The [error] parameter contains the reason for the failure, which can be:
+/// - A [DioException] if the refresh HTTP call failed
+/// - A [TypeError] or other exception if the [OnTokenRefreshedCallback] threw
+/// - `null` if the refresh token was missing or the refresh returned `false`
+///
+/// Use this to clear stored tokens, redirect to login, or log the user out.
+///
+/// Example:
+/// ```dart
+/// onAuthFailure: (tokenProvider, error) async {
+///   debugPrint('Auth failed: $error');
+///   await tokenProvider.clearTokens();
+///   router.go('/login');
+/// },
+/// ```
+typedef OnAuthFailureCallback = Future<void> Function(
+    TokenProvider tokenProvider, Object? error);
+
 /// Configuration for authentication handling.
 ///
 /// There are two approaches for token refresh:
@@ -45,6 +68,10 @@ typedef OnTokenRefreshedCallback = Future<void> Function(
 ///       data['access_token'],
 ///       data['refresh_token'],
 ///     );
+///   },
+///   onAuthFailure: (tokenProvider) async {
+///     await tokenProvider.clearTokens();
+///     // Navigate to login, show dialog, etc.
 ///   },
 /// );
 /// ```
@@ -104,6 +131,17 @@ class AuthConfig {
   /// Only used when [refreshEndpoint] is provided.
   final OnTokenRefreshedCallback? onTokenRefreshed;
 
+  /// Callback invoked when token refresh fails.
+  ///
+  /// Called when the refresh cannot complete, regardless of the reason:
+  /// - Refresh token is null or expired
+  /// - Refresh endpoint returns an error
+  /// - Network error during refresh
+  ///
+  /// Use this to clear stored tokens and redirect the user to login.
+  /// Called once per refresh attempt, even if multiple requests were queued.
+  final OnAuthFailureCallback? onAuthFailure;
+
   /// Key name for the refresh token in the request body.
   ///
   /// Defaults to 'refresh_token'.
@@ -131,6 +169,7 @@ class AuthConfig {
     this.refreshEndpoint,
     this.refreshHeaders,
     this.onTokenRefreshed,
+    this.onAuthFailure,
     this.refreshTokenBodyKey = 'refresh_token',
     this.headerName = 'Authorization',
     this.headerPrefix = 'Bearer',
@@ -160,6 +199,7 @@ class AuthConfig {
     String? refreshEndpoint,
     Map<String, String>? refreshHeaders,
     OnTokenRefreshedCallback? onTokenRefreshed,
+    OnAuthFailureCallback? onAuthFailure,
     String? refreshTokenBodyKey,
     String? headerName,
     String? headerPrefix,
@@ -171,6 +211,7 @@ class AuthConfig {
       refreshEndpoint: refreshEndpoint ?? this.refreshEndpoint,
       refreshHeaders: refreshHeaders ?? this.refreshHeaders,
       onTokenRefreshed: onTokenRefreshed ?? this.onTokenRefreshed,
+      onAuthFailure: onAuthFailure ?? this.onAuthFailure,
       refreshTokenBodyKey: refreshTokenBodyKey ?? this.refreshTokenBodyKey,
       headerName: headerName ?? this.headerName,
       headerPrefix: headerPrefix ?? this.headerPrefix,

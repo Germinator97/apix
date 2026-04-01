@@ -59,15 +59,35 @@ class CacheInterceptor extends Interceptor {
     return existed;
   }
 
-  /// Invalidates cache entry for a specific URL and method.
+  /// Invalidates all cache entries for a specific URL and method.
+  ///
+  /// Accepts both relative paths and absolute URLs.
+  /// Relative paths are resolved against the client's base URL.
+  /// All query parameter variants for the same URL are invalidated.
+  ///
+  /// Returns true if at least one entry was removed.
   ///
   /// Example:
   /// ```dart
   /// await interceptor.invalidateUrl('/users/123', method: 'GET');
   /// ```
   Future<bool> invalidateUrl(String url, {String method = 'GET'}) async {
-    final key = '$method:$url';
-    return invalidate(key);
+    final resolvedUrl = _resolveUrl(url);
+    final prefix = '$method:$resolvedUrl';
+    final removed = await config.storage.removeWhere(
+      (key) => key.startsWith(prefix),
+    );
+    return removed > 0;
+  }
+
+  /// Resolves a relative URL against the client's base URL.
+  String _resolveUrl(String url) {
+    if (url.startsWith('http')) return url;
+    if (_dio != null) {
+      final baseUrl = _dio!.options.baseUrl;
+      return '$baseUrl$url';
+    }
+    return url;
   }
 
   /// Invalidates all cache entries matching a predicate.
@@ -132,36 +152,54 @@ class CacheInterceptor extends Interceptor {
 
   // ==================== Interceptor Methods ====================
 
+  /// Key used in [RequestOptions.extra] to bypass cache interceptor.
+  ///
+  /// Used by deduplicated requests to avoid re-entering the cache logic
+  /// while still going through auth, logging, and other interceptors.
+  static const String _skipCacheKey = '_apix_skip_cache';
+
   @override
   void onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Only cache configured methods
-    if (!config.shouldCache(options.method)) {
+    try {
+      // Skip cache for deduplicated sub-requests (avoids recursion)
+      if (options.extra[_skipCacheKey] == true) {
+        handler.next(options);
+        return;
+      }
+
+      // Only cache configured methods
+      if (!config.shouldCache(options.method)) {
+        handler.next(options);
+        return;
+      }
+
+      final cacheKey = _generateCacheKey(options);
+      final strategy = _getStrategy(options);
+
+      switch (strategy) {
+        case CacheStrategy.cacheFirst:
+          await _handleCacheFirst(options, handler, cacheKey);
+        case CacheStrategy.cacheOnly:
+          await _handleCacheOnly(options, handler, cacheKey);
+        case CacheStrategy.httpCacheAware:
+          await _handleHttpCacheAware(options, handler, cacheKey);
+        case CacheStrategy.networkFirst:
+        case CacheStrategy.networkOnly:
+          options.extra['_cacheKey'] = cacheKey;
+          // Check for deduplication
+          if (config.shouldDeduplicate(options.method) && _dio != null) {
+            await _handleWithDeduplication(
+                options, handler, cacheKey, strategy);
+          } else {
+            handler.next(options);
+          }
+      }
+    } catch (e) {
+      // On storage or other failure, fall through to network
       handler.next(options);
-      return;
-    }
-
-    final cacheKey = _generateCacheKey(options);
-    final strategy = _getStrategy(options);
-
-    switch (strategy) {
-      case CacheStrategy.cacheFirst:
-        await _handleCacheFirst(options, handler, cacheKey);
-      case CacheStrategy.cacheOnly:
-        await _handleCacheOnly(options, handler, cacheKey);
-      case CacheStrategy.httpCacheAware:
-        await _handleHttpCacheAware(options, handler, cacheKey);
-      case CacheStrategy.networkFirst:
-      case CacheStrategy.networkOnly:
-        options.extra['_cacheKey'] = cacheKey;
-        // Check for deduplication
-        if (config.shouldDeduplicate(options.method) && _dio != null) {
-          await _handleWithDeduplication(options, handler, cacheKey, strategy);
-        } else {
-          handler.next(options);
-        }
     }
   }
 
@@ -170,45 +208,56 @@ class CacheInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) async {
-    final options = response.requestOptions;
+    try {
+      final options = response.requestOptions;
 
-    // Only cache configured methods
-    if (!config.shouldCache(options.method)) {
-      handler.next(response);
-      return;
-    }
-
-    final cacheKey =
-        options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
-    final strategy = _getStrategy(options);
-
-    // Handle 304 Not Modified for httpCacheAware
-    if (strategy == CacheStrategy.httpCacheAware &&
-        response.statusCode == 304) {
-      final cached = await config.storage.get(cacheKey);
-      if (cached != null) {
-        final cachedResponse = _buildResponseFromCache(options, cached);
-        handler.resolve(cachedResponse);
-        return;
-      }
-    }
-
-    // Check Cache-Control headers for httpCacheAware
-    if (strategy == CacheStrategy.httpCacheAware) {
-      final cacheControl = _parseCacheControl(response.headers);
-      if (cacheControl.noStore) {
-        // Don't cache this response
+      // Skip for deduplicated sub-requests (caching handled by the deduplicator)
+      if (options.extra[_skipCacheKey] == true) {
         handler.next(response);
         return;
       }
-    }
 
-    // Cache successful responses
-    if (_shouldCacheResponse(response)) {
-      await _cacheResponse(cacheKey, response, strategy: strategy);
-    }
+      // Only cache configured methods
+      if (!config.shouldCache(options.method)) {
+        handler.next(response);
+        return;
+      }
 
-    handler.next(response);
+      final cacheKey =
+          options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
+      final strategy = _getStrategy(options);
+
+      // Handle 304 Not Modified for httpCacheAware
+      if (strategy == CacheStrategy.httpCacheAware &&
+          response.statusCode == 304) {
+        final cached = await config.storage.get(cacheKey);
+        if (cached != null) {
+          final cachedResponse = _buildResponseFromCache(options, cached);
+          handler.resolve(cachedResponse);
+          return;
+        }
+      }
+
+      // Check Cache-Control headers for httpCacheAware
+      if (strategy == CacheStrategy.httpCacheAware) {
+        final cacheControl = _parseCacheControl(response.headers);
+        if (cacheControl.noStore) {
+          // Don't cache this response
+          handler.next(response);
+          return;
+        }
+      }
+
+      // Cache successful responses
+      if (_shouldCacheResponse(response)) {
+        await _cacheResponse(cacheKey, response, strategy: strategy);
+      }
+
+      handler.next(response);
+    } catch (_) {
+      // On storage failure, pass through the response unmodified
+      handler.next(response);
+    }
   }
 
   @override
@@ -216,34 +265,39 @@ class CacheInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) async {
-    final options = err.requestOptions;
-    final strategy = _getStrategy(options);
+    try {
+      final options = err.requestOptions;
+      final strategy = _getStrategy(options);
 
-    // Only handle networkFirst and httpCacheAware fallback
-    if (strategy != CacheStrategy.networkFirst &&
-        strategy != CacheStrategy.httpCacheAware) {
+      // Only handle networkFirst and httpCacheAware fallback
+      if (strategy != CacheStrategy.networkFirst &&
+          strategy != CacheStrategy.httpCacheAware) {
+        handler.next(err);
+        return;
+      }
+
+      // Only fallback for cacheable methods
+      if (!config.shouldCache(options.method)) {
+        handler.next(err);
+        return;
+      }
+
+      final cacheKey =
+          options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
+
+      // Try to return cached response on network failure
+      final cached = await config.storage.get(cacheKey);
+      if (cached != null) {
+        final response = _buildResponseFromCache(options, cached);
+        handler.resolve(response);
+        return;
+      }
+
       handler.next(err);
-      return;
-    }
-
-    // Only fallback for cacheable methods
-    if (!config.shouldCache(options.method)) {
+    } catch (_) {
+      // On storage failure, propagate the original error
       handler.next(err);
-      return;
     }
-
-    final cacheKey =
-        options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
-
-    // Try to return cached response on network failure
-    final cached = await config.storage.get(cacheKey);
-    if (cached != null) {
-      final response = _buildResponseFromCache(options, cached);
-      handler.resolve(response);
-      return;
-    }
-
-    handler.next(err);
   }
 
   /// Handles CacheFirst strategy: return cache if available.
@@ -352,29 +406,28 @@ class CacheInterceptor extends Interceptor {
     }
   }
 
-  /// Executes the actual network request without interceptors loop.
+  /// Executes the actual network request using the main Dio instance.
+  ///
+  /// Marks the request with [_skipCacheKey] to bypass this interceptor
+  /// on re-entry, while preserving auth, logging, and other interceptors.
   Future<Response<dynamic>> _executeRequest(RequestOptions options) async {
-    // Create a new Dio instance without this interceptor to avoid loops
-    final tempDio = Dio(BaseOptions(
-      baseUrl: options.baseUrl,
-      connectTimeout: options.connectTimeout,
-      receiveTimeout: options.receiveTimeout,
-      sendTimeout: options.sendTimeout,
-    ));
-
-    return tempDio.fetch<dynamic>(options.copyWith(
-      extra: {...options.extra, '_skipDeduplication': true},
+    return _dio!.fetch<dynamic>(options.copyWith(
+      extra: {...options.extra, _skipCacheKey: true},
     ));
   }
 
   /// Generates a cache key from request options.
+  ///
+  /// Uses method + base URL path (without query) + sorted query params
+  /// to produce deterministic, non-duplicated keys.
   String _generateCacheKey(RequestOptions options) {
+    final uri = options.uri;
     final buffer = StringBuffer()
       ..write(options.method)
       ..write(':')
-      ..write(options.uri.toString());
+      ..write('${uri.scheme}://${uri.authority}${uri.path}');
 
-    // Include query parameters in key
+    // Append sorted query parameters for deterministic keys
     if (options.queryParameters.isNotEmpty) {
       final sortedParams = Map.fromEntries(
         options.queryParameters.entries.toList()

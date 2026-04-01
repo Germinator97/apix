@@ -256,16 +256,37 @@ class SentrySetup {
   }
 
   static bool _isNetworkExceptionType(String type) {
-    const networkExceptionTypes = [
+    // Match fully qualified dart:io / dart:async exception names only.
+    // Uses prefix matching to handle package-qualified names like
+    // 'dart:io.SocketException' while excluding ApiX's own exceptions
+    // (e.g., 'apix.TimeoutException', 'apix.HttpException').
+    const networkExceptionPrefixes = [
       'SocketException',
       'HandshakeException',
-      'ClientException',
-      'TimeoutException',
-      'HttpException',
       'TlsException',
     ];
 
-    return networkExceptionTypes.any((t) => type.contains(t));
+    // These are only dart:io / dart:async — must not match ApiX's own types
+    // which would be prefixed with a package path.
+    const dartOnlyTypes = [
+      'ClientException',
+      'TimeoutException',
+      'HttpException',
+    ];
+
+    if (networkExceptionPrefixes.any((t) => type.contains(t))) {
+      return true;
+    }
+
+    // For types that conflict with ApiX names, only match if they're from
+    // dart: packages (no dot prefix) or exact match (no package qualifier)
+    for (final t in dartOnlyTypes) {
+      if (type == t || type.startsWith('dart:') && type.contains(t)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   static bool _isNetworkErrorMessage(String message) {

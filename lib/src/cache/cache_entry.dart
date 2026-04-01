@@ -94,6 +94,29 @@ class CacheEntry {
   }
 
   /// Creates a [CacheEntry] from a JSON map.
+  ///
+  /// Returns `null` if the data is corrupted or has an unexpected format.
+  static CacheEntry? tryFromJson(Map<String, dynamic> json) {
+    try {
+      return CacheEntry(
+        data: json['data'] as String,
+        statusCode: json['statusCode'] as int,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        expiresAt: DateTime.parse(json['expiresAt'] as String),
+        etag: json['etag'] as String?,
+        headers: json['headers'] != null
+            ? Map<String, String>.from(json['headers'] as Map)
+            : null,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Creates a [CacheEntry] from a JSON map.
+  ///
+  /// Throws if the data is corrupted. Prefer [tryFromJson] for storage
+  /// backends that may contain corrupted data.
   factory CacheEntry.fromJson(Map<String, dynamic> json) {
     return CacheEntry(
       data: json['data'] as String,

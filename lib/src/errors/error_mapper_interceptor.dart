@@ -143,14 +143,27 @@ class ErrorMapperInterceptor extends Interceptor {
     final data = response?.data;
 
     if (data is Map) {
-      // Common API message field names
-      final message = data['message'] ??
-          data['error'] ??
-          data['detail'] ??
-          data['error_description'];
+      // Common API message field names (flat structure)
+      final message =
+          data['message'] ?? data['detail'] ?? data['error_description'];
 
       if (message is String) {
         return message;
+      }
+
+      // Nested error object: { "error": { "message": "..." } }
+      final error = data['error'];
+      if (error is Map) {
+        final nestedMessage =
+            error['message'] ?? error['detail'] ?? error['description'];
+        if (nestedMessage is String) {
+          return nestedMessage;
+        }
+      }
+
+      // Flat error string: { "error": "Something went wrong" }
+      if (error is String) {
+        return error;
       }
     }
 

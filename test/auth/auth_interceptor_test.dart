@@ -390,6 +390,276 @@ void main() {
 
       expect(handler.rejectCalled, isTrue);
     });
+
+    test('calls onAuthFailure once when refresh fails', () async {
+      var failureCount = 0;
+      TokenProvider? receivedProvider;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => false,
+        onAuthFailure: (provider, error) async {
+          failureCount++;
+          receivedProvider = provider;
+          await provider.clearTokens();
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(failureCount, equals(1));
+      expect(receivedProvider, same(tokenProvider));
+      expect(tokenProvider.accessToken, isNull);
+      expect(tokenProvider.refreshToken, isNull);
+    });
+
+    test('calls onAuthFailure with error when refresh throws', () async {
+      Object? receivedError;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => throw Exception('Network error'),
+        onAuthFailure: (provider, error) async {
+          receivedError = error;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(receivedError, isA<Exception>());
+      expect(receivedError.toString(), contains('Network error'));
+      expect(handler.rejectCalled, isTrue);
+    });
+
+    test('calls onAuthFailure with null error when refresh returns false',
+        () async {
+      Object? receivedError = 'sentinel';
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => false,
+        onAuthFailure: (provider, error) async {
+          receivedError = error;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(receivedError, isNull);
+      expect(handler.rejectCalled, isTrue);
+    });
+
+    test('onAuthFailure called once even with concurrent requests', () async {
+      var failureCount = 0;
+      final refreshCompleter = Completer<void>();
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          await refreshCompleter.future;
+          return false;
+        },
+        onAuthFailure: (provider, error) async {
+          failureCount++;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+
+      final handler1 = TestErrorHandler();
+      final handler2 = TestErrorHandler();
+
+      final error1 = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      final error2 = DioException(
+        requestOptions: RequestOptions(path: '/api/posts'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/posts'),
+          statusCode: 401,
+        ),
+      );
+
+      // Both requests hit 401 and queue behind the same refresh
+      interceptor.onError(error1, handler1);
+      await Future<void>.delayed(Duration.zero);
+      interceptor.onError(error2, handler2);
+      await Future<void>.delayed(Duration.zero);
+
+      // Complete the refresh (fails)
+      refreshCompleter.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      // onAuthFailure should be called exactly once
+      expect(failureCount, equals(1));
+      expect(handler1.rejectCalled, isTrue);
+      expect(handler2.rejectCalled, isTrue);
+    });
+
+    test('does not fail when onAuthFailure is null', () async {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => false,
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.rejectCalled, isTrue);
+    });
+
+    test('does not fail when onAuthFailure throws', () async {
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async => false,
+        onAuthFailure: (provider, error) async =>
+            throw Exception('callback error'),
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(path: '/api/users'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/api/users'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      // Should still reject normally even if the callback threw
+      expect(handler.rejectCalled, isTrue);
+      expect(handler.lastRejectedError?.error, isA<AuthException>());
+    });
+  });
+
+  group('AuthInterceptor refresh request isolation', () {
+    late MockTokenProvider tokenProvider;
+    late Dio dio;
+
+    setUp(() {
+      tokenProvider = MockTokenProvider();
+      tokenProvider.accessToken = 'expired_token';
+      dio = Dio();
+    });
+
+    test('skips auth header for refresh requests', () async {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestHandler();
+
+      final options = RequestOptions(
+        path: '/auth/refresh',
+        extra: {AuthInterceptor.isRefreshRequestKey: true},
+      );
+
+      interceptor.onRequest(options, handler);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(handler.nextCalled, isTrue);
+      expect(handler.lastOptions?.headers['Authorization'], isNull);
+    });
+
+    test('adds auth header for normal requests', () async {
+      final config = AuthConfig(tokenProvider: tokenProvider);
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestHandler();
+
+      final options = RequestOptions(path: '/api/users');
+
+      interceptor.onRequest(options, handler);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(handler.lastOptions?.headers['Authorization'],
+          equals('Bearer expired_token'));
+    });
+
+    test('does not attempt refresh for refresh request errors', () async {
+      var refreshCalled = false;
+
+      final config = AuthConfig(
+        tokenProvider: tokenProvider,
+        onRefresh: (provider) async {
+          refreshCalled = true;
+          return true;
+        },
+      );
+
+      final interceptor = AuthInterceptor(config, dio);
+      final handler = TestErrorHandler();
+
+      final error = DioException(
+        requestOptions: RequestOptions(
+          path: '/auth/refresh',
+          extra: {AuthInterceptor.isRefreshRequestKey: true},
+        ),
+        response: Response(
+          requestOptions: RequestOptions(path: '/auth/refresh'),
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(refreshCalled, isFalse);
+      expect(handler.nextCalled, isTrue);
+    });
   });
 
   group('AuthInterceptor simplified refresh flow', () {
