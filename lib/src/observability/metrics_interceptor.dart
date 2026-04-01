@@ -233,6 +233,12 @@ class MetricsInterceptor extends Interceptor {
   /// In-flight requests metrics.
   final Map<String, RequestMetrics> _inFlight = {};
 
+  /// Monotonically increasing counter for unique request IDs.
+  int _requestCounter = 0;
+
+  /// Maximum age for in-flight entries before they are considered orphaned.
+  static const Duration _orphanThreshold = Duration(minutes: 5);
+
   MetricsInterceptor({
     MetricsConfig? config,
   }) : config = config ?? const MetricsConfig();
@@ -244,12 +250,26 @@ class MetricsInterceptor extends Interceptor {
   /// Returns count of in-flight requests.
   int get inFlightCount => _inFlight.length;
 
+  /// Removes in-flight entries older than [_orphanThreshold].
+  ///
+  /// Called automatically on each new request to prevent unbounded growth
+  /// from cancelled or timed-out requests that bypassed the interceptor.
+  void _cleanupOrphans() {
+    if (_inFlight.isEmpty) return;
+    final now = DateTime.now();
+    _inFlight.removeWhere((_, metrics) {
+      final age = now.difference(metrics.startTime);
+      return age > _orphanThreshold;
+    });
+  }
+
   @override
   void onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
     if (config.enabled) {
+      _cleanupOrphans();
       final metrics = _createMetrics(options);
       _inFlight[metrics.requestId] = metrics;
       options.extra['_metrics_request_id'] = metrics.requestId;
@@ -402,7 +422,7 @@ class MetricsInterceptor extends Interceptor {
   }
 
   String _generateRequestId() {
-    return '${DateTime.now().millisecondsSinceEpoch}_${_inFlight.length}';
+    return '${DateTime.now().millisecondsSinceEpoch}_${_requestCounter++}';
   }
 
   int? _getRequestSize(RequestOptions options) {

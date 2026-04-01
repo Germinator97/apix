@@ -5,6 +5,7 @@
 library;
 
 import 'package:apix/apix.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 /// Simple example showing API client creation and usage.
@@ -32,11 +33,18 @@ void main() async {
           data['refresh_token'] as String,
         );
       },
+      // Called when refresh fails — clear tokens and redirect to login
+      onAuthFailure: (tokenProvider, error) async {
+        debugPrint('Auth failed: $error');
+        await tokenProvider.clearTokens();
+        // router.go('/login');
+      },
     ),
-    // Retry configuration (v1.0.1+)
+    // Retry configuration
     retryConfig: const RetryConfig(
       maxAttempts: 3,
       retryStatusCodes: [500, 502, 503, 504],
+      maxDelayMs: 30000, // Cap at 30s
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
@@ -131,17 +139,32 @@ void main() async {
       User.fromJson,
     );
     debugPrint('Search results: ${searched.length}');
-  } on HttpException catch (e) {
-    debugPrint('HTTP Error: ${e.statusCode}');
-  } on NetworkException catch (e) {
-    debugPrint('Network Error: ${e.message}');
+  } on DioException catch (e) {
+    // Errors from Dio are wrapped — extract the typed ApiException
+    final apiError = e.error;
+    if (apiError is NotFoundException) {
+      debugPrint('Not found: ${apiError.message}');
+    } else if (apiError is UnauthorizedException) {
+      debugPrint('Auth error: ${apiError.message}');
+    } else if (apiError is NetworkException) {
+      debugPrint('Network error: ${apiError.message}');
+    } else {
+      debugPrint('Error: $apiError');
+    }
   }
 
-  // Use Result type for functional error handling
+  // Result pattern — the recommended approach (handles DioException internally)
   final result = await client.get<Map<String, dynamic>>('/users').getResult();
   result.when(
     success: (response) => debugPrint('Got ${response.data}'),
-    failure: (error) => debugPrint('Error: ${error.message}'),
+    failure: (error) {
+      // error is already a typed ApiException — no DioException wrapper
+      if (error is UnauthorizedException) {
+        debugPrint('Auth: ${error.message}');
+      } else {
+        debugPrint('Error: ${error.message}');
+      }
+    },
   );
 
   // ============================================================

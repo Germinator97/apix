@@ -64,14 +64,17 @@ class MultipartInterceptor extends Interceptor {
     handler.next(options);
   }
 
+  /// Checks if the value is a [File] or contains [File] instances.
+  bool _isOrContainsFile(dynamic value) {
+    if (value is File) return true;
+    if (value is List) return value.any(_isOrContainsFile);
+    if (value is Map) return value.values.any(_isOrContainsFile);
+    return false;
+  }
+
   /// Checks if the map contains any File values.
   bool _containsFiles(Map<String, dynamic> data) {
-    for (final value in data.values) {
-      if (value is File) return true;
-      if (value is List<File>) return true;
-      if (value is Map<String, File>) return true;
-    }
-    return false;
+    return data.values.any(_isOrContainsFile);
   }
 
   /// Converts a Map with File values to FormData.
@@ -84,13 +87,20 @@ class MultipartInterceptor extends Interceptor {
 
       if (value is File) {
         formMap[key] = await _fileToMultipart(value);
-      } else if (value is List<File>) {
-        formMap[key] = await Future.wait(
-          value.map((f) => _fileToMultipart(f)),
-        );
-      } else if (value is Map<String, File>) {
-        for (final fileEntry in value.entries) {
-          formMap[fileEntry.key] = await _fileToMultipart(fileEntry.value);
+      } else if (value is List) {
+        final files = <MultipartFile>[];
+        for (final item in value) {
+          if (item is File) {
+            files.add(await _fileToMultipart(item));
+          }
+        }
+        formMap[key] = files.isNotEmpty ? files : value;
+      } else if (value is Map) {
+        for (final mapEntry in value.entries) {
+          if (mapEntry.value is File) {
+            formMap[mapEntry.key.toString()] =
+                await _fileToMultipart(mapEntry.value as File);
+          }
         }
       } else {
         formMap[key] = value;
@@ -102,7 +112,7 @@ class MultipartInterceptor extends Interceptor {
 
   /// Converts a File to MultipartFile.
   Future<MultipartFile> _fileToMultipart(File file) async {
-    final filename = file.path.split('/').last;
+    final filename = file.uri.pathSegments.last;
     return MultipartFile.fromFile(file.path, filename: filename);
   }
 }

@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^1.4.0
+  apix: ^1.5.0
 ```
 
 ```bash
@@ -78,12 +78,17 @@ final client = ApiClientFactory.create(
         data['refresh_token'] as String,
       );
     },
+    onAuthFailure: (tokenProvider, error) async {
+      await tokenProvider.clearTokens();
+      // Navigate to login, show dialog, etc.
+    },
   ),
   
   // 🔄 Retry with exponential backoff
   retryConfig: const RetryConfig(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
+    maxDelayMs: 30000, // Cap at 30s
   ),
   
   // 💾 Smart caching
@@ -149,6 +154,12 @@ final client = ApiClientFactory.create(
         data['refresh_token'] as String,
       );
     },
+    // Called when refresh fails — clear tokens and redirect to login
+    onAuthFailure: (tokenProvider, error) async {
+      debugPrint('Auth failed: $error');
+      await tokenProvider.clearTokens();
+      // router.go('/login');
+    },
   ),
 );
 
@@ -159,7 +170,7 @@ await tokenProvider.saveTokens(accessToken, refreshToken);
 await tokenProvider.clearTokens();
 ```
 
-**Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically.
+**Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, `onAuthFailure` is called **once** (not per queued request).
 
 ---
 
@@ -173,6 +184,7 @@ final client = ApiClientFactory.create(
     retryStatusCodes: [500, 502, 503, 504],
     baseDelayMs: 1000,
     multiplier: 2.0,  // 1s → 2s → 4s
+    maxDelayMs: 30000, // Never wait more than 30s
   ),
 );
 
@@ -302,7 +314,17 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 404 | `NotFoundException` |
 | HTTP 4xx/5xx | `HttpException` |
 
-The **message** is automatically extracted from the API response (`message`, `error`, `detail`, `error_description`) or falls back to `"HTTP {statusCode}"`.
+The **message** is automatically extracted from the API response body. Supports flat and nested formats:
+
+```
+{ "message": "Bad request" }                       → "Bad request"
+{ "detail": "Not found" }                          → "Not found"
+{ "error": "Access denied" }                       → "Access denied"
+{ "error": { "message": "Invalid credentials" } }  → "Invalid credentials"
+{ "error": { "detail": "..." } }                   → "..."
+```
+
+Falls back to `"HTTP {statusCode}"` if no known field is found.
 
 ### Exception Hierarchy
 
@@ -314,6 +336,7 @@ ApiException
 └── HttpException
     ├── ClientException (4xx)
     │   ├── UnauthorizedException (401)
+    │   │   └── AuthException (refresh failure)
     │   ├── ForbiddenException (403)
     │   └── NotFoundException (404)
     └── ServerException (5xx)
@@ -321,21 +344,28 @@ ApiException
 
 ### Classic Try-catch
 
+Dio wraps all errors in `DioException`. Extract the typed `ApiException` from `e.error`:
+
 ```dart
 try {
   final response = await client.get<Map<String, dynamic>>('/users');
-} on NotFoundException catch (e) {
-  print('User not found: ${e.message}');
-} on UnauthorizedException catch (e) {
-  print('Please login again');
-} on NetworkException catch (e) {
-  print('Check your connection: ${e.message}');
-} on ApiException catch (e) {
-  print('API error: ${e.message}');
+} on DioException catch (e) {
+  final error = e.error;
+  if (error is NotFoundException) {
+    print('User not found: ${error.message}');
+  } else if (error is UnauthorizedException) {
+    print('Please login again');
+  } else if (error is NetworkException) {
+    print('Check your connection: ${error.message}');
+  } else {
+    print('API error: $error');
+  }
 }
 ```
 
-### Result Pattern (Functional)
+### Result Pattern (Recommended)
+
+`getResult()` unwraps `DioException` automatically — you get typed `ApiException` directly:
 
 ```dart
 final result = await client.get<Map<String, dynamic>>('/users').getResult();
@@ -345,10 +375,11 @@ result.when(
   failure: (error) => print('Error: ${error.message}'),
 );
 
-// Or with pattern matching
-if (result.isSuccess) {
-  final data = result.valueOrNull;
-}
+// Or with fold
+final message = result.fold(
+  onSuccess: (response) => 'Got ${response.data}',
+  onFailure: (error) => 'Error: ${error.message}',
+);
 ```
 
 ---
