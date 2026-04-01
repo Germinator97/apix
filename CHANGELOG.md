@@ -1,4 +1,12 @@
-## 1.5.0
+## 2.0.0
+
+### Breaking
+
+* **`ApiClient` methods now throw `ApiException` instead of `DioException`**
+  - All HTTP methods (`get`, `post`, `put`, `delete`, `patch`) and typed variants unwrap `DioException` automatically
+  - Code using `on DioException catch` on `ApiClient` methods must migrate to `on ApiException catch` (or subtypes)
+  - `client.dio` (raw Dio access) still throws `DioException` — only `ApiClient` methods are affected
+  - `getResult()` handles both `ApiException` and `DioException` (fallback for raw Dio usage)
 
 ### Fixed
 
