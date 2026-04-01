@@ -181,7 +181,15 @@ class ErrorTrackingInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
   ) {
     if (config.enabled && config.onError != null) {
-      _captureException(err);
+      final statusCode = err.response?.statusCode;
+
+      // For HTTP errors (badResponse), only capture status codes in captureStatusCodes.
+      // Non-HTTP errors (timeout, connection, unknown) are always captured.
+      if (err.type != DioExceptionType.badResponse ||
+          (statusCode != null &&
+              config.captureStatusCodes.contains(statusCode))) {
+        _captureException(err);
+      }
     }
     handler.next(err);
   }
