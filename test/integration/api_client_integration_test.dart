@@ -159,7 +159,7 @@ void main() {
         expect(response.data!['created'], true);
       });
 
-      test('handles 404 response as DioException', () async {
+      test('handles 404 response as NotFoundException', () async {
         when(() => mockAdapter.fetch(any(), any(), any())).thenAnswer(
           (_) async => ResponseBody.fromString(
             '{"error": "Not found"}',
@@ -172,15 +172,15 @@ void main() {
 
         expect(
           () => client.get<dynamic>('/nonexistent'),
-          throwsA(isA<DioException>().having(
-            (e) => e.response?.statusCode,
+          throwsA(isA<NotFoundException>().having(
+            (e) => e.statusCode,
             'statusCode',
             404,
           )),
         );
       });
 
-      test('handles 500 response as DioException', () async {
+      test('handles 500 response as HttpException', () async {
         when(() => mockAdapter.fetch(any(), any(), any())).thenAnswer(
           (_) async => ResponseBody.fromString(
             '{"error": "Server error"}',
@@ -193,15 +193,15 @@ void main() {
 
         expect(
           () => client.get<dynamic>('/broken'),
-          throwsA(isA<DioException>().having(
-            (e) => e.response?.statusCode,
+          throwsA(isA<HttpException>().having(
+            (e) => e.statusCode,
             'statusCode',
             500,
           )),
         );
       });
 
-      test('handles network error as DioException', () async {
+      test('handles network error as ConnectionException', () async {
         when(() => mockAdapter.fetch(any(), any(), any())).thenThrow(
           DioException(
             type: DioExceptionType.connectionError,
@@ -212,15 +212,11 @@ void main() {
 
         expect(
           () => client.get<dynamic>('/test'),
-          throwsA(isA<DioException>().having(
-            (e) => e.type,
-            'type',
-            DioExceptionType.connectionError,
-          )),
+          throwsA(isA<ConnectionException>()),
         );
       });
 
-      test('handles timeout error as DioException', () async {
+      test('handles timeout error as TimeoutException', () async {
         when(() => mockAdapter.fetch(any(), any(), any())).thenThrow(
           DioException(
             type: DioExceptionType.connectionTimeout,
@@ -230,11 +226,7 @@ void main() {
 
         expect(
           () => client.get<dynamic>('/test'),
-          throwsA(isA<DioException>().having(
-            (e) => e.type,
-            'type',
-            DioExceptionType.connectionTimeout,
-          )),
+          throwsA(isA<TimeoutException>()),
         );
       });
     });

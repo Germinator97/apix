@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^1.5.0
+  apix: ^2.0.0
 ```
 
 ```bash
@@ -344,28 +344,23 @@ ApiException
 
 ### Classic Try-catch
 
-Dio wraps all errors in `DioException`. Extract the typed `ApiException` from `e.error`:
+ApiClient methods throw typed `ApiException` directly — no need to unwrap `DioException`:
 
 ```dart
 try {
   final response = await client.get<Map<String, dynamic>>('/users');
-} on DioException catch (e) {
-  final error = e.error;
-  if (error is NotFoundException) {
-    print('User not found: ${error.message}');
-  } else if (error is UnauthorizedException) {
-    print('Please login again');
-  } else if (error is NetworkException) {
-    print('Check your connection: ${error.message}');
-  } else {
-    print('API error: $error');
-  }
+} on NotFoundException catch (e) {
+  print('User not found: ${e.message}');
+} on UnauthorizedException catch (e) {
+  print('Please login again');
+} on NetworkException catch (e) {
+  print('Check your connection: ${e.message}');
+} on ApiException catch (e) {
+  print('API error: ${e.message}');
 }
 ```
 
-### Result Pattern (Recommended)
-
-`getResult()` unwraps `DioException` automatically — you get typed `ApiException` directly:
+### Result Pattern (Functional)
 
 ```dart
 final result = await client.get<Map<String, dynamic>>('/users').getResult();

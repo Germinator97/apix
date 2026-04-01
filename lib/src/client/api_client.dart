@@ -43,6 +43,20 @@ class ApiClient {
     _dio.close(force: force);
   }
 
+  /// Executes a Dio call and unwraps [DioException] into typed [ApiException].
+  ///
+  /// The `ErrorMapperInterceptor` maps Dio errors into [ApiException] subtypes
+  /// but stores them in `DioException.error`. This helper extracts and rethrows
+  /// the typed exception so callers can use `on ClientException catch` directly.
+  Future<T> _execute<T>(Future<T> Function() dioCall) async {
+    try {
+      return await dioCall();
+    } on DioException catch (e) {
+      if (e.error is ApiException) throw e.error!;
+      rethrow;
+    }
+  }
+
   // ========== HTTP Methods ==========
 
   /// Sends a GET request to [path].
@@ -59,13 +73,13 @@ class ApiClient {
     CancelToken? cancelToken,
     void Function(int, int)? onReceiveProgress,
   }) {
-    return _dio.get<T>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-      onReceiveProgress: onReceiveProgress,
-    );
+    return _execute(() => _dio.get<T>(
+          path,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+          onReceiveProgress: onReceiveProgress,
+        ));
   }
 
   /// Sends a POST request to [path].
@@ -83,15 +97,15 @@ class ApiClient {
     void Function(int, int)? onSendProgress,
     void Function(int, int)? onReceiveProgress,
   }) {
-    return _dio.post<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-      onSendProgress: onSendProgress,
-      onReceiveProgress: onReceiveProgress,
-    );
+    return _execute(() => _dio.post<T>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+          onSendProgress: onSendProgress,
+          onReceiveProgress: onReceiveProgress,
+        ));
   }
 
   /// Sends a PUT request to [path].
@@ -109,15 +123,15 @@ class ApiClient {
     void Function(int, int)? onSendProgress,
     void Function(int, int)? onReceiveProgress,
   }) {
-    return _dio.put<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-      onSendProgress: onSendProgress,
-      onReceiveProgress: onReceiveProgress,
-    );
+    return _execute(() => _dio.put<T>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+          onSendProgress: onSendProgress,
+          onReceiveProgress: onReceiveProgress,
+        ));
   }
 
   /// Sends a DELETE request to [path].
@@ -133,13 +147,13 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) {
-    return _dio.delete<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
+    return _execute(() => _dio.delete<T>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+        ));
   }
 
   /// Sends a PATCH request to [path].
@@ -157,15 +171,15 @@ class ApiClient {
     void Function(int, int)? onSendProgress,
     void Function(int, int)? onReceiveProgress,
   }) {
-    return _dio.patch<T>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-      onSendProgress: onSendProgress,
-      onReceiveProgress: onReceiveProgress,
-    );
+    return _execute(() => _dio.patch<T>(
+          path,
+          data: data,
+          queryParameters: queryParameters,
+          options: options,
+          cancelToken: cancelToken,
+          onSendProgress: onSendProgress,
+          onReceiveProgress: onReceiveProgress,
+        ));
   }
 
   // ========== Typed Response Methods ==========
