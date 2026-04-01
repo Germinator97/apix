@@ -302,6 +302,60 @@ void main() {
       final httpError = capturedErrors[0].exception as HttpTrackingException;
       expect(httpError.statusCode, equals(403));
     });
+
+    test('captures badResponse errors matching captureStatusCodes', () {
+      final options = RequestOptions(path: '/error');
+      final error = DioException(
+        requestOptions: options,
+        type: DioExceptionType.badResponse,
+        response: Response(
+          requestOptions: options,
+          statusCode: 500,
+        ),
+      );
+
+      interceptor.onError(error, _MockErrorHandler());
+
+      expect(capturedErrors.length, equals(1));
+    });
+
+    test('does not capture badResponse errors outside captureStatusCodes', () {
+      final options = RequestOptions(path: '/unauthorized');
+      final error = DioException(
+        requestOptions: options,
+        type: DioExceptionType.badResponse,
+        response: Response(
+          requestOptions: options,
+          statusCode: 401,
+        ),
+      );
+
+      interceptor.onError(error, _MockErrorHandler());
+
+      expect(capturedErrors, isEmpty);
+    });
+
+    test('always captures non-HTTP errors regardless of captureStatusCodes',
+        () {
+      final types = [
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.sendTimeout,
+        DioExceptionType.receiveTimeout,
+        DioExceptionType.connectionError,
+        DioExceptionType.cancel,
+        DioExceptionType.unknown,
+      ];
+
+      for (final type in types) {
+        final error = DioException(
+          requestOptions: RequestOptions(path: '/test'),
+          type: type,
+        );
+        interceptor.onError(error, _MockErrorHandler());
+      }
+
+      expect(capturedErrors.length, equals(types.length));
+    });
   });
 }
 

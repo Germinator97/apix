@@ -1,3 +1,69 @@
+## 1.5.0
+
+### Fixed
+
+* **`AuthInterceptor` — Refresh request isolation** (critical)
+  - Refresh requests no longer inject the expired access token in the Authorization header
+  - Refresh requests that return 401 no longer cause a deadlock (recursive refresh loop)
+  - Auth-retried requests that fail again with 401 no longer trigger infinite refresh-retry loops
+
+* **`Result.getResult()` — DioException catch** (critical)
+  - Now correctly catches `DioException` wrapping `ApiException` from the error mapper
+  - Previously, `on ApiException catch` never matched because Dio throws `DioException`
+
+* **`CacheInterceptor` — Cache key generation** (critical)
+  - Fixed double-encoding of query parameters in cache keys
+  - `invalidateUrl()` now resolves relative URLs against the client's base URL
+
+* **`CacheInterceptor` — Deduplicated requests** (major)
+  - Deduplicated requests now use the main Dio instance (with auth, logging, etc.) instead of a bare Dio that lost all interceptors
+
+* **`ApiClient` — Null safety on response body** (major)
+  - `*AndDecode` methods now throw `ApiException` instead of `TypeError` on null response body (e.g. 204 No Content)
+  - `_extractData` now throws `ApiException` instead of `TypeError` on non-Map responses
+
+* **`ErrorMapperInterceptor` — Nested error message extraction** (major)
+  - Now extracts messages from nested error objects: `{ "error": { "message": "..." } }`
+  - Supports common API formats: `error.message`, `error.detail`, `error.description`
+  - `captureStatusCodes` filter now applies consistently in `onError` (previously only filtered in `onResponse`)
+
+* **`MetricsInterceptor` — Request ID collisions** (moderate)
+  - Uses monotonic counter instead of `_inFlight.length` for unique IDs
+  - Adds orphan cleanup for entries older than 5 minutes
+
+* **`SecureStorageService` — Corruption blast radius** (moderate)
+  - `read()` and `containsKey()` now delete only the corrupted key instead of calling `deleteAll()`
+
+* **Interceptor resilience** (moderate)
+  - `AuthInterceptor`, `RetryInterceptor`, `CacheInterceptor` now wrap async `onRequest`/`onError`/`onResponse` in try/catch to prevent silent request hangs on unexpected exceptions
+
+* **Sentry noise filter** (minor)
+  - No longer accidentally filters out ApiX's own `TimeoutException`, `HttpException`, `ClientException`
+
+### Added
+
+* **`AuthConfig.onAuthFailure`** — Centralized callback when token refresh fails
+  - Called exactly once per refresh attempt (even with concurrent requests queued)
+  - Receives the error object for diagnostic: `onAuthFailure: (tokenProvider, error) async { ... }`
+  - Use to clear tokens, redirect to login, or log the failure reason
+
+* **`RetryConfig.maxDelayMs`** — Maximum delay cap for exponential backoff
+  - Defaults to 30000ms (30 seconds)
+  - Prevents overflow on high attempt counts
+
+* **`InMemoryCacheStorage.maxEntries`** — Optional size limit with FIFO eviction
+
+* **`CacheEntry.tryFromJson()`** — Null-safe factory for corrupted storage data
+
+### Changed
+
+* **`AuthException`** now extends `UnauthorizedException` (was `ApiException`)
+  - Catchable with `on UnauthorizedException catch` alongside normal 401 errors
+* **`OnAuthFailureCallback`** signature: `(TokenProvider, Object? error)` — includes the failure reason
+* **Empty tokens** (`""`) are now ignored in `onRequest` and `_performSimplifiedRefresh`
+
+---
+
 ## 1.4.0
 
 ### Added

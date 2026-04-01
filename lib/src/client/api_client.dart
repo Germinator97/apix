@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../errors/api_exception.dart';
 import 'api_client_config.dart';
 
 /// A production-ready API client powered by Dio.
@@ -214,7 +215,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(response.data!);
+    return fromJson(_requireData(response));
   }
 
   /// Sends a POST request and parses the response using [parser].
@@ -265,7 +266,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(response.data!);
+    return fromJson(_requireData(response));
   }
 
   /// Sends a PUT request and parses the response using [parser].
@@ -307,7 +308,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(response.data!);
+    return fromJson(_requireData(response));
   }
 
   /// Sends a PATCH request and parses the response using [parser].
@@ -349,7 +350,22 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(response.data!);
+    return fromJson(_requireData(response));
+  }
+
+  /// Asserts that the response data is non-null and returns it.
+  ///
+  /// Throws [ApiException] if the response body is null (e.g. 204 No Content).
+  Map<String, dynamic> _requireData(Response<Map<String, dynamic>> response) {
+    final data = response.data;
+    if (data == null) {
+      throw ApiException(
+        message: 'Expected JSON response body, got null '
+            '(status ${response.statusCode})',
+        statusCode: response.statusCode,
+      );
+    }
+    return data;
   }
 
   // ========== Data Extraction Methods (Envelope Unwrapping) ==========
@@ -358,8 +374,19 @@ class ApiClient {
   // responses like `{ "data": { ... } }`.
 
   /// Extracts the payload from an envelope response.
-  dynamic _extractData(dynamic responseData) =>
-      (responseData as Map<String, dynamic>)[config.dataKey];
+  ///
+  /// Expects `responseData` to be a `Map<String, dynamic>` containing
+  /// the configured data key. Throws [ApiException] with a clear message if
+  /// the response format is unexpected.
+  dynamic _extractData(dynamic responseData) {
+    if (responseData is! Map<String, dynamic>) {
+      throw ApiException(
+        message: 'Expected envelope response (Map with '
+            '"${config.dataKey}" key), got ${responseData.runtimeType}',
+      );
+    }
+    return responseData[config.dataKey];
+  }
 
   // ---------- GET Data ----------
 

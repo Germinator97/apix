@@ -54,8 +54,17 @@ abstract class CacheStorage {
 /// In-memory implementation of [CacheStorage].
 ///
 /// Suitable for testing and short-lived caches that don't need persistence.
+///
+/// When [maxEntries] is set, the oldest entries are evicted when the limit
+/// is exceeded (FIFO eviction).
 class InMemoryCacheStorage implements CacheStorage {
   final Map<String, CacheEntry> _cache = {};
+
+  /// Maximum number of entries to keep. `null` means unlimited.
+  final int? maxEntries;
+
+  /// Creates an [InMemoryCacheStorage] with an optional size limit.
+  InMemoryCacheStorage({this.maxEntries});
 
   @override
   Future<CacheEntry?> get(String key) async {
@@ -74,6 +83,17 @@ class InMemoryCacheStorage implements CacheStorage {
   @override
   Future<void> set(String key, CacheEntry entry) async {
     _cache[key] = entry;
+    _evictIfNeeded();
+  }
+
+  /// Evicts oldest entries when the cache exceeds [maxEntries].
+  void _evictIfNeeded() {
+    if (maxEntries == null || _cache.length <= maxEntries!) return;
+    final excess = _cache.length - maxEntries!;
+    final keysToRemove = _cache.keys.take(excess).toList();
+    for (final key in keysToRemove) {
+      _cache.remove(key);
+    }
   }
 
   @override

@@ -195,6 +195,45 @@ void main() {
               equals('Error description message'));
         });
 
+        test('extracts message from nested error object', () {
+          // { "error": { "code": "...", "message": "..." } }
+          var dioError = DioException(
+            type: DioExceptionType.badResponse,
+            requestOptions: RequestOptions(path: '/test'),
+            response: Response(
+              statusCode: 401,
+              data: {
+                'success': false,
+                'error': {
+                  'code': 'INVALID_CREDENTIALS',
+                  'message': 'Email ou mot de passe incorrect.',
+                },
+                'timestamp': '2026-04-01T13:33:34.678Z',
+                'path': '/auth/login',
+              },
+              requestOptions: RequestOptions(path: '/test'),
+            ),
+          );
+          final result = ErrorMapperInterceptor.mapDioException(dioError);
+          expect(result, isA<UnauthorizedException>());
+          expect(result.message, equals('Email ou mot de passe incorrect.'));
+
+          // { "error": { "detail": "Not allowed" } }
+          dioError = DioException(
+            type: DioExceptionType.badResponse,
+            requestOptions: RequestOptions(path: '/test'),
+            response: Response(
+              statusCode: 403,
+              data: {
+                'error': {'detail': 'Not allowed'},
+              },
+              requestOptions: RequestOptions(path: '/test'),
+            ),
+          );
+          expect(ErrorMapperInterceptor.mapDioException(dioError).message,
+              equals('Not allowed'));
+        });
+
         test('falls back to HTTP status code when no message field', () {
           final dioError = DioException(
             type: DioExceptionType.badResponse,

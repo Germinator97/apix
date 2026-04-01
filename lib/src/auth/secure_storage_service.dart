@@ -92,13 +92,14 @@ class SecureStorageService {
   /// Reads the value for the given [key] from secure storage.
   ///
   /// Returns `null` if no value exists for the key.
-  /// If a bad padding exception occurs (corrupted data), the storage is cleared.
+  /// If a bad padding exception occurs (corrupted data), only the affected
+  /// key is deleted rather than clearing all storage.
   Future<String?> read(String key) async {
     try {
       return await _storage.read(key: key);
     } catch (e) {
       if (_isBadPaddingException(e)) {
-        await deleteAll();
+        await delete(key);
         return null;
       }
       rethrow;
@@ -135,13 +136,14 @@ class SecureStorageService {
   /// Checks if a value exists for the given [key].
   ///
   /// Returns `true` if a value exists, `false` otherwise.
-  /// If a bad padding exception occurs (corrupted data), the storage is cleared.
+  /// If a bad padding exception occurs (corrupted data), only the affected
+  /// key is deleted.
   Future<bool> containsKey(String key) async {
     try {
       return await _storage.containsKey(key: key);
     } catch (e) {
       if (_isBadPaddingException(e)) {
-        await deleteAll();
+        await delete(key);
         return false;
       }
       rethrow;

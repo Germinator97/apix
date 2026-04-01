@@ -34,12 +34,19 @@ class RetryConfig {
   /// Defaults to 2.0.
   final double multiplier;
 
+  /// Maximum delay between retries in milliseconds.
+  ///
+  /// Caps the exponential backoff to prevent excessively long waits.
+  /// Defaults to 30000ms (30 seconds).
+  final int maxDelayMs;
+
   /// Creates a [RetryConfig] with the given parameters.
   const RetryConfig({
     this.maxAttempts = 3,
     this.retryStatusCodes = const [500, 502, 503, 504],
     this.baseDelayMs = 1000,
     this.multiplier = 2.0,
+    this.maxDelayMs = 30000,
   });
 
   /// Returns true if the given [statusCode] should trigger a retry.
@@ -47,10 +54,12 @@ class RetryConfig {
 
   /// Calculates the delay for the given [attempt] number (0-indexed).
   ///
-  /// Uses exponential backoff: baseDelayMs * (multiplier ^ attempt).
+  /// Uses exponential backoff: baseDelayMs * (multiplier ^ attempt),
+  /// capped at [maxDelayMs].
   Duration getDelay(int attempt) {
     final delayMs = baseDelayMs * _pow(multiplier, attempt);
-    return Duration(milliseconds: delayMs.toInt());
+    final capped = delayMs.clamp(0, maxDelayMs).toInt();
+    return Duration(milliseconds: capped);
   }
 
   /// Simple power function to avoid importing dart:math.
@@ -69,12 +78,14 @@ class RetryConfig {
     List<int>? retryStatusCodes,
     int? baseDelayMs,
     double? multiplier,
+    int? maxDelayMs,
   }) {
     return RetryConfig(
       maxAttempts: maxAttempts ?? this.maxAttempts,
       retryStatusCodes: retryStatusCodes ?? this.retryStatusCodes,
       baseDelayMs: baseDelayMs ?? this.baseDelayMs,
       multiplier: multiplier ?? this.multiplier,
+      maxDelayMs: maxDelayMs ?? this.maxDelayMs,
     );
   }
 
@@ -94,6 +105,7 @@ class RetryConfig {
           maxAttempts == other.maxAttempts &&
           baseDelayMs == other.baseDelayMs &&
           multiplier == other.multiplier &&
+          maxDelayMs == other.maxDelayMs &&
           _listEquals(retryStatusCodes, other.retryStatusCodes);
 
   bool _listEquals(List<int> a, List<int> b) {
@@ -109,5 +121,6 @@ class RetryConfig {
       maxAttempts.hashCode ^
       baseDelayMs.hashCode ^
       multiplier.hashCode ^
+      maxDelayMs.hashCode ^
       retryStatusCodes.hashCode;
 }
