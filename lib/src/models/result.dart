@@ -286,19 +286,21 @@ extension ResultExtension<T> on Future<T> {
   /// Executes this future and wraps the result in a [Result].
   ///
   /// If the future completes successfully, returns [Success] with the value.
-  /// If the future throws an [ApiException] (directly or wrapped in a
-  /// [DioException] by the error mapper), returns [Failure] with the error.
+  /// If the future throws an [ApiException], returns [Failure] with the error.
+  /// Also handles `DioException` wrapping [ApiException] for cases where
+  /// the raw Dio instance is used instead of `ApiClient` methods.
   /// Other exceptions are rethrown.
   Future<Result<T, ApiException>> getResult() async {
     try {
       return Result.success(await this);
+    } on ApiException catch (e) {
+      return Result.failure(e);
     } on DioException catch (e) {
+      // Fallback for raw Dio usage bypassing ApiClient._execute
       if (e.error is ApiException) {
         return Result.failure(e.error as ApiException);
       }
       rethrow;
-    } on ApiException catch (e) {
-      return Result.failure(e);
     }
   }
 }

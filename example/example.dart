@@ -5,7 +5,6 @@
 library;
 
 import 'package:apix/apix.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 /// Simple example showing API client creation and usage.
@@ -139,32 +138,23 @@ void main() async {
       User.fromJson,
     );
     debugPrint('Search results: ${searched.length}');
-  } on DioException catch (e) {
-    // Errors from Dio are wrapped — extract the typed ApiException
-    final apiError = e.error;
-    if (apiError is NotFoundException) {
-      debugPrint('Not found: ${apiError.message}');
-    } else if (apiError is UnauthorizedException) {
-      debugPrint('Auth error: ${apiError.message}');
-    } else if (apiError is NetworkException) {
-      debugPrint('Network error: ${apiError.message}');
-    } else {
-      debugPrint('Error: $apiError');
-    }
+  } on NotFoundException catch (e) {
+    debugPrint('Not found: ${e.message}');
+  } on UnauthorizedException catch (e) {
+    debugPrint('Auth error: ${e.message}');
+  } on HttpException catch (e) {
+    debugPrint('HTTP ${e.statusCode}: ${e.message}');
+  } on NetworkException catch (e) {
+    debugPrint('Network: ${e.message}');
+  } on ApiException catch (e) {
+    debugPrint('API error: ${e.message}');
   }
 
-  // Result pattern — the recommended approach (handles DioException internally)
+  // Result pattern — functional error handling
   final result = await client.get<Map<String, dynamic>>('/users').getResult();
   result.when(
     success: (response) => debugPrint('Got ${response.data}'),
-    failure: (error) {
-      // error is already a typed ApiException — no DioException wrapper
-      if (error is UnauthorizedException) {
-        debugPrint('Auth: ${error.message}');
-      } else {
-        debugPrint('Error: ${error.message}');
-      }
-    },
+    failure: (error) => debugPrint('Error: ${error.message}'),
   );
 
   // ============================================================
