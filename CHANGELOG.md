@@ -1,4 +1,12 @@
-## 1.5.0
+## 2.0.0
+
+### Breaking
+
+* **`ApiClient` methods now throw `ApiException` instead of `DioException`**
+  - All HTTP methods (`get`, `post`, `put`, `delete`, `patch`) and typed variants unwrap `DioException` automatically
+  - Code using `on DioException catch` on `ApiClient` methods must migrate to `on ApiException catch` (or subtypes)
+  - `client.dio` (raw Dio access) still throws `DioException` — only `ApiClient` methods are affected
+  - `getResult()` handles both `ApiException` and `DioException` (fallback for raw Dio usage)
 
 ### Fixed
 
@@ -7,9 +15,11 @@
   - Refresh requests that return 401 no longer cause a deadlock (recursive refresh loop)
   - Auth-retried requests that fail again with 401 no longer trigger infinite refresh-retry loops
 
-* **`Result.getResult()` — DioException catch** (critical)
-  - Now correctly catches `DioException` wrapping `ApiException` from the error mapper
-  - Previously, `on ApiException catch` never matched because Dio throws `DioException`
+* **`ApiClient` methods now throw typed `ApiException` directly** (critical)
+  - All HTTP methods (`get`, `post`, `put`, `delete`, `patch`) unwrap `DioException` automatically
+  - `on ClientException catch`, `on UnauthorizedException catch`, etc. now work as expected
+  - No need to catch `DioException` and extract `.error` manually
+  - `getResult()` also works correctly with both `ApiException` and `DioException` (fallback for raw Dio usage)
 
 * **`CacheInterceptor` — Cache key generation** (critical)
   - Fixed double-encoding of query parameters in cache keys
