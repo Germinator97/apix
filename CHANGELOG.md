@@ -1,3 +1,52 @@
+## 2.1.0
+
+### Fixed
+
+* **`*AndDecode` / `*AndParse` — Parsing failures now surface as typed `ApiException`** (critical)
+  - New `ParsingException` (extends `ApiException`) thrown when `fromJson` or a custom `parser` callback throws (e.g. truncated JSON, type mismatch)
+  - Closes a gap in the 2.0.0 contract: `on ApiException catch` now catches **every** client-side parse failure
+  - `originalError` and `stackTrace` are preserved
+  - User-thrown `ApiException` from inside `fromJson`/`parser` is rethrown unchanged (no double-wrap)
+
+* **`AuthInterceptor` — Network blip no longer logs the user out** (major)
+  - When the refresh request fails with a connection / timeout error, the original request is rejected with `NetworkException` (typed: `ConnectionException`, `TimeoutException`)
+  - `onAuthFailure` is **not** invoked on network failures
+  - Real auth failures (401/403 from the refresh endpoint) still produce `AuthException` and call `onAuthFailure` (regression preserved)
+
+* **`AuthInterceptor` — Token provider failures now typed** (moderate)
+  - New `TokenProviderException(operation: read | write | clear)` (extends `ApiException`)
+  - Wraps errors thrown by `getAccessToken`, `getRefreshToken`, and the user-supplied `onTokenRefreshed` callback
+  - Surfaces directly to callers: `on TokenProviderException catch` distinguishes credential storage issues from network/HTTP errors
+
+* **`AuthException` now preserves the underlying cause**
+  - `AuthException(message, originalError: ..., stackTrace: ...)` — typed cause flows through to the caller via `originalError`
+
+### Added
+
+* **`RetryConfig.respectRetryAfter`** — Honor the server's `Retry-After` header on retryable responses (default `true`)
+  - Parses both delta-seconds (`"60"`) and HTTP-date (`"Wed, 21 Oct 2026 07:28:00 GMT"`) formats per RFC 7231 §7.1.3
+  - Capped at `RetryConfig.maxDelayMs`; falls back to exponential backoff if the header is absent or malformed
+  - Public `RetryInterceptor.parseRetryAfter(value, {now})` exposed for advanced use and testing
+
+* **`ApiClientConfig.strictContentType`** — Detect captive portals / wrong Content-Type (default `false`)
+  - When `true`, `*AndDecode` methods verify the response's `Content-Type` starts with `application/json`
+  - Throws `UnexpectedContentTypeException` (extends `ApiException`) on mismatch — exposes `expectedContentType` and `actualContentType` fields
+  - `*AndParse` methods are unaffected (they accept any payload type by design)
+
+* **`ApiClientConfig.responseValidator`** — Hook for legacy APIs that signal business errors via HTTP 200
+  - `ResponseValidator` typedef: `ApiException? Function(Response)`
+  - Returning a non-null exception fails the request with that typed exception; returning `null` lets the response pass through
+  - Only fires on 2xx responses (4xx/5xx still go through `ErrorMapperInterceptor`)
+  - Preserves the exact subclass returned (e.g. a custom `BusinessException`)
+
+### Changed
+
+* `*AndDecode` methods now use `<dynamic>` internally with explicit `_requireData` validation (instead of relying on Dio's eager generic cast)
+  - Eliminates confusing `TypeError` on non-JSON responses; replaced by clear `ApiException` messages
+  - `_requireData` now also throws `ApiException` when the body is non-null but not a `Map<String, dynamic>`
+
+---
+
 ## 2.0.0
 
 ### Breaking
