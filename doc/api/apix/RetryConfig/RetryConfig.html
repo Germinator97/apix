@@ -58,6 +58,8 @@
 <li><span class="parameter" id="-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">retryStatusCodes</span> = <span class="default-value">const [500, 502, 503, 504]</span>, </span></li>
 <li><span class="parameter" id="-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">baseDelayMs</span> = <span class="default-value">1000</span>, </span></li>
 <li><span class="parameter" id="-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a></span> <span class="parameter-name">multiplier</span> = <span class="default-value">2.0</span>, </span></li>
+<li><span class="parameter" id="-param-maxDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxDelayMs</span> = <span class="default-value">30000</span>, </span></li>
+<li><span class="parameter" id="-param-respectRetryAfter"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">respectRetryAfter</span> = <span class="default-value">true</span>, </span></li>
 </ol>})
     </section>
     
@@ -74,6 +76,8 @@
   this.retryStatusCodes = const [500, 502, 503, 504],
   this.baseDelayMs = 1000,
   this.multiplier = 2.0,
+  this.maxDelayMs = 30000,
+  this.respectRetryAfter = true,
 });</code></pre>
 </section>
 
@@ -102,7 +106,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

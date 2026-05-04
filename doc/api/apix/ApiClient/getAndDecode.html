@@ -86,13 +86,17 @@
   Options? options,
   CancelToken? cancelToken,
 }) async {
-  final response = await get&lt;Map&lt;String, dynamic&gt;&gt;(
+  final response = await get&lt;dynamic&gt;(
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
   );
-  return fromJson(response.data!);
+  return _parseOrThrow(
+    response,
+    () =&gt; fromJson(_requireData(response)),
+    assertJson: true,
+  );
 }</code></pre>
 </section>
 
@@ -121,7 +125,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

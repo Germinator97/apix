@@ -60,6 +60,8 @@
     
 <section class="desc markdown">
   <p>Creates a <a href="../../apix/CacheEntry-class.html">CacheEntry</a> from a JSON map.</p>
+<p>Throws if the data is corrupted. Prefer <a href="../../apix/CacheEntry/tryFromJson.html">tryFromJson</a> for storage
+backends that may contain corrupted data.</p>
 </section>
 
 
@@ -105,7 +107,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

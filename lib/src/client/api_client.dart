@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../errors/api_exception.dart';
+import '../errors/parsing_exception.dart';
+import '../errors/unexpected_content_type_exception.dart';
 import 'api_client_config.dart';
 
 /// A production-ready API client powered by Dio.
@@ -54,6 +56,56 @@ class ApiClient {
     } on DioException catch (e) {
       if (e.error is ApiException) throw e.error!;
       rethrow;
+    }
+  }
+
+  /// Runs [decode] and converts any non-[ApiException] failure into a
+  /// [ParsingException].
+  ///
+  /// This guards every typed-response method against `FormatException`,
+  /// `TypeError`, and other errors thrown by the user-supplied `fromJson` or
+  /// `parser` callbacks (or by internal cast/unwrap logic). [ApiException]
+  /// instances thrown intentionally by the user (or by [_requireData] /
+  /// [_extractData]) are rethrown unchanged.
+  ///
+  /// When [assertJson] is `true` and [ApiClientConfig.strictContentType] is
+  /// enabled, the response's `Content-Type` header is verified to start with
+  /// `application/json` before parsing — throws
+  /// [UnexpectedContentTypeException] otherwise.
+  T _parseOrThrow<T>(
+    Response<dynamic> response,
+    T Function() decode, {
+    bool assertJson = false,
+  }) {
+    if (assertJson && config.strictContentType) {
+      _assertJsonContentType(response);
+    }
+    try {
+      return decode();
+    } on ApiException {
+      rethrow;
+    } catch (e, st) {
+      throw ParsingException(
+        message: 'Failed to parse response body: $e',
+        statusCode: response.statusCode,
+        originalError: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Throws [UnexpectedContentTypeException] when the response's
+  /// `Content-Type` header is missing or does not start with
+  /// `application/json` (case-insensitive). Charset suffixes are tolerated.
+  void _assertJsonContentType(Response<dynamic> response) {
+    final raw = response.headers.value('content-type');
+    if (raw == null ||
+        !raw.toLowerCase().trimLeft().startsWith('application/json')) {
+      throw UnexpectedContentTypeException(
+        expectedContentType: 'application/json',
+        actualContentType: raw,
+        statusCode: response.statusCode,
+      );
     }
   }
 
@@ -205,7 +257,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(response.data);
+    return _parseOrThrow(response, () => parser(response.data));
   }
 
   /// Sends a GET request and deserializes a JSON object response.
@@ -223,13 +275,17 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await get<Map<String, dynamic>>(
+    final response = await get<dynamic>(
       path,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_requireData(response));
+    return _parseOrThrow(
+      response,
+      () => fromJson(_requireData(response)),
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and parses the response using [parser].
@@ -250,7 +306,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(response.data);
+    return _parseOrThrow(response, () => parser(response.data));
   }
 
   /// Sends a POST request and deserializes the response.
@@ -273,14 +329,18 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await post<Map<String, dynamic>>(
+    final response = await post<dynamic>(
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_requireData(response));
+    return _parseOrThrow(
+      response,
+      () => fromJson(_requireData(response)),
+      assertJson: true,
+    );
   }
 
   /// Sends a PUT request and parses the response using [parser].
@@ -301,7 +361,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(response.data);
+    return _parseOrThrow(response, () => parser(response.data));
   }
 
   /// Sends a PUT request and deserializes the response.
@@ -315,14 +375,18 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await put<Map<String, dynamic>>(
+    final response = await put<dynamic>(
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_requireData(response));
+    return _parseOrThrow(
+      response,
+      () => fromJson(_requireData(response)),
+      assertJson: true,
+    );
   }
 
   /// Sends a PATCH request and parses the response using [parser].
@@ -343,7 +407,7 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(response.data);
+    return _parseOrThrow(response, () => parser(response.data));
   }
 
   /// Sends a PATCH request and deserializes the response.
@@ -357,24 +421,37 @@ class ApiClient {
     Options? options,
     CancelToken? cancelToken,
   }) async {
-    final response = await patch<Map<String, dynamic>>(
+    final response = await patch<dynamic>(
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_requireData(response));
+    return _parseOrThrow(
+      response,
+      () => fromJson(_requireData(response)),
+      assertJson: true,
+    );
   }
 
-  /// Asserts that the response data is non-null and returns it.
+  /// Asserts that the response data is a non-null `Map<String, dynamic>`
+  /// and returns it.
   ///
-  /// Throws [ApiException] if the response body is null (e.g. 204 No Content).
-  Map<String, dynamic> _requireData(Response<Map<String, dynamic>> response) {
+  /// Throws [ApiException] if the body is null (e.g. 204 No Content) or not
+  /// a JSON object.
+  Map<String, dynamic> _requireData(Response<dynamic> response) {
     final data = response.data;
     if (data == null) {
       throw ApiException(
         message: 'Expected JSON response body, got null '
+            '(status ${response.statusCode})',
+        statusCode: response.statusCode,
+      );
+    }
+    if (data is! Map<String, dynamic>) {
+      throw ApiException(
+        message: 'Expected JSON object, got ${data.runtimeType} '
             '(status ${response.statusCode})',
         statusCode: response.statusCode,
       );
@@ -427,7 +504,10 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(_extractData(response.data));
+    return _parseOrThrow(
+      response,
+      () => parser(_extractData(response.data)),
+    );
   }
 
   /// Sends a GET request and parses `response.data[dataKey]`, returning null
@@ -452,8 +532,10 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    return data == null ? null : parser(data);
+    return _parseOrThrow(response, () {
+      final data = _extractData(response.data);
+      return data == null ? null : parser(data);
+    });
   }
 
   /// Sends a GET request and deserializes `response.data[dataKey]` as a JSON object.
@@ -476,7 +558,11 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_extractData(response.data) as Map<String, dynamic>);
+    return _parseOrThrow(
+      response,
+      () => fromJson(_extractData(response.data) as Map<String, dynamic>),
+      assertJson: true,
+    );
   }
 
   /// Sends a GET request and deserializes `response.data[dataKey]`, returning
@@ -494,9 +580,15 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    if (data == null) return null;
-    return fromJson(data as Map<String, dynamic>);
+    return _parseOrThrow(
+      response,
+      () {
+        final data = _extractData(response.data);
+        if (data == null) return null;
+        return fromJson(data as Map<String, dynamic>);
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a GET request and deserializes `response.data[dataKey]` as a list
@@ -520,10 +612,14 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return (_extractData(response.data) as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () => (_extractData(response.data) as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((json) => fromJson(json))
+          .toList(),
+      assertJson: true,
+    );
   }
 
   /// Sends a GET request and deserializes `response.data[dataKey]` as a list,
@@ -541,12 +637,18 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    if (data == null) return null;
-    return (data as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () {
+        final data = _extractData(response.data);
+        if (data == null) return null;
+        return (data as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map((json) => fromJson(json))
+            .toList();
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a GET request and deserializes `response.data[dataKey]` as a list,
@@ -564,12 +666,18 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    if (data == null) return <T>[];
-    return (data as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () {
+        final data = _extractData(response.data);
+        if (data == null) return <T>[];
+        return (data as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map((json) => fromJson(json))
+            .toList();
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a GET request and parses `response.data[dataKey]` as a list
@@ -596,9 +704,12 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return (_extractData(response.data) as List<dynamic>)
-        .map((item) => parser(item))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () => (_extractData(response.data) as List<dynamic>)
+          .map((item) => parser(item))
+          .toList(),
+    );
   }
 
   /// Sends a GET request and parses `response.data[dataKey]` as a list,
@@ -616,9 +727,11 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    if (data == null) return null;
-    return (data as List<dynamic>).map((item) => parser(item)).toList();
+    return _parseOrThrow(response, () {
+      final data = _extractData(response.data);
+      if (data == null) return null;
+      return (data as List<dynamic>).map((item) => parser(item)).toList();
+    });
   }
 
   /// Sends a GET request and parses `response.data[dataKey]` as a list,
@@ -636,9 +749,11 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final data = _extractData(response.data);
-    if (data == null) return <T>[];
-    return (data as List<dynamic>).map((item) => parser(item)).toList();
+    return _parseOrThrow(response, () {
+      final data = _extractData(response.data);
+      if (data == null) return <T>[];
+      return (data as List<dynamic>).map((item) => parser(item)).toList();
+    });
   }
 
   // ---------- POST Data ----------
@@ -659,7 +774,10 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return parser(_extractData(response.data));
+    return _parseOrThrow(
+      response,
+      () => parser(_extractData(response.data)),
+    );
   }
 
   /// Sends a POST request and parses `response.data[dataKey]`, returning null
@@ -679,8 +797,10 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    return extracted == null ? null : parser(extracted);
+    return _parseOrThrow(response, () {
+      final extracted = _extractData(response.data);
+      return extracted == null ? null : parser(extracted);
+    });
   }
 
   /// Sends a POST request and deserializes `response.data[dataKey]` as a
@@ -710,7 +830,11 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return fromJson(_extractData(response.data) as Map<String, dynamic>);
+    return _parseOrThrow(
+      response,
+      () => fromJson(_extractData(response.data) as Map<String, dynamic>),
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and deserializes `response.data[dataKey]`, returning
@@ -730,9 +854,15 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    if (extracted == null) return null;
-    return fromJson(extracted as Map<String, dynamic>);
+    return _parseOrThrow(
+      response,
+      () {
+        final extracted = _extractData(response.data);
+        if (extracted == null) return null;
+        return fromJson(extracted as Map<String, dynamic>);
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and deserializes `response.data[dataKey]` as a list
@@ -752,10 +882,14 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return (_extractData(response.data) as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () => (_extractData(response.data) as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map((json) => fromJson(json))
+          .toList(),
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and deserializes `response.data[dataKey]` as a list,
@@ -775,12 +909,18 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    if (extracted == null) return null;
-    return (extracted as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () {
+        final extracted = _extractData(response.data);
+        if (extracted == null) return null;
+        return (extracted as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map((json) => fromJson(json))
+            .toList();
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and deserializes `response.data[dataKey]` as a list,
@@ -800,12 +940,18 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    if (extracted == null) return <T>[];
-    return (extracted as List<dynamic>)
-        .cast<Map<String, dynamic>>()
-        .map((json) => fromJson(json))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () {
+        final extracted = _extractData(response.data);
+        if (extracted == null) return <T>[];
+        return (extracted as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .map((json) => fromJson(json))
+            .toList();
+      },
+      assertJson: true,
+    );
   }
 
   /// Sends a POST request and parses `response.data[dataKey]` as a list
@@ -825,9 +971,12 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    return (_extractData(response.data) as List<dynamic>)
-        .map((item) => parser(item))
-        .toList();
+    return _parseOrThrow(
+      response,
+      () => (_extractData(response.data) as List<dynamic>)
+          .map((item) => parser(item))
+          .toList(),
+    );
   }
 
   /// Sends a POST request and parses `response.data[dataKey]` as a list,
@@ -847,9 +996,11 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    if (extracted == null) return null;
-    return (extracted as List<dynamic>).map((item) => parser(item)).toList();
+    return _parseOrThrow(response, () {
+      final extracted = _extractData(response.data);
+      if (extracted == null) return null;
+      return (extracted as List<dynamic>).map((item) => parser(item)).toList();
+    });
   }
 
   /// Sends a POST request and parses `response.data[dataKey]` as a list,
@@ -869,8 +1020,10 @@ class ApiClient {
       options: options,
       cancelToken: cancelToken,
     );
-    final extracted = _extractData(response.data);
-    if (extracted == null) return <T>[];
-    return (extracted as List<dynamic>).map((item) => parser(item)).toList();
+    return _parseOrThrow(response, () {
+      final extracted = _extractData(response.data);
+      if (extracted == null) return <T>[];
+      return (extracted as List<dynamic>).map((item) => parser(item)).toList();
+    });
   }
 }

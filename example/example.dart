@@ -20,6 +20,21 @@ void main() async {
     baseUrl: 'https://api.example.com',
     connectTimeout: const Duration(seconds: 30),
     receiveTimeout: const Duration(seconds: 30),
+    // (v2.1.0+) Opt-in: throw UnexpectedContentTypeException when *AndDecode
+    // receives a non-JSON response. Useful to detect captive portals.
+    strictContentType: false,
+    // (v2.1.0+) Hook for legacy APIs that signal errors via HTTP 200 with
+    // a `{"success": false, ...}` body. Return an ApiException to fail.
+    // responseValidator: (response) {
+    //   final body = response.data;
+    //   if (body is Map && body['success'] == false) {
+    //     return ApiException(
+    //       message: body['message'] as String? ?? 'Unknown error',
+    //       statusCode: response.statusCode,
+    //     );
+    //   }
+    //   return null;
+    // },
     // Authentication configuration (v1.0.1+)
     authConfig: AuthConfig(
       tokenProvider: tokenProvider,
@@ -32,7 +47,10 @@ void main() async {
           data['refresh_token'] as String,
         );
       },
-      // Called when refresh fails — clear tokens and redirect to login
+      // Called when refresh fails on a real auth error (e.g. refresh token
+      // expired). Clear tokens and redirect to login.
+      // (v2.1.0+) NOT called on network failures (offline, timeout) — the
+      // original request gets NetworkException instead, no spurious logout.
       onAuthFailure: (tokenProvider, error) async {
         debugPrint('Auth failed: $error');
         await tokenProvider.clearTokens();
@@ -44,6 +62,9 @@ void main() async {
       maxAttempts: 3,
       retryStatusCodes: [500, 502, 503, 504],
       maxDelayMs: 30000, // Cap at 30s
+      // (v2.1.0+) Honor Retry-After header on 429/503 (RFC 7231 §7.1.3).
+      // Default is true; set false to always use exponential backoff.
+      respectRetryAfter: true,
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
@@ -141,11 +162,23 @@ void main() async {
   } on NotFoundException catch (e) {
     debugPrint('Not found: ${e.message}');
   } on UnauthorizedException catch (e) {
+    // Includes AuthException (refresh failure) — see e.originalError for cause
     debugPrint('Auth error: ${e.message}');
   } on HttpException catch (e) {
     debugPrint('HTTP ${e.statusCode}: ${e.message}');
   } on NetworkException catch (e) {
     debugPrint('Network: ${e.message}');
+    // (v2.1.0+) Also fires on refresh-time network errors — no logout.
+  } on TokenProviderException catch (e) {
+    // (v2.1.0+) Keychain corrupted, custom TokenProvider threw, etc.
+    debugPrint('Token storage failed (${e.operation.name}): ${e.message}');
+  } on UnexpectedContentTypeException catch (e) {
+    // (v2.1.0+) Only fires when strictContentType is enabled.
+    debugPrint('Wrong Content-Type: expected ${e.expectedContentType}, '
+        'got ${e.actualContentType ?? "(none)"}');
+  } on ParsingException catch (e) {
+    // (v2.1.0+) fromJson / parser threw — see e.originalError for cause.
+    debugPrint('Parse failure: ${e.message}');
   } on ApiException catch (e) {
     debugPrint('API error: ${e.message}');
   }

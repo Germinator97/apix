@@ -72,7 +72,7 @@ the maximum number of attempts and which status codes trigger retry.</p>
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="RetryConfig.new" class="callable">
-          <span class="name"><a href="../apix/RetryConfig/RetryConfig.html">RetryConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-maxAttempts"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxAttempts</span> = <span class="default-value">3</span>, </span><span class="parameter" id="-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">retryStatusCodes</span> = <span class="default-value">const [500, 502, 503, 504]</span>, </span><span class="parameter" id="-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">baseDelayMs</span> = <span class="default-value">1000</span>, </span><span class="parameter" id="-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a></span> <span class="parameter-name">multiplier</span> = <span class="default-value">2.0</span></span>})</span>
+          <span class="name"><a href="../apix/RetryConfig/RetryConfig.html">RetryConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-maxAttempts"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxAttempts</span> = <span class="default-value">3</span>, </span><span class="parameter" id="-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">retryStatusCodes</span> = <span class="default-value">const [500, 502, 503, 504]</span>, </span><span class="parameter" id="-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">baseDelayMs</span> = <span class="default-value">1000</span>, </span><span class="parameter" id="-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a></span> <span class="parameter-name">multiplier</span> = <span class="default-value">2.0</span>, </span><span class="parameter" id="-param-maxDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxDelayMs</span> = <span class="default-value">30000</span>, </span><span class="parameter" id="-param-respectRetryAfter"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">respectRetryAfter</span> = <span class="default-value">true</span></span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/RetryConfig-class.html">RetryConfig</a> with the given parameters.
@@ -122,6 +122,18 @@ the maximum number of attempts and which status codes trigger retry.</p>
 
 </dd>
 
+        <dt id="maxDelayMs" class="property">
+  <span class="name"><a href="../apix/RetryConfig/maxDelayMs.html">maxDelayMs</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  Maximum delay between retries in milliseconds.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
         <dt id="multiplier" class="property">
   <span class="name"><a href="../apix/RetryConfig/multiplier.html">multiplier</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a></span>
@@ -130,6 +142,18 @@ the maximum number of attempts and which status codes trigger retry.</p>
 </dt>
 <dd>
   Multiplier for exponential backoff.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="respectRetryAfter" class="property">
+  <span class="name"><a href="../apix/RetryConfig/respectRetryAfter.html">respectRetryAfter</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd>
+  Whether to honor the server's <code>Retry-After</code> header on retryable responses.
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -168,7 +192,7 @@ the maximum number of attempts and which status codes trigger retry.</p>
     <h2>Methods</h2>
     <dl class="callables">
         <dt id="copyWith" class="callable">
-  <span class="name"><a href="../apix/RetryConfig/copyWith.html">copyWith</a></span><span class="signature">(<wbr>{<span class="parameter" id="copyWith-param-maxAttempts"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">maxAttempts</span>, </span><span class="parameter" id="copyWith-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">retryStatusCodes</span>, </span><span class="parameter" id="copyWith-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">baseDelayMs</span>, </span><span class="parameter" id="copyWith-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a>?</span> <span class="parameter-name">multiplier</span></span>})
+  <span class="name"><a href="../apix/RetryConfig/copyWith.html">copyWith</a></span><span class="signature">(<wbr>{<span class="parameter" id="copyWith-param-maxAttempts"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">maxAttempts</span>, </span><span class="parameter" id="copyWith-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">retryStatusCodes</span>, </span><span class="parameter" id="copyWith-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">baseDelayMs</span>, </span><span class="parameter" id="copyWith-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a>?</span> <span class="parameter-name">multiplier</span>, </span><span class="parameter" id="copyWith-param-maxDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">maxDelayMs</span>, </span><span class="parameter" id="copyWith-param-respectRetryAfter"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>?</span> <span class="parameter-name">respectRetryAfter</span></span>})
     <span class="returntype parameter">&#8594; <a href="../apix/RetryConfig-class.html">RetryConfig</a></span>
   </span>
   
@@ -282,7 +306,7 @@ the maximum number of attempts and which status codes trigger retry.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

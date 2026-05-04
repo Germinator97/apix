@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^1.4.0
+  apix: ^2.1.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -120,12 +120,17 @@ final client = ApiClientFactory.create(
         data['refresh_token'] as String,
       );
     },
+    onAuthFailure: (tokenProvider, error) async {
+      await tokenProvider.clearTokens();
+      // Navigate to login, show dialog, etc.
+    },
   ),
   
   // 🔄 Retry with exponential backoff
   retryConfig: const RetryConfig(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
+    maxDelayMs: 30000, // Cap at 30s
   ),
   
   // 💾 Smart caching
@@ -186,6 +191,12 @@ final client = ApiClientFactory.create(
         data['refresh_token'] as String,
       );
     },
+    // Called when refresh fails — clear tokens and redirect to login
+    onAuthFailure: (tokenProvider, error) async {
+      debugPrint('Auth failed: $error');
+      await tokenProvider.clearTokens();
+      // router.go('/login');
+    },
   ),
 );
 
@@ -195,7 +206,9 @@ await tokenProvider.saveTokens(accessToken, refreshToken);
 // Logout
 await tokenProvider.clearTokens();
 </code></pre>
-<p><strong>Refresh token queue</strong>: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically.</p>
+<p><strong>Refresh token queue</strong>: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, <code>onAuthFailure</code> is called <strong>once</strong> (not per queued request).</p>
+<p><strong>Network resilience</strong>: When the refresh request itself fails with a connection or timeout error, the original request is rejected with <code>NetworkException</code> (typed: <code>ConnectionException</code>, <code>TimeoutException</code>) — <code>onAuthFailure</code> is <strong>not</strong> invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger <code>AuthException</code> and call <code>onAuthFailure</code>.</p>
+<p><strong>Token storage failures</strong>: Errors raised by your <code>TokenProvider</code> (corrupted keychain, missing entitlements, ...) surface as <code>TokenProviderException</code> — see <a href="#error-handling">Error Handling</a>.</p>
 <hr>
 <h3 id="-retry-with-exponential-backoff">🔄 Retry with Exponential Backoff</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
@@ -205,6 +218,8 @@ await tokenProvider.clearTokens();
     retryStatusCodes: [500, 502, 503, 504],
     baseDelayMs: 1000,
     multiplier: 2.0,  // 1s → 2s → 4s
+    maxDelayMs: 30000, // Never wait more than 30s
+    respectRetryAfter: true, // Honor Retry-After header (default)
   ),
 );
 
@@ -214,6 +229,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
   options: Options(extra: {noRetryKey: true}),
 );
 </code></pre>
+<p><strong><code>Retry-After</code> header (RFC 7231 §7.1.3)</strong>: when <code>respectRetryAfter</code> is <code>true</code> (default), responses carrying a <code>Retry-After</code> header — typically on <code>429 Too Many Requests</code> or <code>503 Service Unavailable</code> — are honored. Both delta-seconds (<code>"60"</code>) and HTTP-date (<code>"Wed, 21 Oct 2026 07:28:00 GMT"</code>) formats are parsed. The resolved delay is capped at <code>maxDelayMs</code>. Falls back to exponential backoff if the header is absent or malformed.</p>
 <hr>
 <h3 id="-smart-caching">💾 Smart Caching</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
@@ -367,7 +383,7 @@ await SentrySetup.init(
 <table>
 <thead>
 <tr>
-<th>Dio Error</th>
+<th>Source</th>
 <th>ApiX Exception</th>
 </tr>
 </thead>
@@ -396,22 +412,47 @@ await SentrySetup.init(
 <td>HTTP 4xx/5xx</td>
 <td><code>HttpException</code></td>
 </tr>
+<tr>
+<td><code>*AndDecode</code> / <code>*AndParse</code> parse failure</td>
+<td><code>ParsingException</code></td>
+</tr>
+<tr>
+<td><code>TokenProvider</code> failure (keychain, custom impl)</td>
+<td><code>TokenProviderException</code></td>
+</tr>
+<tr>
+<td>Wrong <code>Content-Type</code> (with <code>strictContentType: true</code>)</td>
+<td><code>UnexpectedContentTypeException</code></td>
+</tr>
 </tbody>
 </table>
-<p>The <strong>message</strong> is automatically extracted from the API response (<code>message</code>, <code>error</code>, <code>detail</code>, <code>error_description</code>) or falls back to <code>"HTTP {statusCode}"</code>.</p>
+<p>The <strong>message</strong> is automatically extracted from the API response body. Supports flat and nested formats:</p>
+<pre class="language-dart"><code>{ "message": "Bad request" }                       → "Bad request"
+{ "detail": "Not found" }                          → "Not found"
+{ "error": "Access denied" }                       → "Access denied"
+{ "error": { "message": "Invalid credentials" } }  → "Invalid credentials"
+{ "error": { "detail": "..." } }                   → "..."
+</code></pre>
+<p>Falls back to <code>"HTTP {statusCode}"</code> if no known field is found.</p>
 <h3 id="exception-hierarchy">Exception Hierarchy</h3>
 <pre class="language-dart"><code>ApiException
 ├── NetworkException
 │   ├── TimeoutException
 │   └── ConnectionException
-└── HttpException
-    ├── ClientException (4xx)
-    │   ├── UnauthorizedException (401)
-    │   ├── ForbiddenException (403)
-    │   └── NotFoundException (404)
-    └── ServerException (5xx)
+├── HttpException
+│   ├── ClientException (4xx)
+│   │   ├── UnauthorizedException (401)
+│   │   │   └── AuthException (refresh failure)
+│   │   ├── ForbiddenException (403)
+│   │   └── NotFoundException (404)
+│   └── ServerException (5xx)
+├── ParsingException (decode / parse failure)
+├── TokenProviderException (TokenProvider failure)
+└── UnexpectedContentTypeException (strictContentType only)
 </code></pre>
+<p><code>AuthException</code> exposes <code>originalError</code> so the underlying cause (e.g. <code>TokenProviderException</code> or a custom error from a legacy <code>onRefresh</code>) is recoverable.</p>
 <h3 id="classic-try-catch">Classic Try-catch</h3>
+<p>ApiClient methods throw typed <code>ApiException</code> directly — no need to unwrap <code>DioException</code>:</p>
 <pre class="language-dart"><code class="language-dart">try {
   final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 } on NotFoundException catch (e) {
@@ -432,11 +473,34 @@ result.when(
   failure: (error) =&gt; print('Error: ${error.message}'),
 );
 
-// Or with pattern matching
-if (result.isSuccess) {
-  final data = result.valueOrNull;
-}
+// Or with fold
+final message = result.fold(
+  onSuccess: (response) =&gt; 'Got ${response.data}',
+  onFailure: (error) =&gt; 'Error: ${error.message}',
+);
 </code></pre>
+<h3 id="validating-2xx-responses-legacy-apis">Validating 2xx Responses (Legacy APIs)</h3>
+<p>Some APIs signal business errors via HTTP 200 with a payload like
+<code>{ "success": false, "error": "..." }</code>. The <code>responseValidator</code> hook lets you
+turn that into a typed <code>ApiException</code> so it flows through the same <code>try/catch</code>
+as HTTP errors:</p>
+<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  responseValidator: (response) {
+    final body = response.data;
+    if (body is Map &amp;&amp; body['success'] == false) {
+      return ApiException(
+        message: body['message'] as String? ?? 'Unknown error',
+        statusCode: response.statusCode,
+      );
+    }
+    return null; // pass through
+  },
+);
+</code></pre>
+<p>The validator only fires on 2xx responses. Returning <code>null</code> lets the response
+through unchanged. Returning any <code>ApiException</code> subclass (including custom
+ones) preserves the exact type for <code>on YourException catch</code>.</p>
 <hr>
 <h2 id="typed-response-methods">Typed Response Methods</h2>
 <p>ApiX provides <strong>3 levels</strong> of response handling, from raw to fully typed with envelope unwrapping.</p>
@@ -538,6 +602,26 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 </tr>
 </tbody>
 </table>
+<h3 id="strict-content-type-checks-captive-portals">Strict Content-Type Checks (Captive Portals)</h3>
+<p><code>*AndDecode</code> methods can verify that the response's <code>Content-Type</code> starts
+with <code>application/json</code> before attempting to parse. Useful in fintech /
+mobile contexts where a captive Wi-Fi portal may return HTML 200 in place
+of the expected JSON:</p>
+<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  strictContentType: true, // opt-in (default: false)
+);
+
+try {
+  final user = await client.getAndDecode('/me', User.fromJson);
+} on UnexpectedContentTypeException catch (e) {
+  // e.expectedContentType, e.actualContentType available
+  // Likely a captive portal — surface a "check your network" UI
+}
+</code></pre>
+<p><code>*AndParse</code> methods are unaffected (they accept any payload type by design).
+A missing <code>Content-Type</code> header in strict mode triggers the same exception
+with <code>actualContentType: null</code>.</p>
 <hr>
 <h2 id="api-reference">API Reference</h2>
 <h3 id="apiclientfactorycreate">ApiClientFactory.create</h3>
@@ -566,9 +650,34 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <td>Receive timeout (30s)</td>
 </tr>
 <tr>
+<td><code>sendTimeout</code></td>
+<td><code>Duration</code></td>
+<td>Send timeout (30s)</td>
+</tr>
+<tr>
+<td><code>defaultContentType</code></td>
+<td><code>String?</code></td>
+<td>Default <code>Content-Type</code> (<code>application/json</code>)</td>
+</tr>
+<tr>
 <td><code>headers</code></td>
-<td><code>Map&lt;String, dynamic&gt;</code></td>
+<td><code>Map&lt;String, dynamic&gt;?</code></td>
 <td>Default headers</td>
+</tr>
+<tr>
+<td><code>dataKey</code></td>
+<td><code>String</code></td>
+<td>Envelope key for <code>*Data</code> methods (<code>'data'</code>)</td>
+</tr>
+<tr>
+<td><code>strictContentType</code></td>
+<td><code>bool</code></td>
+<td>Enforce <code>application/json</code> on <code>*AndDecode</code> (false)</td>
+</tr>
+<tr>
+<td><code>responseValidator</code></td>
+<td><code>ResponseValidator?</code></td>
+<td>Hook to validate 2xx responses</td>
 </tr>
 <tr>
 <td><code>authConfig</code></td>
@@ -604,6 +713,11 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <td><code>interceptors</code></td>
 <td><code>List&lt;Interceptor&gt;?</code></td>
 <td>Custom interceptors</td>
+</tr>
+<tr>
+<td><code>httpClientAdapter</code></td>
+<td><code>HttpClientAdapter?</code></td>
+<td>Custom Dio adapter</td>
 </tr>
 </tbody>
 </table>
@@ -665,6 +779,18 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <td><code>String</code></td>
 <td><code>'data'</code></td>
 <td>Key for envelope unwrapping in <code>*Data</code> methods</td>
+</tr>
+<tr>
+<td><code>strictContentType</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Throw <code>UnexpectedContentTypeException</code> when <code>*AndDecode</code> receives a non-JSON response</td>
+</tr>
+<tr>
+<td><code>responseValidator</code></td>
+<td><code>ResponseValidator?</code></td>
+<td>null</td>
+<td>Inspect 2xx responses; return an <code>ApiException</code> to fail the request</td>
 </tr>
 </tbody>
 </table>
@@ -790,7 +916,7 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -144,6 +144,13 @@ final client = ApiClientFactory.fromConfig(config);
     dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
   }
 
+  &#47;&#47; Add response validator if configured (fires on 2xx; rejected
+  &#47;&#47; responses fall through to ErrorMapperInterceptor below)
+  if (config.responseValidator != null) {
+    dio.interceptors
+        .add(ResponseValidatorInterceptor(config.responseValidator!));
+  }
+
   &#47;&#47; Add custom interceptors
   if (config.interceptors != null) {
     dio.interceptors.addAll(config.interceptors!);
@@ -182,7 +189,7 @@ final client = ApiClientFactory.fromConfig(config);
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

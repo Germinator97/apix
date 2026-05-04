@@ -95,7 +95,10 @@ final date = await client.getAndParseData(
     options: options,
     cancelToken: cancelToken,
   );
-  return parser(_extractData(response.data));
+  return _parseOrThrow(
+    response,
+    () =&gt; parser(_extractData(response.data)),
+  );
 }</code></pre>
 </section>
 
@@ -124,7 +127,7 @@ final date = await client.getAndParseData(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

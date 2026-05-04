@@ -832,3 +832,63 @@ So that I can adopt it quickly.
 **And** Each feature section uses the unified API style
 **And** example.dart uses unified configuration
 **And** CHANGELOG documents v1.0.1 changes
+
+---
+
+## Epic 11: Polish & 2.0 Contract Consistency (v2.1.0)
+
+Corrige les régressions du contrat 2.0.0 (« `on ApiException catch` fonctionne pour TOUTES les erreurs côté client ») et complète les manques sur les headers HTTP standards (`Retry-After`).
+
+**Stories:** détails complets dans `.bmad/implementation-artifacts/stories/11-*.md`
+
+### Story 11.1: Implement ParsingException for *AndDecode/*AndParse
+
+`ParsingException extends ApiException` thrown when `fromJson`/`parser` callbacks throw. Preserves `originalError` and `stackTrace`. Closes the gap where 2.0.0's typed-exception promise leaked `FormatException` / `TypeError` on parsing failures.
+
+### Story 11.2: Respect Retry-After header in RetryInterceptor
+
+`RetryConfig.respectRetryAfter` (default `true`). Parses both delta-seconds and HTTP-date formats. Caps at `maxDelayMs`. Falls back to exponential backoff if header absent or malformed.
+
+### Story 11.3: Add TokenProviderException for token retrieval errors
+
+Wraps storage/keychain failures in a typed `TokenProviderException(operation: read|write|clear)`. Avoids opaque crashes when the keychain is corrupted or a custom `TokenProvider` throws.
+
+### Story 11.4: Distinguish NetworkException from AuthException in refresh flow
+
+Refresh request fails with connection error → propagates as `NetworkException`, not as silent `AuthException("Token refresh failed")`. Prevents spurious logout on network blips. `onAuthFailure` not invoked on network failures.
+
+### Story 11.5: Add UnexpectedContentTypeException with optional check
+
+Opt-in via `ApiClientConfig(strictContentType: true)`. Detects captive-portal responses (HTML 200) and other Content-Type mismatches before parsing. Backward-compatible default off.
+
+### Story 11.6: Add responseValidator callback to ApiClientConfig
+
+`ResponseValidator = ApiException? Function(Response)`. Hook for legacy APIs returning `{success: false}` in HTTP 200. Fires only on 2xx (4xx/5xx still go through `ErrorMapperInterceptor`).
+
+---
+
+## Epic 12: Production Hardening (v2.2.0)
+
+Ajoute des capacités production critiques pour les apps fintech (the internal consumer apps) et améliore la robustesse face aux backends hostiles ou misconfigurés.
+
+**Stories:** détails complets dans `.bmad/implementation-artifacts/stories/12-*.md`
+
+### Story 12.1: Add Idempotency-Key helper for write operations
+
+`idempotencyKey` parameter on `post`/`put`/`patch`/`delete`. Accepts a literal `String` or `autoIdempotencyKey: true` for UUID v4 auto-generation. `RetryInterceptor` preserves the key across retries. No new dep (UUID v4 via `dart:math.Random.secure`).
+
+### Story 12.2: Add cache size-based limit and onEviction callback
+
+`InMemoryCacheStorage.maxBytes` complementing existing `maxEntries`. `CacheConfig.onEviction(key, reason)` callback for instrumentation. Reasons: `maxEntriesExceeded`, `maxBytesExceeded`, `oversized`, `manual`, `expired`.
+
+### Story 12.3: Add SSL pinning support via certificatePins config
+
+`ApiClientConfig.certificatePins` (List<String>) for SHA-256 fingerprints. Custom `HttpClientAdapter` with conditional imports (mobile/desktop active, Web logs warning + degrades). Throws `CertificatePinException extends NetworkException` on mismatch. Supports multiple pins for cert rotation.
+
+### Story 12.4: Add maxRedirects config and circular redirect detection
+
+`ApiClientConfig.maxRedirects` (default 5). Detects circular redirects (A→B→A) → `CircularRedirectException`. Strips `Authorization` header on cross-host redirects (security). Both new exceptions extend `NetworkException`.
+
+### Story 12.5: Add ProgressInterceptor for upload visibility in dev mode
+
+Optional logging of upload/download progress at configurable thresholds (default 10%). Gated by `LoggerConfig.progressLogging`. Composes with user-supplied `onSendProgress`/`onReceiveProgress` callbacks (both fire). Skips payloads below `progressLoggingMinBytes` (default 64 KB).
