@@ -190,6 +190,193 @@ void main() {
       expect(options.extra[noRetryKey], isTrue);
     });
   });
+
+  group('RetryInterceptor.parseRetryAfter', () {
+    test('parses delta-seconds', () {
+      expect(
+        RetryInterceptor.parseRetryAfter('60'),
+        equals(const Duration(seconds: 60)),
+      );
+    });
+
+    test('trims whitespace around delta-seconds', () {
+      expect(
+        RetryInterceptor.parseRetryAfter('  120  '),
+        equals(const Duration(seconds: 120)),
+      );
+    });
+
+    test('clamps negative delta-seconds to zero', () {
+      expect(
+        RetryInterceptor.parseRetryAfter('-5'),
+        equals(Duration.zero),
+      );
+    });
+
+    test('parses HTTP-date with injectable now', () {
+      final now = DateTime.utc(2026, 5, 4, 12, 0, 0);
+      const target = 'Mon, 04 May 2026 12:00:30 GMT';
+
+      expect(
+        RetryInterceptor.parseRetryAfter(target, now: now),
+        equals(const Duration(seconds: 30)),
+      );
+    });
+
+    test('past HTTP-date returns zero duration', () {
+      final now = DateTime.utc(2026, 5, 4, 12, 0, 30);
+      const target = 'Mon, 04 May 2026 12:00:00 GMT';
+
+      expect(
+        RetryInterceptor.parseRetryAfter(target, now: now),
+        equals(Duration.zero),
+      );
+    });
+
+    test('returns null for malformed value', () {
+      expect(RetryInterceptor.parseRetryAfter('garbage'), isNull);
+      expect(RetryInterceptor.parseRetryAfter(''), isNull);
+    });
+  });
+
+  group('RetryConfig.respectRetryAfter', () {
+    test('defaults to true', () {
+      const config = RetryConfig();
+
+      expect(config.respectRetryAfter, isTrue);
+    });
+
+    test('can be disabled', () {
+      const config = RetryConfig(respectRetryAfter: false);
+
+      expect(config.respectRetryAfter, isFalse);
+    });
+
+    test('copyWith preserves respectRetryAfter', () {
+      const original = RetryConfig(respectRetryAfter: false);
+      final copy = original.copyWith(maxAttempts: 5);
+
+      expect(copy.respectRetryAfter, isFalse);
+    });
+
+    test('copyWith updates respectRetryAfter', () {
+      const original = RetryConfig();
+      final copy = original.copyWith(respectRetryAfter: false);
+
+      expect(copy.respectRetryAfter, isFalse);
+    });
+
+    test('equality considers respectRetryAfter', () {
+      const a = RetryConfig();
+      const b = RetryConfig(respectRetryAfter: false);
+
+      expect(a, isNot(equals(b)));
+    });
+  });
+
+  group('RetryInterceptor honors Retry-After', () {
+    test(
+      'retries 503 with Retry-After: 0 nearly instantly when respectRetryAfter is on',
+      () async {
+        final dio = Dio();
+        var fetchCount = 0;
+        dio.httpClientAdapter = _CountingAdapter(
+          firstResponse: ResponseBody.fromString(
+            'fail',
+            503,
+            headers: {
+              'retry-after': ['0'],
+              Headers.contentTypeHeader: ['text/plain'],
+            },
+          ),
+          subsequent: () {
+            fetchCount++;
+            return ResponseBody.fromString('ok', 200);
+          },
+        );
+        // Long base delay — would dominate if Retry-After were ignored.
+        const config = RetryConfig(
+          maxAttempts: 2,
+          retryStatusCodes: [503],
+          baseDelayMs: 10000,
+          maxDelayMs: 20000,
+        );
+        dio.interceptors.add(RetryInterceptor(config: config, dio: dio));
+
+        final stopwatch = Stopwatch()..start();
+        final response = await dio.get<String>('https://example.com/x');
+        stopwatch.stop();
+
+        expect(response.statusCode, equals(200));
+        expect(fetchCount, equals(1));
+        expect(
+          stopwatch.elapsed,
+          lessThan(const Duration(seconds: 2)),
+          reason: 'Retry-After: 0 should bypass long exponential backoff',
+        );
+      },
+    );
+
+    test(
+      'retries with exponential when respectRetryAfter is false even with Retry-After header',
+      () async {
+        final dio = Dio();
+        dio.httpClientAdapter = _CountingAdapter(
+          firstResponse: ResponseBody.fromString(
+            'fail',
+            503,
+            headers: {
+              'retry-after': ['0'],
+              Headers.contentTypeHeader: ['text/plain'],
+            },
+          ),
+          subsequent: () => ResponseBody.fromString('ok', 200),
+        );
+        const config = RetryConfig(
+          maxAttempts: 2,
+          retryStatusCodes: [503],
+          baseDelayMs: 200,
+          maxDelayMs: 200,
+          respectRetryAfter: false,
+        );
+        dio.interceptors.add(RetryInterceptor(config: config, dio: dio));
+
+        final stopwatch = Stopwatch()..start();
+        await dio.get<String>('https://example.com/x');
+        stopwatch.stop();
+
+        expect(
+          stopwatch.elapsed,
+          greaterThanOrEqualTo(const Duration(milliseconds: 150)),
+          reason: 'header is ignored, exponential delay applies',
+        );
+      },
+    );
+  });
+}
+
+class _CountingAdapter implements HttpClientAdapter {
+  _CountingAdapter({required this.firstResponse, required this.subsequent});
+
+  final ResponseBody firstResponse;
+  final ResponseBody Function() subsequent;
+  bool _firstSent = false;
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (!_firstSent) {
+      _firstSent = true;
+      return firstResponse;
+    }
+    return subsequent();
+  }
 }
 
 class TestErrorHandler extends ErrorInterceptorHandler {

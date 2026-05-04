@@ -63,6 +63,8 @@
 <li><span class="parameter" id="copyWith-param-defaultContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">defaultContentType</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-interceptors"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?</span> <span class="parameter-name">interceptors</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-dataKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">dataKey</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-strictContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>?</span> <span class="parameter-name">strictContentType</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-responseValidator"><span class="type-annotation"><a href="../../apix/ResponseValidator.html">ResponseValidator</a>?</span> <span class="parameter-name">responseValidator</span>, </span></li>
 </ol>})
 
       
@@ -86,6 +88,8 @@
   String? defaultContentType,
   List&lt;Interceptor&gt;? interceptors,
   String? dataKey,
+  bool? strictContentType,
+  ResponseValidator? responseValidator,
 }) {
   return ApiClientConfig(
     baseUrl: baseUrl ?? this.baseUrl,
@@ -96,6 +100,8 @@
     defaultContentType: defaultContentType ?? this.defaultContentType,
     interceptors: interceptors ?? this.interceptors,
     dataKey: dataKey ?? this.dataKey,
+    strictContentType: strictContentType ?? this.strictContentType,
+    responseValidator: responseValidator ?? this.responseValidator,
   );
 }</code></pre>
 </section>
@@ -125,7 +131,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

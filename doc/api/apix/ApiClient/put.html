@@ -92,15 +92,15 @@
   void Function(int, int)? onSendProgress,
   void Function(int, int)? onReceiveProgress,
 }) {
-  return _dio.put&lt;T&gt;(
-    path,
-    data: data,
-    queryParameters: queryParameters,
-    options: options,
-    cancelToken: cancelToken,
-    onSendProgress: onSendProgress,
-    onReceiveProgress: onReceiveProgress,
-  );
+  return _execute(() =&gt; _dio.put&lt;T&gt;(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        options: options,
+        cancelToken: cancelToken,
+        onSendProgress: onSendProgress,
+        onReceiveProgress: onReceiveProgress,
+      ));
 }</code></pre>
 </section>
 
@@ -129,7 +129,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

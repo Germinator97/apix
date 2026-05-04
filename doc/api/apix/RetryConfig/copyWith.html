@@ -59,6 +59,8 @@
 <li><span class="parameter" id="copyWith-param-retryStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span>?</span> <span class="parameter-name">retryStatusCodes</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-baseDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">baseDelayMs</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-multiplier"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/double-class.html">double</a>?</span> <span class="parameter-name">multiplier</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-maxDelayMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">maxDelayMs</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-respectRetryAfter"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>?</span> <span class="parameter-name">respectRetryAfter</span>, </span></li>
 </ol>})
 
       
@@ -78,12 +80,16 @@
   List&lt;int&gt;? retryStatusCodes,
   int? baseDelayMs,
   double? multiplier,
+  int? maxDelayMs,
+  bool? respectRetryAfter,
 }) {
   return RetryConfig(
     maxAttempts: maxAttempts ?? this.maxAttempts,
     retryStatusCodes: retryStatusCodes ?? this.retryStatusCodes,
     baseDelayMs: baseDelayMs ?? this.baseDelayMs,
     multiplier: multiplier ?? this.multiplier,
+    maxDelayMs: maxDelayMs ?? this.maxDelayMs,
+    respectRetryAfter: respectRetryAfter ?? this.respectRetryAfter,
   );
 }</code></pre>
 </section>
@@ -113,7 +119,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

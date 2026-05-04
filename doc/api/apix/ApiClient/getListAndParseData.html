@@ -96,9 +96,12 @@ final roles = await client.getListAndParseData(
     options: options,
     cancelToken: cancelToken,
   );
-  return (_extractData(response.data) as List&lt;dynamic&gt;)
-      .map((item) =&gt; parser(item))
-      .toList();
+  return _parseOrThrow(
+    response,
+    () =&gt; (_extractData(response.data) as List&lt;dynamic&gt;)
+        .map((item) =&gt; parser(item))
+        .toList(),
+  );
 }</code></pre>
 </section>
 
@@ -127,7 +130,7 @@ final roles = await client.getListAndParseData(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

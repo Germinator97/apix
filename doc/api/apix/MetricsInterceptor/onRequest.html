@@ -82,6 +82,7 @@ void onRequest(
   RequestInterceptorHandler handler,
 ) {
   if (config.enabled) {
+    _cleanupOrphans();
     final metrics = _createMetrics(options);
     _inFlight[metrics.requestId] = metrics;
     options.extra[&#39;_metrics_request_id&#39;] = metrics.requestId;
@@ -126,7 +127,7 @@ void onRequest(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -92,9 +92,11 @@ returning an empty list if the extracted data is null.</p>
     options: options,
     cancelToken: cancelToken,
   );
-  final extracted = _extractData(response.data);
-  if (extracted == null) return &lt;T&gt;[];
-  return (extracted as List&lt;dynamic&gt;).map((item) =&gt; parser(item)).toList();
+  return _parseOrThrow(response, () {
+    final extracted = _extractData(response.data);
+    if (extracted == null) return &lt;T&gt;[];
+    return (extracted as List&lt;dynamic&gt;).map((item) =&gt; parser(item)).toList();
+  });
 }</code></pre>
 </section>
 
@@ -123,7 +125,7 @@ returning an empty list if the extracted data is null.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

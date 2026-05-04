@@ -89,9 +89,15 @@ null if the extracted data is null.</p>
     options: options,
     cancelToken: cancelToken,
   );
-  final data = _extractData(response.data);
-  if (data == null) return null;
-  return fromJson(data as Map&lt;String, dynamic&gt;);
+  return _parseOrThrow(
+    response,
+    () {
+      final data = _extractData(response.data);
+      if (data == null) return null;
+      return fromJson(data as Map&lt;String, dynamic&gt;);
+    },
+    assertJson: true,
+  );
 }</code></pre>
 </section>
 
@@ -120,7 +126,7 @@ null if the extracted data is null.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -1,3 +1,5 @@
+import 'dart:io' show HttpDate;
+
 import 'package:dio/dio.dart';
 
 import 'retry_config.dart';
@@ -62,7 +64,7 @@ class RetryInterceptor extends Interceptor {
       }
 
       // Calculate delay and wait
-      final delay = config.getDelay(currentAttempt);
+      final delay = _resolveDelay(err, currentAttempt);
       await Future<void>.delayed(delay);
 
       // Increment attempt count for the retry
@@ -78,6 +80,51 @@ class RetryInterceptor extends Interceptor {
       }
     } catch (e) {
       handler.next(err);
+    }
+  }
+
+  /// Resolves the wait duration before the next retry.
+  ///
+  /// When [RetryConfig.respectRetryAfter] is `true` and the response carries
+  /// a `Retry-After` header that we can parse, the parsed value is used
+  /// (clamped to `[0, RetryConfig.maxDelayMs]`). Otherwise we fall back to
+  /// [RetryConfig.getDelay] (exponential backoff).
+  Duration _resolveDelay(DioException err, int currentAttempt) {
+    if (config.respectRetryAfter) {
+      final header = err.response?.headers.value('retry-after');
+      if (header != null) {
+        final parsed = _parseRetryAfter(header);
+        if (parsed != null) {
+          final clampedMs = parsed.inMilliseconds.clamp(0, config.maxDelayMs);
+          return Duration(milliseconds: clampedMs);
+        }
+      }
+    }
+    return config.getDelay(currentAttempt);
+  }
+
+  Duration? _parseRetryAfter(String value) =>
+      parseRetryAfter(value, now: DateTime.now());
+
+  /// Parses a `Retry-After` header value (RFC 7231 §7.1.3).
+  ///
+  /// Supports both delta-seconds (`"60"`) and HTTP-date
+  /// (`"Wed, 21 Oct 2026 07:28:00 GMT"`). Returns `null` if the value can't
+  /// be parsed. Negative or past values are clamped to [Duration.zero].
+  ///
+  /// [now] is injectable for deterministic testing of HTTP-date values.
+  static Duration? parseRetryAfter(String value, {DateTime? now}) {
+    final trimmed = value.trim();
+    final seconds = int.tryParse(trimmed);
+    if (seconds != null) {
+      return Duration(seconds: seconds < 0 ? 0 : seconds);
+    }
+    try {
+      final target = HttpDate.parse(trimmed);
+      final delta = target.difference(now ?? DateTime.now());
+      return delta.isNegative ? Duration.zero : delta;
+    } catch (_) {
+      return null;
     }
   }
 

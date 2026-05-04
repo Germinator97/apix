@@ -40,6 +40,16 @@ class RetryConfig {
   /// Defaults to 30000ms (30 seconds).
   final int maxDelayMs;
 
+  /// Whether to honor the server's `Retry-After` header on retryable responses.
+  ///
+  /// When `true` (default), the interceptor parses the `Retry-After` header
+  /// (delta-seconds or HTTP-date) and uses it as the wait duration for the
+  /// next retry, capped at [maxDelayMs]. When `false`, exponential backoff
+  /// is always used.
+  ///
+  /// See RFC 7231 §7.1.3.
+  final bool respectRetryAfter;
+
   /// Creates a [RetryConfig] with the given parameters.
   const RetryConfig({
     this.maxAttempts = 3,
@@ -47,6 +57,7 @@ class RetryConfig {
     this.baseDelayMs = 1000,
     this.multiplier = 2.0,
     this.maxDelayMs = 30000,
+    this.respectRetryAfter = true,
   });
 
   /// Returns true if the given [statusCode] should trigger a retry.
@@ -79,6 +90,7 @@ class RetryConfig {
     int? baseDelayMs,
     double? multiplier,
     int? maxDelayMs,
+    bool? respectRetryAfter,
   }) {
     return RetryConfig(
       maxAttempts: maxAttempts ?? this.maxAttempts,
@@ -86,6 +98,7 @@ class RetryConfig {
       baseDelayMs: baseDelayMs ?? this.baseDelayMs,
       multiplier: multiplier ?? this.multiplier,
       maxDelayMs: maxDelayMs ?? this.maxDelayMs,
+      respectRetryAfter: respectRetryAfter ?? this.respectRetryAfter,
     );
   }
 
@@ -106,6 +119,7 @@ class RetryConfig {
           baseDelayMs == other.baseDelayMs &&
           multiplier == other.multiplier &&
           maxDelayMs == other.maxDelayMs &&
+          respectRetryAfter == other.respectRetryAfter &&
           _listEquals(retryStatusCodes, other.retryStatusCodes);
 
   bool _listEquals(List<int> a, List<int> b) {
@@ -122,5 +136,6 @@ class RetryConfig {
       baseDelayMs.hashCode ^
       multiplier.hashCode ^
       maxDelayMs.hashCode ^
+      respectRetryAfter.hashCode ^
       retryStatusCodes.hashCode;
 }

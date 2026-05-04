@@ -14,6 +14,7 @@ import '../retry/retry_interceptor.dart';
 import 'api_client.dart';
 import 'api_client_config.dart';
 import 'multipart_interceptor.dart';
+import 'response_validator_interceptor.dart';
 
 /// Factory for creating [ApiClient] instances.
 ///
@@ -61,6 +62,9 @@ class ApiClientFactory {
     MetricsConfig? metricsConfig,
     List<Interceptor>? interceptors,
     HttpClientAdapter? httpClientAdapter,
+    String dataKey = 'data',
+    bool strictContentType = false,
+    ResponseValidator? responseValidator,
   }) {
     final config = ApiClientConfig(
       baseUrl: baseUrl,
@@ -70,6 +74,9 @@ class ApiClientFactory {
       defaultContentType: defaultContentType,
       headers: headers,
       interceptors: interceptors,
+      dataKey: dataKey,
+      strictContentType: strictContentType,
+      responseValidator: responseValidator,
     );
     return fromConfig(
       config,
@@ -151,6 +158,13 @@ class ApiClientFactory {
     // Add metrics interceptor if configured
     if (metricsConfig != null) {
       dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
+    }
+
+    // Add response validator if configured (fires on 2xx; rejected
+    // responses fall through to ErrorMapperInterceptor below)
+    if (config.responseValidator != null) {
+      dio.interceptors
+          .add(ResponseValidatorInterceptor(config.responseValidator!));
     }
 
     // Add custom interceptors
