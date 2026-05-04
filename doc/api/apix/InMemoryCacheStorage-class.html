@@ -56,6 +56,8 @@
 <section class="desc markdown">
   <p>In-memory implementation of <a href="../apix/CacheStorage-class.html">CacheStorage</a>.</p>
 <p>Suitable for testing and short-lived caches that don't need persistence.</p>
+<p>When <a href="../apix/InMemoryCacheStorage/maxEntries.html">maxEntries</a> is set, the oldest entries are evicted when the limit
+is exceeded (FIFO eviction).</p>
 </section>
 
 
@@ -85,10 +87,10 @@
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="InMemoryCacheStorage.new" class="callable">
-          <span class="name"><a href="../apix/InMemoryCacheStorage/InMemoryCacheStorage.html">InMemoryCacheStorage.new</a></span><span class="signature">()</span>
+          <span class="name"><a href="../apix/InMemoryCacheStorage/InMemoryCacheStorage.html">InMemoryCacheStorage.new</a></span><span class="signature">({<span class="parameter" id="-param-maxEntries"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">maxEntries</span></span>})</span>
         </dt>
         <dd>
-          
+          Creates an <a href="../apix/InMemoryCacheStorage-class.html">InMemoryCacheStorage</a> with an optional size limit.
         </dd>
     </dl>
   </section>
@@ -119,6 +121,18 @@
 <dd>
   Returns the current number of cached entries.
   <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="maxEntries" class="property">
+  <span class="name"><a href="../apix/InMemoryCacheStorage/maxEntries.html">maxEntries</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span>
+  
+
+</dt>
+<dd>
+  Maximum number of entries to keep. <code>null</code> means unlimited.
+  <div class="features"><span class="feature">final</span></div>
 
 </dd>
 
@@ -323,7 +337,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -64,7 +64,8 @@
     
 <section class="desc markdown">
   <p>Calculates the delay for the given <code>attempt</code> number (0-indexed).</p>
-<p>Uses exponential backoff: baseDelayMs * (multiplier ^ attempt).</p>
+<p>Uses exponential backoff: baseDelayMs * (multiplier ^ attempt),
+capped at <a href="../../apix/RetryConfig/maxDelayMs.html">maxDelayMs</a>.</p>
 </section>
 
 
@@ -73,7 +74,8 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Duration getDelay(int attempt) {
   final delayMs = baseDelayMs * _pow(multiplier, attempt);
-  return Duration(milliseconds: delayMs.toInt());
+  final capped = delayMs.clamp(0, maxDelayMs).toInt();
+  return Duration(milliseconds: capped);
 }</code></pre>
 </section>
 
@@ -102,7 +104,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

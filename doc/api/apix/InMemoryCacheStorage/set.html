@@ -79,6 +79,7 @@
   <pre class="language-dart"><code class="language-dart">@override
 Future&lt;void&gt; set(String key, CacheEntry entry) async {
   _cache[key] = entry;
+  _evictIfNeeded();
 }</code></pre>
 </section>
 
@@ -107,7 +108,7 @@ Future&lt;void&gt; set(String key, CacheEntry entry) async {
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

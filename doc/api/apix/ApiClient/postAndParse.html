@@ -92,7 +92,7 @@
     options: options,
     cancelToken: cancelToken,
   );
-  return parser(response.data);
+  return _parseOrThrow(response, () =&gt; parser(response.data));
 }</code></pre>
 </section>
 
@@ -121,7 +121,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -81,34 +81,39 @@ void onError(
   DioException err,
   ErrorInterceptorHandler handler,
 ) async {
-  final options = err.requestOptions;
-  final strategy = _getStrategy(options);
+  try {
+    final options = err.requestOptions;
+    final strategy = _getStrategy(options);
 
-  &#47;&#47; Only handle networkFirst and httpCacheAware fallback
-  if (strategy != CacheStrategy.networkFirst &amp;&amp;
-      strategy != CacheStrategy.httpCacheAware) {
+    &#47;&#47; Only handle networkFirst and httpCacheAware fallback
+    if (strategy != CacheStrategy.networkFirst &amp;&amp;
+        strategy != CacheStrategy.httpCacheAware) {
+      handler.next(err);
+      return;
+    }
+
+    &#47;&#47; Only fallback for cacheable methods
+    if (!config.shouldCache(options.method)) {
+      handler.next(err);
+      return;
+    }
+
+    final cacheKey =
+        options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
+
+    &#47;&#47; Try to return cached response on network failure
+    final cached = await config.storage.get(cacheKey);
+    if (cached != null) {
+      final response = _buildResponseFromCache(options, cached);
+      handler.resolve(response);
+      return;
+    }
+
     handler.next(err);
-    return;
-  }
-
-  &#47;&#47; Only fallback for cacheable methods
-  if (!config.shouldCache(options.method)) {
+  } catch (_) {
+    &#47;&#47; On storage failure, propagate the original error
     handler.next(err);
-    return;
   }
-
-  final cacheKey =
-      options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
-
-  &#47;&#47; Try to return cached response on network failure
-  final cached = await config.storage.get(cacheKey);
-  if (cached != null) {
-    final response = _buildResponseFromCache(options, cached);
-    handler.resolve(response);
-    return;
-  }
-
-  handler.next(err);
 }</code></pre>
 </section>
 
@@ -137,7 +142,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

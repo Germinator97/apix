@@ -64,7 +64,11 @@
     </section>
     
 <section class="desc markdown">
-  <p>Invalidates cache entry for a specific URL and method.</p>
+  <p>Invalidates all cache entries for a specific URL and method.</p>
+<p>Accepts both relative paths and absolute URLs.
+Relative paths are resolved against the client's base URL.
+All query parameter variants for the same URL are invalidated.</p>
+<p>Returns true if at least one entry was removed.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">await interceptor.invalidateUrl('/users/123', method: 'GET');
 </code></pre>
@@ -75,8 +79,12 @@
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Future&lt;bool&gt; invalidateUrl(String url, {String method = &#39;GET&#39;}) async {
-  final key = &#39;$method:$url&#39;;
-  return invalidate(key);
+  final resolvedUrl = _resolveUrl(url);
+  final prefix = &#39;$method:$resolvedUrl&#39;;
+  final removed = await config.storage.removeWhere(
+    (key) =&gt; key.startsWith(prefix),
+  );
+  return removed &gt; 0;
 }</code></pre>
 </section>
 
@@ -105,7 +113,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

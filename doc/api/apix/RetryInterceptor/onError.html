@@ -81,44 +81,48 @@ void onError(
   DioException err,
   ErrorInterceptorHandler handler,
 ) async {
-  final statusCode = err.response?.statusCode;
-  final requestOptions = err.requestOptions;
-
-  &#47;&#47; Check if retry is disabled for this request
-  if (_isNoRetry(requestOptions)) {
-    handler.next(err);
-    return;
-  }
-
-  &#47;&#47; Check if we should retry based on status code
-  if (statusCode == null || !config.shouldRetry(statusCode)) {
-    handler.next(err);
-    return;
-  }
-
-  &#47;&#47; Get current attempt count
-  final currentAttempt = _getAttemptCount(requestOptions);
-
-  &#47;&#47; Check if we&#39;ve exceeded max attempts
-  if (currentAttempt &gt;= config.maxAttempts) {
-    handler.next(err);
-    return;
-  }
-
-  &#47;&#47; Calculate delay and wait
-  final delay = config.getDelay(currentAttempt);
-  await Future&lt;void&gt;.delayed(delay);
-
-  &#47;&#47; Increment attempt count for the retry
-  _setAttemptCount(requestOptions, currentAttempt + 1);
-
-  &#47;&#47; Retry the request
   try {
-    final response = await dio.fetch&lt;dynamic&gt;(requestOptions);
-    handler.resolve(response);
-  } on DioException catch (e) {
-    &#47;&#47; Let the error go through onError again for potential further retries
-    handler.next(e);
+    final statusCode = err.response?.statusCode;
+    final requestOptions = err.requestOptions;
+
+    &#47;&#47; Check if retry is disabled for this request
+    if (_isNoRetry(requestOptions)) {
+      handler.next(err);
+      return;
+    }
+
+    &#47;&#47; Check if we should retry based on status code
+    if (statusCode == null || !config.shouldRetry(statusCode)) {
+      handler.next(err);
+      return;
+    }
+
+    &#47;&#47; Get current attempt count
+    final currentAttempt = _getAttemptCount(requestOptions);
+
+    &#47;&#47; Check if we&#39;ve exceeded max attempts
+    if (currentAttempt &gt;= config.maxAttempts) {
+      handler.next(err);
+      return;
+    }
+
+    &#47;&#47; Calculate delay and wait
+    final delay = _resolveDelay(err, currentAttempt);
+    await Future&lt;void&gt;.delayed(delay);
+
+    &#47;&#47; Increment attempt count for the retry
+    _setAttemptCount(requestOptions, currentAttempt + 1);
+
+    &#47;&#47; Retry the request
+    try {
+      final response = await dio.fetch&lt;dynamic&gt;(requestOptions);
+      handler.resolve(response);
+    } on DioException catch (e) {
+      &#47;&#47; Let the error go through onError again for potential further retries
+      handler.next(e);
+    }
+  } catch (e) {
+    handler.next(err);
   }
 }</code></pre>
 </section>
@@ -148,7 +152,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

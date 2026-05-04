@@ -82,7 +82,15 @@ void onError(
   ErrorInterceptorHandler handler,
 ) {
   if (config.enabled &amp;&amp; config.onError != null) {
-    _captureException(err);
+    final statusCode = err.response?.statusCode;
+
+    &#47;&#47; For HTTP errors (badResponse), only capture status codes in captureStatusCodes.
+    &#47;&#47; Non-HTTP errors (timeout, connection, unknown) are always captured.
+    if (err.type != DioExceptionType.badResponse ||
+        (statusCode != null &amp;&amp;
+            config.captureStatusCodes.contains(statusCode))) {
+      _captureException(err);
+    }
   }
   handler.next(err);
 }</code></pre>
@@ -113,7 +121,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -81,31 +81,43 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) async {
-  &#47;&#47; Only cache configured methods
-  if (!config.shouldCache(options.method)) {
+  try {
+    &#47;&#47; Skip cache for deduplicated sub-requests (avoids recursion)
+    if (options.extra[_skipCacheKey] == true) {
+      handler.next(options);
+      return;
+    }
+
+    &#47;&#47; Only cache configured methods
+    if (!config.shouldCache(options.method)) {
+      handler.next(options);
+      return;
+    }
+
+    final cacheKey = _generateCacheKey(options);
+    final strategy = _getStrategy(options);
+
+    switch (strategy) {
+      case CacheStrategy.cacheFirst:
+        await _handleCacheFirst(options, handler, cacheKey);
+      case CacheStrategy.cacheOnly:
+        await _handleCacheOnly(options, handler, cacheKey);
+      case CacheStrategy.httpCacheAware:
+        await _handleHttpCacheAware(options, handler, cacheKey);
+      case CacheStrategy.networkFirst:
+      case CacheStrategy.networkOnly:
+        options.extra[&#39;_cacheKey&#39;] = cacheKey;
+        &#47;&#47; Check for deduplication
+        if (config.shouldDeduplicate(options.method) &amp;&amp; _dio != null) {
+          await _handleWithDeduplication(
+              options, handler, cacheKey, strategy);
+        } else {
+          handler.next(options);
+        }
+    }
+  } catch (e) {
+    &#47;&#47; On storage or other failure, fall through to network
     handler.next(options);
-    return;
-  }
-
-  final cacheKey = _generateCacheKey(options);
-  final strategy = _getStrategy(options);
-
-  switch (strategy) {
-    case CacheStrategy.cacheFirst:
-      await _handleCacheFirst(options, handler, cacheKey);
-    case CacheStrategy.cacheOnly:
-      await _handleCacheOnly(options, handler, cacheKey);
-    case CacheStrategy.httpCacheAware:
-      await _handleHttpCacheAware(options, handler, cacheKey);
-    case CacheStrategy.networkFirst:
-    case CacheStrategy.networkOnly:
-      options.extra[&#39;_cacheKey&#39;] = cacheKey;
-      &#47;&#47; Check for deduplication
-      if (config.shouldDeduplicate(options.method) &amp;&amp; _dio != null) {
-        await _handleWithDeduplication(options, handler, cacheKey, strategy);
-      } else {
-        handler.next(options);
-      }
   }
 }</code></pre>
 </section>
@@ -135,7 +147,7 @@ void onRequest(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

@@ -81,38 +81,82 @@ void onError(
   DioException err,
   ErrorInterceptorHandler handler,
 ) async {
-  final statusCode = err.response?.statusCode;
-
-  &#47;&#47; Check if we should refresh (simplified or legacy approach)
-  final canRefresh = config.hasSimplifiedRefresh || config.onRefresh != null;
-  if (statusCode != null &amp;&amp; config.shouldRefresh(statusCode) &amp;&amp; canRefresh) {
-    &#47;&#47; Wait for refresh and retry
-    final refreshSuccess = await _handleRefresh();
-
-    if (refreshSuccess) {
-      &#47;&#47; Retry the original request with new token
-      try {
-        final response = await _retryRequest(err.requestOptions);
-        handler.resolve(response);
-        return;
-      } on DioException catch (e) {
-        handler.next(e);
-        return;
-      }
-    } else {
-      &#47;&#47; Refresh failed - reject with AuthException
-      handler.reject(
-        DioException(
-          requestOptions: err.requestOptions,
-          error: const AuthException(&#39;Token refresh failed&#39;),
-          type: DioExceptionType.unknown,
-        ),
-      );
+  try {
+    &#47;&#47; Never attempt refresh for refresh requests themselves (prevents deadlock)
+    &#47;&#47; or auth-retried requests (prevents infinite loop)
+    if (err.requestOptions.extra[isRefreshRequestKey] == true ||
+        err.requestOptions.extra[isAuthRetryKey] == true) {
+      handler.next(err);
       return;
     }
-  }
 
-  handler.next(err);
+    final statusCode = err.response?.statusCode;
+
+    &#47;&#47; Check if we should refresh (simplified or legacy approach)
+    final canRefresh =
+        config.hasSimplifiedRefresh || config.onRefresh != null;
+    if (statusCode != null &amp;&amp;
+        config.shouldRefresh(statusCode) &amp;&amp;
+        canRefresh) {
+      &#47;&#47; Wait for refresh and retry
+      final outcome = await _handleRefresh();
+
+      switch (outcome) {
+        case _RefreshSuccess():
+          &#47;&#47; Retry the original request with new token
+          try {
+            final response = await _retryRequest(err.requestOptions);
+            handler.resolve(response);
+            return;
+          } on DioException catch (e) {
+            handler.next(e);
+            return;
+          }
+        case _RefreshNetworkFailure(exception: final networkException):
+          &#47;&#47; Refresh hit a network error — propagate as-is, do NOT log the
+          &#47;&#47; user out. onAuthFailure was already skipped in _handleRefresh.
+          handler.reject(
+            DioException(
+              requestOptions: err.requestOptions,
+              message: networkException.message,
+              error: networkException,
+              type: DioExceptionType.unknown,
+            ),
+          );
+          return;
+        case _RefreshAuthFailure(error: final cause):
+          &#47;&#47; Surface a typed TokenProviderException directly when present;
+          &#47;&#47; otherwise fall back to AuthException (preserves the 1.x&#47;2.x
+          &#47;&#47; contract for opaque refresh failures while keeping the cause
+          &#47;&#47; accessible via originalError).
+          final ApiException finalError = cause is TokenProviderException
+              ? cause
+              : AuthException(
+                  &#39;Token refresh failed&#39;,
+                  originalError: cause,
+                );
+          handler.reject(
+            DioException(
+              requestOptions: err.requestOptions,
+              message: finalError.message,
+              error: finalError,
+              type: DioExceptionType.unknown,
+            ),
+          );
+          return;
+      }
+    }
+
+    handler.next(err);
+  } catch (e) {
+    handler.reject(
+      DioException(
+        requestOptions: err.requestOptions,
+        error: e,
+        type: DioExceptionType.unknown,
+      ),
+    );
+  }
 }</code></pre>
 </section>
 
@@ -141,7 +185,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

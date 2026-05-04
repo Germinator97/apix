@@ -81,45 +81,56 @@ void onResponse(
   Response&lt;dynamic&gt; response,
   ResponseInterceptorHandler handler,
 ) async {
-  final options = response.requestOptions;
+  try {
+    final options = response.requestOptions;
 
-  &#47;&#47; Only cache configured methods
-  if (!config.shouldCache(options.method)) {
-    handler.next(response);
-    return;
-  }
-
-  final cacheKey =
-      options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
-  final strategy = _getStrategy(options);
-
-  &#47;&#47; Handle 304 Not Modified for httpCacheAware
-  if (strategy == CacheStrategy.httpCacheAware &amp;&amp;
-      response.statusCode == 304) {
-    final cached = await config.storage.get(cacheKey);
-    if (cached != null) {
-      final cachedResponse = _buildResponseFromCache(options, cached);
-      handler.resolve(cachedResponse);
-      return;
-    }
-  }
-
-  &#47;&#47; Check Cache-Control headers for httpCacheAware
-  if (strategy == CacheStrategy.httpCacheAware) {
-    final cacheControl = _parseCacheControl(response.headers);
-    if (cacheControl.noStore) {
-      &#47;&#47; Don&#39;t cache this response
+    &#47;&#47; Skip for deduplicated sub-requests (caching handled by the deduplicator)
+    if (options.extra[_skipCacheKey] == true) {
       handler.next(response);
       return;
     }
-  }
 
-  &#47;&#47; Cache successful responses
-  if (_shouldCacheResponse(response)) {
-    await _cacheResponse(cacheKey, response, strategy: strategy);
-  }
+    &#47;&#47; Only cache configured methods
+    if (!config.shouldCache(options.method)) {
+      handler.next(response);
+      return;
+    }
 
-  handler.next(response);
+    final cacheKey =
+        options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
+    final strategy = _getStrategy(options);
+
+    &#47;&#47; Handle 304 Not Modified for httpCacheAware
+    if (strategy == CacheStrategy.httpCacheAware &amp;&amp;
+        response.statusCode == 304) {
+      final cached = await config.storage.get(cacheKey);
+      if (cached != null) {
+        final cachedResponse = _buildResponseFromCache(options, cached);
+        handler.resolve(cachedResponse);
+        return;
+      }
+    }
+
+    &#47;&#47; Check Cache-Control headers for httpCacheAware
+    if (strategy == CacheStrategy.httpCacheAware) {
+      final cacheControl = _parseCacheControl(response.headers);
+      if (cacheControl.noStore) {
+        &#47;&#47; Don&#39;t cache this response
+        handler.next(response);
+        return;
+      }
+    }
+
+    &#47;&#47; Cache successful responses
+    if (_shouldCacheResponse(response)) {
+      await _cacheResponse(cacheKey, response, strategy: strategy);
+    }
+
+    handler.next(response);
+  } catch (_) {
+    &#47;&#47; On storage failure, pass through the response unmodified
+    handler.next(response);
+  }
 }</code></pre>
 </section>
 
@@ -148,7 +159,7 @@ void onResponse(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>
