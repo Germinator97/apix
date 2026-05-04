@@ -92,10 +92,14 @@ of JSON objects.</p>
     options: options,
     cancelToken: cancelToken,
   );
-  return (_extractData(response.data) as List&lt;dynamic&gt;)
-      .cast&lt;Map&lt;String, dynamic&gt;&gt;()
-      .map((json) =&gt; fromJson(json))
-      .toList();
+  return _parseOrThrow(
+    response,
+    () =&gt; (_extractData(response.data) as List&lt;dynamic&gt;)
+        .cast&lt;Map&lt;String, dynamic&gt;&gt;()
+        .map((json) =&gt; fromJson(json))
+        .toList(),
+    assertJson: true,
+  );
 }</code></pre>
 </section>
 
@@ -124,7 +128,7 @@ of JSON objects.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

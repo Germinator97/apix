@@ -65,7 +65,8 @@
 <section class="desc markdown">
   <p>Reads the value for the given <code>key</code> from secure storage.</p>
 <p>Returns <code>null</code> if no value exists for the key.
-If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
+If a bad padding exception occurs (corrupted data), only the affected
+key is deleted rather than clearing all storage.</p>
 </section>
 
 
@@ -77,7 +78,7 @@ If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
     return await _storage.read(key: key);
   } catch (e) {
     if (_isBadPaddingException(e)) {
-      await deleteAll();
+      await delete(key);
       return null;
     }
     rethrow;
@@ -110,7 +111,7 @@ If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

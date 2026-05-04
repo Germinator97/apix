@@ -81,13 +81,46 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) async {
-  final token = await config.tokenProvider.getAccessToken();
+  try {
+    &#47;&#47; Skip auth header for refresh requests to avoid injecting the expired token
+    if (options.extra[isRefreshRequestKey] == true) {
+      handler.next(options);
+      return;
+    }
 
-  if (token != null) {
-    options.headers[config.headerName] = config.formatHeaderValue(token);
+    String? token;
+    try {
+      token = await config.tokenProvider.getAccessToken();
+    } catch (e, st) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          error: TokenProviderException(
+            operation: TokenProviderOperation.read,
+            message: &#39;Token retrieval failed: $e&#39;,
+            originalError: e,
+            stackTrace: st,
+          ),
+          type: DioExceptionType.unknown,
+        ),
+      );
+      return;
+    }
+
+    if (token != null &amp;&amp; token.isNotEmpty) {
+      options.headers[config.headerName] = config.formatHeaderValue(token);
+    }
+
+    handler.next(options);
+  } catch (e) {
+    handler.reject(
+      DioException(
+        requestOptions: options,
+        error: e,
+        type: DioExceptionType.unknown,
+      ),
+    );
   }
-
-  handler.next(options);
 }</code></pre>
 </section>
 
@@ -116,7 +149,7 @@ void onRequest(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

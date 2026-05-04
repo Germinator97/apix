@@ -100,7 +100,11 @@ final user = await client.postAndDecodeData(
     options: options,
     cancelToken: cancelToken,
   );
-  return fromJson(_extractData(response.data) as Map&lt;String, dynamic&gt;);
+  return _parseOrThrow(
+    response,
+    () =&gt; fromJson(_extractData(response.data) as Map&lt;String, dynamic&gt;),
+    assertJson: true,
+  );
 }</code></pre>
 </section>
 
@@ -129,7 +133,7 @@ final user = await client.postAndDecodeData(
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

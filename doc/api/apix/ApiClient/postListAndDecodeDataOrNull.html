@@ -92,12 +92,18 @@ returning null if the extracted data is null.</p>
     options: options,
     cancelToken: cancelToken,
   );
-  final extracted = _extractData(response.data);
-  if (extracted == null) return null;
-  return (extracted as List&lt;dynamic&gt;)
-      .cast&lt;Map&lt;String, dynamic&gt;&gt;()
-      .map((json) =&gt; fromJson(json))
-      .toList();
+  return _parseOrThrow(
+    response,
+    () {
+      final extracted = _extractData(response.data);
+      if (extracted == null) return null;
+      return (extracted as List&lt;dynamic&gt;)
+          .cast&lt;Map&lt;String, dynamic&gt;&gt;()
+          .map((json) =&gt; fromJson(json))
+          .toList();
+    },
+    assertJson: true,
+  );
 }</code></pre>
 </section>
 
@@ -126,7 +132,7 @@ returning null if the extracted data is null.</p>
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

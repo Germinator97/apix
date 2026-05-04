@@ -257,6 +257,14 @@ and handles token refresh on configured status codes.
   Request metrics data.
 </dd>
 
+          <dt id="ResponseValidatorInterceptor">
+  <span class="name "><a href="../apix/ResponseValidatorInterceptor-class.html">ResponseValidatorInterceptor</a></span> 
+
+</dt>
+<dd>
+  Interceptor that runs a <a href="../apix/ResponseValidator.html">ResponseValidator</a> on every 2xx response.
+</dd>
+
           <dt id="Result">
   <span class="name "><a href="../apix/Result-class.html">Result</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>, <span class="type-parameter">E extends <a href="../apix/ApiException-class.html">ApiException</a></span>&gt;</span></span> 
 
@@ -358,6 +366,14 @@ secure key-value storage operations.
 </dt>
 <dd>
   Log level for filtering log output.
+</dd>
+
+          <dt id="TokenProviderOperation">
+  <span class="name "><a href="../apix/TokenProviderOperation.html">TokenProviderOperation</a></span> 
+
+</dt>
+<dd>
+  The kind of operation a <a href="../apix/TokenProviderException-class.html">TokenProviderException</a> is reporting on.
 </dd>
 
       </dl>
@@ -515,6 +531,20 @@ secure key-value storage operations.
   </dd>
 
           
+  <dt id="OnAuthFailureCallback" class="callable">
+    <span class="name"><a href="../apix/OnAuthFailureCallback.html">OnAuthFailureCallback</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-tokenProvider"><span class="type-annotation"><a href="../apix/TokenProvider-class.html">TokenProvider</a></span> <span class="parameter-name">tokenProvider</span>, </span><span class="parameter" id="param-error"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">error</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Callback invoked when token refresh fails.
+    
+
+  </dd>
+
+          
   <dt id="OnTokenRefreshedCallback" class="callable">
     <span class="name"><a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a></span><span class="signature">
       <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
@@ -542,6 +572,22 @@ secure key-value storage operations.
 
   </dd>
 
+          
+  <dt id="ResponseValidator" class="callable">
+    <span class="name"><a href="../apix/ResponseValidator.html">ResponseValidator</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="../apix/ApiException-class.html">ApiException</a>? Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    A callback that inspects a successful (2xx) response and either returns
+<code>null</code> to let it pass through, or returns an <a href="../apix/ApiException-class.html">ApiException</a> subclass to
+have the request fail with that exception.
+    
+
+  </dd>
+
       </dl>
     </section>
 
@@ -561,7 +607,7 @@ secure key-value storage operations.
 
 </dt>
 <dd>
-  Exception thrown when authentication fails.
+  Exception thrown when token refresh fails.
 </dd>
 
           <dt id="CacheException">
@@ -628,6 +674,14 @@ secure key-value storage operations.
   Exception thrown when a resource is not found (404 Not Found).
 </dd>
 
+          <dt id="ParsingException">
+  <span class="name "><a href="../apix/ParsingException-class.html">ParsingException</a></span> 
+
+</dt>
+<dd>
+  Exception thrown when a response body cannot be parsed.
+</dd>
+
           <dt id="ServerException">
   <span class="name "><a href="../apix/ServerException-class.html">ServerException</a></span> 
 
@@ -644,12 +698,29 @@ secure key-value storage operations.
   Exception thrown when a request times out.
 </dd>
 
+          <dt id="TokenProviderException">
+  <span class="name "><a href="../apix/TokenProviderException-class.html">TokenProviderException</a></span> 
+
+</dt>
+<dd>
+  Exception thrown when a <a href="../apix/TokenProvider-class.html">TokenProvider</a> operation fails.
+</dd>
+
           <dt id="UnauthorizedException">
   <span class="name "><a href="../apix/UnauthorizedException-class.html">UnauthorizedException</a></span> 
 
 </dt>
 <dd>
   Exception thrown when authentication is required (401 Unauthorized).
+</dd>
+
+          <dt id="UnexpectedContentTypeException">
+  <span class="name "><a href="../apix/UnexpectedContentTypeException-class.html">UnexpectedContentTypeException</a></span> 
+
+</dt>
+<dd>
+  Exception thrown when a typed-decode method receives a response whose
+<code>Content-Type</code> header does not match the expected media type.
 </dd>
 
       </dl>
@@ -681,7 +752,7 @@ secure key-value storage operations.
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>

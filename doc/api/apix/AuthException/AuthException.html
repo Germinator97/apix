@@ -54,19 +54,28 @@
 
     <section class="multi-line-signature">
       const
-      <span class="name ">AuthException</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="-param-message"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span></span></li>
-</ol>)
+      <span class="name ">AuthException</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="-param-message"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span>, {</span></li>
+<li><span class="parameter" id="-param-originalError"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">originalError</span>, </span></li>
+<li><span class="parameter" id="-param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span>, </span></li>
+</ol>})
     </section>
     
 <section class="desc markdown">
   <p>Creates an <a href="../../apix/AuthException-class.html">AuthException</a> with the given <code>message</code>.</p>
+<p>When the failure has an underlying cause (the exception that caused
+<code>_handleRefresh</code> to abort), pass it as <code>originalError</code> so callers can
+inspect it without losing the typed cause.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">const AuthException(String message) : super(message: message);</code></pre>
+  <pre class="language-dart"><code class="language-dart">const AuthException(
+  String message, {
+  super.originalError,
+  super.stackTrace,
+}) : super(message: message);</code></pre>
 </section>
 
 
@@ -94,7 +103,7 @@
 <footer>
   <span class="no-break">
     apix
-      1.4.0
+      2.1.0
   </span>
   
 </footer>
