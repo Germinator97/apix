@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^2.0.0
+  apix: ^2.1.0
 ```
 
 ```bash
@@ -172,6 +172,10 @@ await tokenProvider.clearTokens();
 
 **Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, `onAuthFailure` is called **once** (not per queued request).
 
+**Network resilience**: When the refresh request itself fails with a connection or timeout error, the original request is rejected with `NetworkException` (typed: `ConnectionException`, `TimeoutException`) — `onAuthFailure` is **not** invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger `AuthException` and call `onAuthFailure`.
+
+**Token storage failures**: Errors raised by your `TokenProvider` (corrupted keychain, missing entitlements, ...) surface as `TokenProviderException` — see [Error Handling](#error-handling).
+
 ---
 
 ### 🔄 Retry with Exponential Backoff
@@ -185,6 +189,7 @@ final client = ApiClientFactory.create(
     baseDelayMs: 1000,
     multiplier: 2.0,  // 1s → 2s → 4s
     maxDelayMs: 30000, // Never wait more than 30s
+    respectRetryAfter: true, // Honor Retry-After header (default)
   ),
 );
 
@@ -194,6 +199,8 @@ final response = await client.get<Map<String, dynamic>>(
   options: Options(extra: {noRetryKey: true}),
 );
 ```
+
+**`Retry-After` header (RFC 7231 §7.1.3)**: when `respectRetryAfter` is `true` (default), responses carrying a `Retry-After` header — typically on `429 Too Many Requests` or `503 Service Unavailable` — are honored. Both delta-seconds (`"60"`) and HTTP-date (`"Wed, 21 Oct 2026 07:28:00 GMT"`) formats are parsed. The resolved delay is capped at `maxDelayMs`. Falls back to exponential backoff if the header is absent or malformed.
 
 ---
 
@@ -305,7 +312,7 @@ final client = ApiClientFactory.create(
 
 ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMapperInterceptor` (added automatically):
 
-| Dio Error | ApiX Exception |
+| Source | ApiX Exception |
 |------------|----------------|
 | `connectionTimeout`, `sendTimeout`, `receiveTimeout` | `TimeoutException` |
 | `connectionError` | `ConnectionException` |
@@ -313,6 +320,9 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 403 | `ForbiddenException` |
 | HTTP 404 | `NotFoundException` |
 | HTTP 4xx/5xx | `HttpException` |
+| `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
+| `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
+| Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
 
 The **message** is automatically extracted from the API response body. Supports flat and nested formats:
 
@@ -333,14 +343,19 @@ ApiException
 ├── NetworkException
 │   ├── TimeoutException
 │   └── ConnectionException
-└── HttpException
-    ├── ClientException (4xx)
-    │   ├── UnauthorizedException (401)
-    │   │   └── AuthException (refresh failure)
-    │   ├── ForbiddenException (403)
-    │   └── NotFoundException (404)
-    └── ServerException (5xx)
+├── HttpException
+│   ├── ClientException (4xx)
+│   │   ├── UnauthorizedException (401)
+│   │   │   └── AuthException (refresh failure)
+│   │   ├── ForbiddenException (403)
+│   │   └── NotFoundException (404)
+│   └── ServerException (5xx)
+├── ParsingException (decode / parse failure)
+├── TokenProviderException (TokenProvider failure)
+└── UnexpectedContentTypeException (strictContentType only)
 ```
+
+`AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
 
 ### Classic Try-catch
 
@@ -376,6 +391,33 @@ final message = result.fold(
   onFailure: (error) => 'Error: ${error.message}',
 );
 ```
+
+### Validating 2xx Responses (Legacy APIs)
+
+Some APIs signal business errors via HTTP 200 with a payload like
+`{ "success": false, "error": "..." }`. The `responseValidator` hook lets you
+turn that into a typed `ApiException` so it flows through the same `try/catch`
+as HTTP errors:
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  responseValidator: (response) {
+    final body = response.data;
+    if (body is Map && body['success'] == false) {
+      return ApiException(
+        message: body['message'] as String? ?? 'Unknown error',
+        statusCode: response.statusCode,
+      );
+    }
+    return null; // pass through
+  },
+);
+```
+
+The validator only fires on 2xx responses. Returning `null` lets the response
+through unchanged. Returning any `ApiException` subclass (including custom
+ones) preserves the exact type for `on YourException catch`.
 
 ---
 
@@ -475,6 +517,31 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
 | **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | GET, POST | OrNull, List, ListOrNull, ListOrEmpty |
 
+### Strict Content-Type Checks (Captive Portals)
+
+`*AndDecode` methods can verify that the response's `Content-Type` starts
+with `application/json` before attempting to parse. Useful in fintech /
+mobile contexts where a captive Wi-Fi portal may return HTML 200 in place
+of the expected JSON:
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  strictContentType: true, // opt-in (default: false)
+);
+
+try {
+  final user = await client.getAndDecode('/me', User.fromJson);
+} on UnexpectedContentTypeException catch (e) {
+  // e.expectedContentType, e.actualContentType available
+  // Likely a captive portal — surface a "check your network" UI
+}
+```
+
+`*AndParse` methods are unaffected (they accept any payload type by design).
+A missing `Content-Type` header in strict mode triggers the same exception
+with `actualContentType: null`.
+
 ---
 
 ## API Reference
@@ -486,7 +553,12 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | `baseUrl` | `String` | Base URL (required) |
 | `connectTimeout` | `Duration` | Connection timeout (30s) |
 | `receiveTimeout` | `Duration` | Receive timeout (30s) |
-| `headers` | `Map<String, dynamic>` | Default headers |
+| `sendTimeout` | `Duration` | Send timeout (30s) |
+| `defaultContentType` | `String?` | Default `Content-Type` (`application/json`) |
+| `headers` | `Map<String, dynamic>?` | Default headers |
+| `dataKey` | `String` | Envelope key for `*Data` methods (`'data'`) |
+| `strictContentType` | `bool` | Enforce `application/json` on `*AndDecode` (false) |
+| `responseValidator` | `ResponseValidator?` | Hook to validate 2xx responses |
 | `authConfig` | `AuthConfig?` | Auth configuration |
 | `retryConfig` | `RetryConfig?` | Retry configuration |
 | `cacheConfig` | `CacheConfig?` | Cache configuration |
@@ -494,6 +566,7 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | `errorTrackingConfig` | `ErrorTrackingConfig?` | Error tracking configuration |
 | `metricsConfig` | `MetricsConfig?` | Metrics configuration |
 | `interceptors` | `List<Interceptor>?` | Custom interceptors |
+| `httpClientAdapter` | `HttpClientAdapter?` | Custom Dio adapter |
 
 ### ApiClientConfig
 
@@ -507,6 +580,8 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | `defaultContentType` | `String?` | `'application/json'` | Default content type |
 | `interceptors` | `List<Interceptor>?` | null | Custom interceptors |
 | `dataKey` | `String` | `'data'` | Key for envelope unwrapping in `*Data` methods |
+| `strictContentType` | `bool` | `false` | Throw `UnexpectedContentTypeException` when `*AndDecode` receives a non-JSON response |
+| `responseValidator` | `ResponseValidator?` | null | Inspect 2xx responses; return an `ApiException` to fail the request |
 
 ### Built-in Interceptors
 
