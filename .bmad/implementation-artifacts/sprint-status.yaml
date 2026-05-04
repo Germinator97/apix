@@ -1,5 +1,5 @@
 # generated: 2026-03-16
-# last_updated: 2026-03-16
+# last_updated: 2026-05-04
 # project: apix
 # project_key: NOKEY
 # tracking_system: file-system
@@ -20,7 +20,7 @@
 #   - done: Story completed
 
 generated: 2026-03-16
-last_updated: 2026-03-16
+last_updated: 2026-05-04
 project: apix
 project_key: NOKEY
 tracking_system: file-system
@@ -98,3 +98,20 @@ development_status:
   epic-10: done
   10-1-add-config-parameters-to-apiclientfactory: done
   10-2-update-documentation-unified-api: done
+
+  # Epic 11: Polish & 2.0 Contract Consistency (v2.1.0)
+  epic-11: done
+  11-1-implement-parsing-exception: done
+  11-2-respect-retry-after-header: done
+  11-3-add-token-provider-exception: done
+  11-4-distinguish-network-from-auth: done
+  11-5-unexpected-content-type-exception: done
+  11-6-response-validator-callback: done
+
+  # Epic 12: Production Hardening (v2.2.0)
+  epic-12: backlog
+  12-1-idempotency-key-helper: ready-for-dev
+  12-2-cache-size-limit-and-eviction: ready-for-dev
+  12-3-ssl-pinning-support: ready-for-dev
+  12-4-max-redirects-config: ready-for-dev
+  12-5-progress-interceptor-dev-mode: ready-for-dev

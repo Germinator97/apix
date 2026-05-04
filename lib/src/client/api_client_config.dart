@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import 'response_validator_interceptor.dart';
+
 /// Configuration for ApiClient.
 ///
 /// Example:
@@ -50,6 +52,27 @@ class ApiClientConfig {
   /// Defaults to `'data'`.
   final String dataKey;
 
+  /// When `true`, typed-decode methods (`*AndDecode`, `*AndDecodeData`,
+  /// `*ListAndDecode...`) verify that the response's `Content-Type` header
+  /// starts with `application/json` and throw
+  /// `UnexpectedContentTypeException` otherwise.
+  ///
+  /// Useful to detect captive portals or backends that incorrectly return
+  /// HTML for an API endpoint. Defaults to `false` for backward compatibility.
+  /// `*AndParse` methods are unaffected.
+  final bool strictContentType;
+
+  /// Optional callback to validate 2xx responses.
+  ///
+  /// Useful for legacy APIs that report business errors via HTTP 200 with a
+  /// `{"success": false, ...}` body. Return an `ApiException` subclass to
+  /// have the request fail with that exception, or `null` to let the
+  /// response pass through.
+  ///
+  /// Only invoked on 2xx responses; 4xx/5xx still go through
+  /// `ErrorMapperInterceptor`.
+  final ResponseValidator? responseValidator;
+
   /// Creates an [ApiClientConfig].
   ///
   /// Only [baseUrl] is required. All other options have sensible defaults.
@@ -62,6 +85,8 @@ class ApiClientConfig {
     this.defaultContentType = 'application/json',
     this.interceptors,
     this.dataKey = 'data',
+    this.strictContentType = false,
+    this.responseValidator,
   });
 
   /// Creates a copy of this config with the given fields replaced.
@@ -74,6 +99,8 @@ class ApiClientConfig {
     String? defaultContentType,
     List<Interceptor>? interceptors,
     String? dataKey,
+    bool? strictContentType,
+    ResponseValidator? responseValidator,
   }) {
     return ApiClientConfig(
       baseUrl: baseUrl ?? this.baseUrl,
@@ -84,6 +111,8 @@ class ApiClientConfig {
       defaultContentType: defaultContentType ?? this.defaultContentType,
       interceptors: interceptors ?? this.interceptors,
       dataKey: dataKey ?? this.dataKey,
+      strictContentType: strictContentType ?? this.strictContentType,
+      responseValidator: responseValidator ?? this.responseValidator,
     );
   }
 }

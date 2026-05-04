@@ -2,8 +2,13 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../errors/api_exception.dart';
+import '../errors/error_mapper_interceptor.dart';
 import '../errors/http_exception.dart';
+import '../errors/network_exception.dart';
 import 'auth_config.dart';
+import 'token_provider.dart';
+import 'token_provider_exception.dart';
 
 /// Interceptor that automatically adds authentication headers to requests
 /// and handles token refresh on configured status codes.
@@ -38,7 +43,7 @@ class AuthInterceptor extends Interceptor {
 
   /// Completer for coordinating concurrent refresh requests.
   /// When not null, a refresh is in progress and other requests should wait.
-  Completer<bool>? _refreshCompleter;
+  Completer<_RefreshOutcome>? _refreshCompleter;
 
   /// Creates an [AuthInterceptor] with the given [config] and [dio].
   AuthInterceptor(this.config, this.dio);
@@ -58,7 +63,24 @@ class AuthInterceptor extends Interceptor {
         return;
       }
 
-      final token = await config.tokenProvider.getAccessToken();
+      String? token;
+      try {
+        token = await config.tokenProvider.getAccessToken();
+      } catch (e, st) {
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            error: TokenProviderException(
+              operation: TokenProviderOperation.read,
+              message: 'Token retrieval failed: $e',
+              originalError: e,
+              stackTrace: st,
+            ),
+            type: DioExceptionType.unknown,
+          ),
+        );
+        return;
+      }
 
       if (token != null && token.isNotEmpty) {
         options.headers[config.headerName] = config.formatHeaderValue(token);
@@ -99,29 +121,51 @@ class AuthInterceptor extends Interceptor {
           config.shouldRefresh(statusCode) &&
           canRefresh) {
         // Wait for refresh and retry
-        final refreshSuccess = await _handleRefresh();
+        final outcome = await _handleRefresh();
 
-        if (refreshSuccess) {
-          // Retry the original request with new token
-          try {
-            final response = await _retryRequest(err.requestOptions);
-            handler.resolve(response);
+        switch (outcome) {
+          case _RefreshSuccess():
+            // Retry the original request with new token
+            try {
+              final response = await _retryRequest(err.requestOptions);
+              handler.resolve(response);
+              return;
+            } on DioException catch (e) {
+              handler.next(e);
+              return;
+            }
+          case _RefreshNetworkFailure(exception: final networkException):
+            // Refresh hit a network error — propagate as-is, do NOT log the
+            // user out. onAuthFailure was already skipped in _handleRefresh.
+            handler.reject(
+              DioException(
+                requestOptions: err.requestOptions,
+                message: networkException.message,
+                error: networkException,
+                type: DioExceptionType.unknown,
+              ),
+            );
             return;
-          } on DioException catch (e) {
-            handler.next(e);
+          case _RefreshAuthFailure(error: final cause):
+            // Surface a typed TokenProviderException directly when present;
+            // otherwise fall back to AuthException (preserves the 1.x/2.x
+            // contract for opaque refresh failures while keeping the cause
+            // accessible via originalError).
+            final ApiException finalError = cause is TokenProviderException
+                ? cause
+                : AuthException(
+                    'Token refresh failed',
+                    originalError: cause,
+                  );
+            handler.reject(
+              DioException(
+                requestOptions: err.requestOptions,
+                message: finalError.message,
+                error: finalError,
+                type: DioExceptionType.unknown,
+              ),
+            );
             return;
-          }
-        } else {
-          // Refresh failed - reject with AuthException
-          handler.reject(
-            DioException(
-              requestOptions: err.requestOptions,
-              message: 'Token refresh failed',
-              error: const AuthException('Token refresh failed'),
-              type: DioExceptionType.unknown,
-            ),
-          );
-          return;
         }
       }
 
@@ -148,14 +192,19 @@ class AuthInterceptor extends Interceptor {
   /// 2. **Legacy flow:** Delegates to [AuthConfig.onRefresh] callback.
   ///
   /// The simplified flow takes priority if [AuthConfig.refreshEndpoint] is set.
-  Future<bool> _handleRefresh() async {
+  ///
+  /// Returns a [_RefreshOutcome] that distinguishes:
+  /// - success,
+  /// - a network failure (e.g. offline) where we must NOT log the user out,
+  /// - an auth failure where the session is genuinely broken.
+  Future<_RefreshOutcome> _handleRefresh() async {
     // If refresh is already in progress, wait for it
     if (_refreshCompleter != null) {
       return _refreshCompleter!.future;
     }
 
     // Start a new refresh
-    _refreshCompleter = Completer<bool>();
+    _refreshCompleter = Completer<_RefreshOutcome>();
 
     try {
       bool success;
@@ -171,21 +220,59 @@ class AuthInterceptor extends Interceptor {
         success = false;
       }
 
-      // Notify once on failure (before completing, so queued requests
-      // haven't reacted yet)
-      if (!success) {
-        await _notifyAuthFailure(null);
+      if (success) {
+        const outcome = _RefreshSuccess();
+        _refreshCompleter!.complete(outcome);
+        return outcome;
       }
 
-      _refreshCompleter!.complete(success);
-      return success;
+      // Notify once on failure (before completing, so queued requests
+      // haven't reacted yet)
+      await _notifyAuthFailure(null);
+      const outcome = _RefreshAuthFailure(null);
+      _refreshCompleter!.complete(outcome);
+      return outcome;
     } catch (e) {
+      // Distinguish network errors from auth errors so the caller can react
+      // appropriately.
+      final networkException = _classifyAsNetwork(e);
+      if (networkException != null) {
+        // Network failure: do NOT call onAuthFailure (not a credential issue).
+        final outcome = _RefreshNetworkFailure(networkException);
+        _refreshCompleter!.complete(outcome);
+        return outcome;
+      }
+
       await _notifyAuthFailure(e);
-      _refreshCompleter!.complete(false);
-      return false;
+      final outcome = _RefreshAuthFailure(e);
+      _refreshCompleter!.complete(outcome);
+      return outcome;
     } finally {
       _refreshCompleter = null;
     }
+  }
+
+  /// Returns a [NetworkException] when [error] represents a transport-level
+  /// failure (offline, DNS, timeout, …), or `null` otherwise. Used to keep
+  /// network blips from masquerading as auth failures.
+  NetworkException? _classifyAsNetwork(Object error) {
+    if (error is NetworkException) return error;
+    if (error is DioException) {
+      switch (error.type) {
+        case DioExceptionType.connectionError:
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          final mapped = ErrorMapperInterceptor.mapDioException(error);
+          return mapped is NetworkException ? mapped : null;
+        case DioExceptionType.badCertificate:
+        case DioExceptionType.badResponse:
+        case DioExceptionType.cancel:
+        case DioExceptionType.unknown:
+          return null;
+      }
+    }
+    return null;
   }
 
   /// Performs the simplified refresh flow using [AuthConfig.refreshEndpoint].
@@ -193,8 +280,21 @@ class AuthInterceptor extends Interceptor {
   /// Makes a POST request to the refresh endpoint with the refresh token,
   /// then invokes [AuthConfig.onTokenRefreshed] with the response.
   /// Lets exceptions propagate to [_handleRefresh] for error reporting.
+  /// Errors from the [TokenProvider] are re-thrown as
+  /// [TokenProviderException] so callers can distinguish them from HTTP
+  /// failures.
   Future<bool> _performSimplifiedRefresh() async {
-    final refreshToken = await config.tokenProvider.getRefreshToken();
+    String? refreshToken;
+    try {
+      refreshToken = await config.tokenProvider.getRefreshToken();
+    } catch (e, st) {
+      throw TokenProviderException(
+        operation: TokenProviderOperation.read,
+        message: 'Refresh token retrieval failed: $e',
+        originalError: e,
+        stackTrace: st,
+      );
+    }
     if (refreshToken == null || refreshToken.isEmpty) {
       return false;
     }
@@ -209,7 +309,16 @@ class AuthInterceptor extends Interceptor {
     );
 
     if (config.onTokenRefreshed != null) {
-      await config.onTokenRefreshed!(response);
+      try {
+        await config.onTokenRefreshed!(response);
+      } catch (e, st) {
+        throw TokenProviderException(
+          operation: TokenProviderOperation.write,
+          message: 'Token persistence failed in onTokenRefreshed: $e',
+          originalError: e,
+          stackTrace: st,
+        );
+      }
     }
 
     return true;
@@ -254,8 +363,37 @@ class AuthInterceptor extends Interceptor {
 /// `on UnauthorizedException catch` alongside normal 401 errors.
 class AuthException extends UnauthorizedException {
   /// Creates an [AuthException] with the given [message].
-  const AuthException(String message) : super(message: message);
+  ///
+  /// When the failure has an underlying cause (the exception that caused
+  /// `_handleRefresh` to abort), pass it as [originalError] so callers can
+  /// inspect it without losing the typed cause.
+  const AuthException(
+    String message, {
+    super.originalError,
+    super.stackTrace,
+  }) : super(message: message);
 
   @override
   String toString() => 'AuthException: $message';
+}
+
+/// Outcome of a token refresh attempt — distinguishes success, an auth-class
+/// failure, and a network-class failure (where the user must NOT be logged
+/// out).
+sealed class _RefreshOutcome {
+  const _RefreshOutcome();
+}
+
+class _RefreshSuccess extends _RefreshOutcome {
+  const _RefreshSuccess();
+}
+
+class _RefreshAuthFailure extends _RefreshOutcome {
+  final Object? error;
+  const _RefreshAuthFailure(this.error);
+}
+
+class _RefreshNetworkFailure extends _RefreshOutcome {
+  final NetworkException exception;
+  const _RefreshNetworkFailure(this.exception);
 }

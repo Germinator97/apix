@@ -284,16 +284,6 @@ void main() {
           )).thenAnswer((_) async => createResponse(data));
     }
 
-    void stubGetTyped<T>(T data) {
-      when(() => mockDio.get<T>(
-            any(),
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-            cancelToken: any(named: 'cancelToken'),
-            onReceiveProgress: any(named: 'onReceiveProgress'),
-          )).thenAnswer((_) async => createResponse<T>(data));
-    }
-
     void stubPost(dynamic data) {
       when(() => mockDio.post<dynamic>(
             any(),
@@ -304,18 +294,6 @@ void main() {
             onSendProgress: any(named: 'onSendProgress'),
             onReceiveProgress: any(named: 'onReceiveProgress'),
           )).thenAnswer((_) async => createResponse(data));
-    }
-
-    void stubPostTyped<T>(T data) {
-      when(() => mockDio.post<T>(
-            any(),
-            data: any(named: 'data'),
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-            cancelToken: any(named: 'cancelToken'),
-            onSendProgress: any(named: 'onSendProgress'),
-            onReceiveProgress: any(named: 'onReceiveProgress'),
-          )).thenAnswer((_) async => createResponse<T>(data));
     }
 
     group('getAndParse', () {
@@ -331,7 +309,7 @@ void main() {
 
     group('getAndDecode', () {
       test('deserializes response.data as Map', () async {
-        stubGetTyped<Map<String, dynamic>>({'id': 1, 'name': 'John'});
+        stubGet({'id': 1, 'name': 'John'});
 
         final result = await client.getAndDecode(
           '/users/1',
@@ -358,7 +336,7 @@ void main() {
 
     group('postAndDecode', () {
       test('deserializes response.data as Map', () async {
-        stubPostTyped<Map<String, dynamic>>({'id': 1, 'name': 'John'});
+        stubPost({'id': 1, 'name': 'John'});
 
         final result = await client.postAndDecode(
           '/users',
