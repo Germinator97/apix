@@ -1,3 +1,15 @@
+## 2.2.0
+
+### Added
+
+* **`SentrySetupOptions.configureOptions`** — Escape hatch for `SentryFlutterOptions` not exposed by apix
+  - Callback `void Function(SentryFlutterOptions)` invoked **last** during `SentryFlutter.init`, after every apix default
+  - Lets consumers enable Sentry options introduced in newer SDK versions without waiting for an apix release (e.g. `enableTombstone` in `sentry_flutter` 9.14+, `enableAppHangTrackingV2`, replay tuning)
+  - Can override anything, including `beforeSend` / `beforeSendTransaction` — for composition that preserves apix's network-noise filter, prefer `customBeforeSend` / `customBeforeSendTransaction`
+  - Exceptions thrown in the callback are swallowed in release builds and rethrown in debug, to avoid breaking app startup on a typo
+
+---
+
 ## 2.1.0
 
 ### Fixed
