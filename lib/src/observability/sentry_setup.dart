@@ -54,6 +54,21 @@ class SentrySetupOptions {
     Hint hint,
   )? customBeforeSendTransaction;
 
+  /// Escape hatch for tuning [SentryFlutterOptions] not exposed by apix.
+  ///
+  /// Invoked **last**, after every apix default — so it can override anything,
+  /// including `beforeSend` / `beforeSendTransaction`. For composition that
+  /// preserves apix's network-noise filter, prefer [customBeforeSend] /
+  /// [customBeforeSendTransaction] instead.
+  ///
+  /// Typical use: enable Sentry options introduced in newer SDK versions
+  /// without waiting for an apix release (e.g. `enableTombstone`,
+  /// `enableAppHangTrackingV2`, replay tuning).
+  ///
+  /// Exceptions thrown here are swallowed in release builds and rethrown in
+  /// debug, to avoid breaking app startup on a typo.
+  final void Function(SentryFlutterOptions options)? configureOptions;
+
   const SentrySetupOptions({
     required this.dsn,
     required this.environment,
@@ -70,6 +85,7 @@ class SentrySetupOptions {
     this.minTransactionDurationMs = 100,
     this.customBeforeSend,
     this.customBeforeSendTransaction,
+    this.configureOptions,
   });
 
   /// Creates options for production environment.
@@ -181,6 +197,17 @@ class SentrySetup {
                   transaction,
                   options,
                 );
+
+        // Escape hatch: invoked last so consumers can override any option.
+        // Guarded to avoid crashing app startup on a faulty callback.
+        if (options.configureOptions != null) {
+          try {
+            options.configureOptions!(sentryOptions);
+          } catch (e, st) {
+            debugPrint('⚠️ [Sentry] configureOptions threw: $e\n$st');
+            if (kDebugMode) rethrow;
+          }
+        }
       },
       appRunner: appRunner,
     );

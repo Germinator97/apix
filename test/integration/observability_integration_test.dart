@@ -1,5 +1,6 @@
 import 'package:apix/apix.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 void main() {
   group('Observability Integration Tests', () {
@@ -223,6 +224,31 @@ void main() {
         );
 
         expect(options.environment, 'production');
+      });
+
+      test('configureOptions is null by default', () {
+        const options = SentrySetupOptions(
+          dsn: 'https://test@sentry.io/123',
+          environment: 'test',
+        );
+
+        expect(options.configureOptions, isNull);
+      });
+
+      test('configureOptions can be set and stores the callback', () {
+        var called = false;
+        final options = SentrySetupOptions(
+          dsn: 'https://test@sentry.io/123',
+          environment: 'test',
+          configureOptions: (SentryFlutterOptions _) {
+            called = true;
+          },
+        );
+
+        expect(options.configureOptions, isNotNull);
+        // Invoke through the public field to confirm the signature is honored.
+        options.configureOptions!(SentryFlutterOptions());
+        expect(called, isTrue);
       });
     });
   });

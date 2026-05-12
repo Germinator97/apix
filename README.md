@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^2.1.0
+  apix: ^2.2.0
 ```
 
 ```bash
@@ -284,6 +284,23 @@ await SentrySetup.init(
   appRunner: () => runApp(const MyApp()),
 );
 ```
+
+**Tuning Sentry options not exposed by apix** — use `configureOptions` as an escape hatch:
+
+```dart
+await SentrySetup.init(
+  options: SentrySetupOptions(
+    dsn: 'https://xxx@xxx.ingest.sentry.io/xxx',
+    environment: 'production',
+    configureOptions: (sentryOptions) {
+      sentryOptions.enableTombstone = true; // sentry_flutter >= 9.14
+    },
+  ),
+  appRunner: () => runApp(const MyApp()),
+);
+```
+
+> The callback runs **after** every apix default, so it can override anything — including `beforeSend`. For composition that preserves apix's network-noise filter, prefer `customBeforeSend` / `customBeforeSendTransaction`.
 
 **2. API client configuration:**
 

@@ -73,6 +73,8 @@
 <li><span class="parameter" id="-param-customBeforeSendTransaction"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-async/FutureOr-class.html">FutureOr</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/sentry/9.16.0/sentry/SentryTransaction-class.html">SentryTransaction</a>?</span>&gt;</span></span> <span class="parameter-name">customBeforeSendTransaction</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-transaction"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.16.0/sentry/SentryTransaction-class.html">SentryTransaction</a></span> <span class="parameter-name">transaction</span>, </span></li>
 <li><span class="parameter" id="param-hint"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.16.0/sentry/Hint-class.html">Hint</a></span> <span class="parameter-name">hint</span></span></li>
 </ol>)?, </span></li>
+<li><span class="parameter" id="-param-configureOptions"><span class="type-annotation">void</span> <span class="parameter-name">configureOptions</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry_flutter/9.16.0/sentry_flutter/SentryFlutterOptions-class.html">SentryFlutterOptions</a></span> <span class="parameter-name">options</span></span></li>
+</ol>)?, </span></li>
 </ol>})
     </section>
     
@@ -97,6 +99,7 @@
   this.minTransactionDurationMs = 100,
   this.customBeforeSend,
   this.customBeforeSendTransaction,
+  this.configureOptions,
 });</code></pre>
 </section>
 
@@ -125,7 +128,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.1.0
+      2.2.0
   </span>
   
 </footer>

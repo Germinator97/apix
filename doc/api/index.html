@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^2.1.0
+  apix: ^2.2.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -341,6 +341,21 @@ await SentrySetup.init(
   appRunner: () =&gt; runApp(const MyApp()),
 );
 </code></pre>
+<p><strong>Tuning Sentry options not exposed by apix</strong> — use <code>configureOptions</code> as an escape hatch:</p>
+<pre class="language-dart"><code class="language-dart">await SentrySetup.init(
+  options: SentrySetupOptions(
+    dsn: 'https://xxx@xxx.ingest.sentry.io/xxx',
+    environment: 'production',
+    configureOptions: (sentryOptions) {
+      sentryOptions.enableTombstone = true; // sentry_flutter &gt;= 9.14
+    },
+  ),
+  appRunner: () =&gt; runApp(const MyApp()),
+);
+</code></pre>
+<blockquote>
+<p>The callback runs <strong>after</strong> every apix default, so it can override anything — including <code>beforeSend</code>. For composition that preserves apix's network-noise filter, prefer <code>customBeforeSend</code> / <code>customBeforeSendTransaction</code>.</p>
+</blockquote>
 <p><strong>2. API client configuration:</strong></p>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
@@ -916,7 +931,7 @@ with <code>actualContentType: null</code>.</p>
 <footer>
   <span class="no-break">
     apix
-      2.1.0
+      2.2.0
   </span>
   
 </footer>

@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the defaultContentType property from the MultipartInterceptor class, for the Dart programming language.">
-  <title>defaultContentType property - MultipartInterceptor class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the configureOptions property from the SentrySetupOptions class, for the Dart programming language.">
+  <title>configureOptions property - SentrySetupOptions class - apix library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
-    <li><a href="../../apix/MultipartInterceptor-class.html">MultipartInterceptor</a></li>
-    <li class="self-crumb">defaultContentType property</li>
+    <li><a href="../../apix/SentrySetupOptions-class.html">SentrySetupOptions</a></li>
+    <li class="self-crumb">configureOptions property</li>
   </ol>
-  <div class="self-name">defaultContentType</div>
+  <div class="self-name">configureOptions</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,30 +46,38 @@
 <div
     id="dartdoc-main-content"
     class="main-content"
-    data-above-sidebar="apix&#47;MultipartInterceptor-class-sidebar.html"
+    data-above-sidebar="apix&#47;SentrySetupOptions-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">defaultContentType</span> property 
+<h1><span class="kind-property">configureOptions</span> property 
 </h1></div>
 
     
       <section class="multi-line-signature">
         
-        <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?
-        <span class="name ">defaultContentType</span>
+        void Function<span class="signature">(<span class="parameter" id="param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry_flutter/9.16.0/sentry_flutter/SentryFlutterOptions-class.html">SentryFlutterOptions</a></span> <span class="parameter-name">options</span></span>)</span>?
+        <span class="name ">configureOptions</span>
         <div class="features"><span class="feature">final</span></div>
 
       </section>
       
 <section class="desc markdown">
-  <p>The default content type for non-file requests.</p>
-<p>Defaults to 'application/json'. Set to null to disable.</p>
+  <p>Escape hatch for tuning <a href="https://pub.dev/documentation/sentry_flutter/9.16.0/sentry_flutter/SentryFlutterOptions-class.html">SentryFlutterOptions</a> not exposed by apix.</p>
+<p>Invoked <strong>last</strong>, after every apix default — so it can override anything,
+including <code>beforeSend</code> / <code>beforeSendTransaction</code>. For composition that
+preserves apix's network-noise filter, prefer <a href="../../apix/SentrySetupOptions/customBeforeSend.html">customBeforeSend</a> /
+<a href="../../apix/SentrySetupOptions/customBeforeSendTransaction.html">customBeforeSendTransaction</a> instead.</p>
+<p>Typical use: enable Sentry options introduced in newer SDK versions
+without waiting for an apix release (e.g. <code>enableTombstone</code>,
+<code>enableAppHangTrackingV2</code>, replay tuning).</p>
+<p>Exceptions thrown here are swallowed in release builds and rethrown in
+debug, to avoid breaking app startup on a typo.</p>
 </section>
 
       
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final String? defaultContentType;</code></pre>
+  <pre class="language-dart"><code class="language-dart">final void Function(SentryFlutterOptions options)? configureOptions;</code></pre>
 </section>
 
 
@@ -85,11 +93,11 @@
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
-    <li><a href="../../apix/MultipartInterceptor-class.html">MultipartInterceptor</a></li>
-    <li class="self-crumb">defaultContentType property</li>
+    <li><a href="../../apix/SentrySetupOptions-class.html">SentrySetupOptions</a></li>
+    <li class="self-crumb">configureOptions property</li>
 </ol>
 
-  <h5>MultipartInterceptor class</h5>
+  <h5>SentrySetupOptions class</h5>
   <div id="dartdoc-sidebar-left-content"></div>
 </div><!--/.sidebar-offcanvas-->
 <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
