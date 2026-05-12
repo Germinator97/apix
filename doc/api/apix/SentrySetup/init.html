@@ -126,6 +126,17 @@
                 transaction,
                 options,
               );
+
+      &#47;&#47; Escape hatch: invoked last so consumers can override any option.
+      &#47;&#47; Guarded to avoid crashing app startup on a faulty callback.
+      if (options.configureOptions != null) {
+        try {
+          options.configureOptions!(sentryOptions);
+        } catch (e, st) {
+          debugPrint(&#39;⚠️ [Sentry] configureOptions threw: $e\n$st&#39;);
+          if (kDebugMode) rethrow;
+        }
+      }
     },
     appRunner: appRunner,
   );
@@ -157,7 +168,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.1.0
+      2.2.0
   </span>
   
 </footer>
