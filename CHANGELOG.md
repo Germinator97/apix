@@ -1,3 +1,25 @@
+## 2.3.0
+
+### Changed
+
+* **⚠️ BREAKING BEHAVIOR — Retry is now HTTP-method-aware; `POST` and `PATCH` are no longer retried by default**
+  - Automatic retry previously replayed **any** request whose status code matched `retryStatusCodes`, ignoring the HTTP method. A `5xx` returned *after* the server had already committed (e.g. a gateway `502`/`504` timeout following a payment) would replay a non-idempotent request and produce a **duplicate** (double charge / double top-up).
+  - `RetryInterceptor` now retries only requests whose method is in the new `RetryConfig.retryableMethods`, which defaults to the **idempotent** methods per RFC 7231 §4.2.2: `{GET, HEAD, OPTIONS, TRACE, PUT, DELETE}`. Method matching is case-insensitive.
+  - **Migration** — if you relied on `POST`/`PATCH` being retried, either widen the set globally with `RetryConfig(retryableMethods: {...'POST'})`, or opt in **per request** (recommended) with `RequestOptions.forceRetry()` — see below.
+  - Unchanged: no retry on a no-response network error (`statusCode == null`), `Retry-After` handling, and the per-request `disableRetry()` opt-out (still takes precedence).
+
+### Added
+
+* **`RetryConfig.retryableMethods`** — `Set<String>` of upper-case HTTP methods eligible for retry (default = idempotent methods)
+  - Fully configurable: remove a method a backend mishandles, or add one you know is safe.
+
+* **`RequestOptions.forceRetry()`** — per-request opt-in to retry a non-idempotent method
+  - Overrides the method guard **only** — for a request that is provably safe to replay, typically a `POST`/`PATCH` protected by an `Idempotency-Key`.
+  - Never overrides the no-response network guard, the status-code guard, or `maxAttempts`; `disableRetry()` still wins if both are set.
+  - Symmetric counterpart of `disableRetry()`; backed by the exported `forceRetryKey` extra.
+
+---
+
 ## 2.2.0
 
 ### Added

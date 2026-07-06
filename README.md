@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^2.2.0
+  apix: ^2.3.0
 ```
 
 ```bash
@@ -190,6 +190,8 @@ final client = ApiClientFactory.create(
     multiplier: 2.0,  // 1s → 2s → 4s
     maxDelayMs: 30000, // Never wait more than 30s
     respectRetryAfter: true, // Honor Retry-After header (default)
+    // Idempotent methods only (RFC 7231 §4.2.2) — POST/PATCH excluded (default)
+    retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
   ),
 );
 
@@ -198,7 +200,20 @@ final response = await client.get<Map<String, dynamic>>(
   '/critical-endpoint',
   options: Options(extra: {noRetryKey: true}),
 );
+
+// Force-retry a non-idempotent request that is safe to replay
+// (e.g. a POST protected by an Idempotency-Key)
+final topup = await client.post<Map<String, dynamic>>(
+  '/wallet/topups',
+  data: payload,
+  options: Options(
+    headers: {'Idempotency-Key': idempotencyKey},
+    extra: {forceRetryKey: true},
+  ),
+);
 ```
+
+**Method-aware retry (idempotency)**: retry only replays requests whose method is in `retryableMethods`, which defaults to the **idempotent** methods per RFC 7231 §4.2.2 (`GET, HEAD, OPTIONS, TRACE, PUT, DELETE`). **`POST` and `PATCH` are excluded by default** — replaying them after a `5xx` that the server may already have committed (e.g. a gateway `502`/`504`) would duplicate the side effect (double charge). To retry a non-idempotent request that is provably safe to replay, opt in per request with `forceRetryKey` (or `RequestOptions.forceRetry()`); it overrides the method guard only.
 
 **`Retry-After` header (RFC 7231 §7.1.3)**: when `respectRetryAfter` is `true` (default), responses carrying a `Retry-After` header — typically on `429 Too Many Requests` or `503 Service Unavailable` — are honored. Both delta-seconds (`"60"`) and HTTP-date (`"Wed, 21 Oct 2026 07:28:00 GMT"`) formats are parsed. The resolved delay is capped at `maxDelayMs`. Falls back to exponential backoff if the header is absent or malformed.
 

@@ -50,6 +50,22 @@ class RetryConfig {
   /// See RFC 7231 §7.1.3.
   final bool respectRetryAfter;
 
+  /// HTTP methods that are eligible for automatic retry.
+  ///
+  /// Defaults to the idempotent methods per RFC 7231 §4.2.2:
+  /// `{GET, HEAD, OPTIONS, TRACE, PUT, DELETE}`. **`POST` and `PATCH` are
+  /// excluded by default** because replaying them is unsafe: a `5xx` returned
+  /// *after* the server already committed (e.g. a gateway `502`/`504` timeout
+  /// on a payment) would otherwise produce a duplicate (double charge).
+  ///
+  /// Comparison is case-insensitive; values must be upper-case.
+  ///
+  /// To retry a specific non-idempotent request that is provably safe to
+  /// replay (e.g. a `POST` carrying an `Idempotency-Key`), prefer the
+  /// per-request opt-in `RequestOptions.forceRetry()` over widening this set,
+  /// which would re-enable retry for *every* request of that method.
+  final Set<String> retryableMethods;
+
   /// Creates a [RetryConfig] with the given parameters.
   const RetryConfig({
     this.maxAttempts = 3,
@@ -58,10 +74,24 @@ class RetryConfig {
     this.multiplier = 2.0,
     this.maxDelayMs = 30000,
     this.respectRetryAfter = true,
+    this.retryableMethods = const {
+      'GET',
+      'HEAD',
+      'OPTIONS',
+      'TRACE',
+      'PUT',
+      'DELETE',
+    },
   });
 
   /// Returns true if the given [statusCode] should trigger a retry.
   bool shouldRetry(int statusCode) => retryStatusCodes.contains(statusCode);
+
+  /// Returns true if the given HTTP [method] is eligible for automatic retry.
+  ///
+  /// Comparison is case-insensitive.
+  bool shouldRetryMethod(String method) =>
+      retryableMethods.contains(method.toUpperCase());
 
   /// Calculates the delay for the given [attempt] number (0-indexed).
   ///
@@ -91,6 +121,7 @@ class RetryConfig {
     double? multiplier,
     int? maxDelayMs,
     bool? respectRetryAfter,
+    Set<String>? retryableMethods,
   }) {
     return RetryConfig(
       maxAttempts: maxAttempts ?? this.maxAttempts,
@@ -99,6 +130,7 @@ class RetryConfig {
       multiplier: multiplier ?? this.multiplier,
       maxDelayMs: maxDelayMs ?? this.maxDelayMs,
       respectRetryAfter: respectRetryAfter ?? this.respectRetryAfter,
+      retryableMethods: retryableMethods ?? this.retryableMethods,
     );
   }
 
@@ -107,7 +139,8 @@ class RetryConfig {
     return 'RetryConfig(maxAttempts: $maxAttempts, '
         'retryStatusCodes: $retryStatusCodes, '
         'baseDelayMs: $baseDelayMs, '
-        'multiplier: $multiplier)';
+        'multiplier: $multiplier, '
+        'retryableMethods: $retryableMethods)';
   }
 
   @override
@@ -120,7 +153,8 @@ class RetryConfig {
           multiplier == other.multiplier &&
           maxDelayMs == other.maxDelayMs &&
           respectRetryAfter == other.respectRetryAfter &&
-          _listEquals(retryStatusCodes, other.retryStatusCodes);
+          _listEquals(retryStatusCodes, other.retryStatusCodes) &&
+          _setEquals(retryableMethods, other.retryableMethods);
 
   bool _listEquals(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
@@ -130,6 +164,11 @@ class RetryConfig {
     return true;
   }
 
+  bool _setEquals(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
+  }
+
   @override
   int get hashCode =>
       maxAttempts.hashCode ^
@@ -137,5 +176,7 @@ class RetryConfig {
       multiplier.hashCode ^
       maxDelayMs.hashCode ^
       respectRetryAfter.hashCode ^
-      retryStatusCodes.hashCode;
+      retryStatusCodes.hashCode ^
+      // Order-independent so two equal sets share a hash code.
+      retryableMethods.fold<int>(0, (h, m) => h ^ m.hashCode);
 }
