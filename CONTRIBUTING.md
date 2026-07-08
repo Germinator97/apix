@@ -81,6 +81,12 @@ flutter test
 - Keep functions small and focused
 - Prefer immutability
 
+## Releasing
+
+Publishing to pub.dev has its own pre-flight checklist — including verifying the
+build on **both the floor and the latest** of the declared dependency range. See
+[RELEASING.md](RELEASING.md) and run it every time before `dart pub publish`.
+
 ## Questions?
 
 Feel free to open an issue for questions or discussions.
