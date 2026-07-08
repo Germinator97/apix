@@ -65,6 +65,11 @@ void main() async {
       // (v2.1.0+) Honor Retry-After header on 429/503 (RFC 7231 §7.1.3).
       // Default is true; set false to always use exponential backoff.
       respectRetryAfter: true,
+      // (v2.3.0+) Only idempotent methods are retried by default (RFC 7231
+      // §4.2.2). POST/PATCH are excluded so a 5xx after a committed write
+      // (e.g. a gateway 502/504 on a payment) is never replayed into a
+      // duplicate. Override the set to opt a method in globally.
+      retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
@@ -122,6 +127,20 @@ void main() async {
       User.fromJson,
     );
     debugPrint('Created: ${created.name}');
+
+    // (v2.3.0+) POST is not retried by default. Opt in per request with
+    // forceRetry() when the call is safe to replay — e.g. protected by an
+    // Idempotency-Key so the server collapses duplicates.
+    final topup = await client.postAndDecode(
+      '/wallet/topups',
+      {'amount': 5000},
+      User.fromJson,
+      options: Options(
+        headers: {'Idempotency-Key': 'a1b2c3d4'},
+        extra: {forceRetryKey: true},
+      ),
+    );
+    debugPrint('Top-up owner: ${topup.name}');
 
     // --- Level 3: Data Methods (envelope unwrapping) ---
     // For APIs returning: { "data": { ... } }

@@ -89,6 +89,63 @@ void main() {
     });
   });
 
+  group('RetryConfig.retryableMethods', () {
+    test('defaults to the RFC 7231 idempotent methods', () {
+      const config = RetryConfig();
+
+      expect(
+        config.retryableMethods,
+        equals({'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'}),
+      );
+    });
+
+    test('excludes POST and PATCH by default', () {
+      const config = RetryConfig();
+
+      expect(config.shouldRetryMethod('POST'), isFalse);
+      expect(config.shouldRetryMethod('PATCH'), isFalse);
+    });
+
+    test('shouldRetryMethod is case-insensitive', () {
+      const config = RetryConfig();
+
+      expect(config.shouldRetryMethod('get'), isTrue);
+      expect(config.shouldRetryMethod('Delete'), isTrue);
+      expect(config.shouldRetryMethod('post'), isFalse);
+    });
+
+    test('honors a custom method set', () {
+      const config = RetryConfig(retryableMethods: {'GET', 'POST'});
+
+      expect(config.shouldRetryMethod('POST'), isTrue);
+      expect(config.shouldRetryMethod('DELETE'), isFalse);
+    });
+
+    test('copyWith preserves retryableMethods', () {
+      const original = RetryConfig(retryableMethods: {'GET', 'POST'});
+      final copy = original.copyWith(maxAttempts: 5);
+
+      expect(copy.retryableMethods, equals({'GET', 'POST'}));
+    });
+
+    test('copyWith updates retryableMethods', () {
+      const original = RetryConfig();
+      final copy = original.copyWith(retryableMethods: {'GET'});
+
+      expect(copy.retryableMethods, equals({'GET'}));
+    });
+
+    test('equality considers retryableMethods regardless of order', () {
+      const a = RetryConfig(retryableMethods: {'GET', 'PUT'});
+      const b = RetryConfig(retryableMethods: {'PUT', 'GET'});
+      const c = RetryConfig(retryableMethods: {'GET', 'POST'});
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+  });
+
   group('RetryInterceptor', () {
     late Dio dio;
     late RetryConfig config;
@@ -178,6 +235,130 @@ void main() {
     });
   });
 
+  group('RetryInterceptor method guard', () {
+    late Dio dio;
+    late RetryConfig config;
+
+    setUp(() {
+      dio = Dio();
+      config = const RetryConfig(maxAttempts: 3, baseDelayMs: 10);
+    });
+
+    DioException errorFor(RequestOptions options, {int? statusCode}) {
+      return DioException(
+        requestOptions: options,
+        response: statusCode == null
+            ? null
+            : Response(requestOptions: options, statusCode: statusCode),
+        type: statusCode == null
+            ? DioExceptionType.connectionTimeout
+            : DioExceptionType.badResponse,
+      );
+    }
+
+    test('skips a non-idempotent POST by default on a 5xx', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/topups', method: 'POST');
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.nextCalled, isTrue);
+      expect(options.extra['_retryAttempt'], isNull);
+    });
+
+    test('skips a PATCH by default on a 5xx', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/profile', method: 'PATCH');
+
+      interceptor.onError(errorFor(options, statusCode: 503), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.nextCalled, isTrue);
+      expect(options.extra['_retryAttempt'], isNull);
+    });
+
+    test('retries an idempotent GET by default on a 5xx', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/users', method: 'GET');
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(options.extra['_retryAttempt'], equals(1));
+    });
+
+    test('retries a lower-case method (matched case-insensitively)', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/users', method: 'delete');
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(options.extra['_retryAttempt'], equals(1));
+    });
+
+    test('retries a POST when forceRetry() opts in', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/topups', method: 'POST')
+        ..forceRetry();
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(options.extra['_retryAttempt'], equals(1));
+    });
+
+    test('retries a POST when the config allows POST explicitly', () async {
+      const postConfig = RetryConfig(
+        maxAttempts: 3,
+        baseDelayMs: 10,
+        retryableMethods: {'GET', 'POST'},
+      );
+      final interceptor = RetryInterceptor(config: postConfig, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/topups', method: 'POST');
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(options.extra['_retryAttempt'], equals(1));
+    });
+
+    test('disableRetry() wins over forceRetry()', () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/topups', method: 'POST')
+        ..forceRetry()
+        ..disableRetry();
+
+      interceptor.onError(errorFor(options, statusCode: 500), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.nextCalled, isTrue);
+      expect(options.extra['_retryAttempt'], isNull);
+    });
+
+    test('forceRetry() does not override the no-response network guard',
+        () async {
+      final interceptor = RetryInterceptor(config: config, dio: dio);
+      final handler = TestErrorHandler();
+      final options = RequestOptions(path: '/api/topups', method: 'POST')
+        ..forceRetry();
+
+      interceptor.onError(errorFor(options), handler);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(handler.nextCalled, isTrue);
+      expect(options.extra['_retryAttempt'], isNull);
+    });
+  });
+
   group('NoRetryExtension', () {
     test('disableRetry marks request as non-retryable', () {
       final options = RequestOptions(path: '/api/users');
@@ -188,6 +369,17 @@ void main() {
 
       expect(options.isNoRetry, isTrue);
       expect(options.extra[noRetryKey], isTrue);
+    });
+
+    test('forceRetry marks request as force-retryable', () {
+      final options = RequestOptions(path: '/api/topups', method: 'POST');
+
+      expect(options.isForceRetry, isFalse);
+
+      options.forceRetry();
+
+      expect(options.isForceRetry, isTrue);
+      expect(options.extra[forceRetryKey], isTrue);
     });
   });
 
@@ -400,7 +592,7 @@ class TestErrorHandler extends ErrorInterceptorHandler {
   }
 
   @override
-  void reject(DioException err) {
+  void reject(DioException err, [bool callFollowingErrorInterceptor = false]) {
     rejectCalled = true;
     lastRejectedError = err;
   }

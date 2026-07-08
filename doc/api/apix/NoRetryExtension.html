@@ -76,6 +76,22 @@
       id="instance-properties">
     <h2>Properties</h2>
     <dl class="properties">
+        <dt id="isForceRetry" class="property">
+  <span class="name"><a href="../apix/NoRetryExtension/isForceRetry.html">isForceRetry</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd>
+      <p class="from-extension">
+        <span>Available on <a href="https://pub.dev/documentation/dio/5.9.2/dio/RequestOptions-class.html">RequestOptions</a>,
+        provided by the <a href="../apix/NoRetryExtension.html">NoRetryExtension</a> extension</span>
+      </p>
+  Returns true if retry is forced past the method guard for this request.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
         <dt id="isNoRetry" class="property">
   <span class="name"><a href="../apix/NoRetryExtension/isNoRetry.html">isNoRetry</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
@@ -118,6 +134,24 @@
 
 </dd>
 
+        <dt id="forceRetry" class="callable">
+  <span class="name"><a href="../apix/NoRetryExtension/forceRetry.html">forceRetry</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+      <p class="from-extension">
+        <span>Available on <a href="https://pub.dev/documentation/dio/5.9.2/dio/RequestOptions-class.html">RequestOptions</a>,
+        provided by the <a href="../apix/NoRetryExtension.html">NoRetryExtension</a> extension</span>
+      </p>
+  Forces retry of this request even when its HTTP method is not in
+<a href="../apix/RetryConfig/retryableMethods.html">RetryConfig.retryableMethods</a> (e.g. a <code>POST</code>/<code>PATCH</code>).
+  
+
+</dd>
+
     </dl>
   </section>
     
@@ -148,7 +182,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.2.0
+      2.3.0
   </span>
   
 </footer>

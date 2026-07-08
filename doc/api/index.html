@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^2.2.0
+  apix: ^2.3.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -220,6 +220,8 @@ await tokenProvider.clearTokens();
     multiplier: 2.0,  // 1s → 2s → 4s
     maxDelayMs: 30000, // Never wait more than 30s
     respectRetryAfter: true, // Honor Retry-After header (default)
+    // Idempotent methods only (RFC 7231 §4.2.2) — POST/PATCH excluded (default)
+    retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
   ),
 );
 
@@ -228,7 +230,19 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
   '/critical-endpoint',
   options: Options(extra: {noRetryKey: true}),
 );
+
+// Force-retry a non-idempotent request that is safe to replay
+// (e.g. a POST protected by an Idempotency-Key)
+final topup = await client.post&lt;Map&lt;String, dynamic&gt;&gt;(
+  '/wallet/topups',
+  data: payload,
+  options: Options(
+    headers: {'Idempotency-Key': idempotencyKey},
+    extra: {forceRetryKey: true},
+  ),
+);
 </code></pre>
+<p><strong>Method-aware retry (idempotency)</strong>: retry only replays requests whose method is in <code>retryableMethods</code>, which defaults to the <strong>idempotent</strong> methods per RFC 7231 §4.2.2 (<code>GET, HEAD, OPTIONS, TRACE, PUT, DELETE</code>). <strong><code>POST</code> and <code>PATCH</code> are excluded by default</strong> — replaying them after a <code>5xx</code> that the server may already have committed (e.g. a gateway <code>502</code>/<code>504</code>) would duplicate the side effect (double charge). To retry a non-idempotent request that is provably safe to replay, opt in per request with <code>forceRetryKey</code> (or <code>RequestOptions.forceRetry()</code>); it overrides the method guard only.</p>
 <p><strong><code>Retry-After</code> header (RFC 7231 §7.1.3)</strong>: when <code>respectRetryAfter</code> is <code>true</code> (default), responses carrying a <code>Retry-After</code> header — typically on <code>429 Too Many Requests</code> or <code>503 Service Unavailable</code> — are honored. Both delta-seconds (<code>"60"</code>) and HTTP-date (<code>"Wed, 21 Oct 2026 07:28:00 GMT"</code>) formats are parsed. The resolved delay is capped at <code>maxDelayMs</code>. Falls back to exponential backoff if the header is absent or malformed.</p>
 <hr>
 <h3 id="-smart-caching">💾 Smart Caching</h3>
@@ -931,7 +945,7 @@ with <code>actualContentType: null</code>.</p>
 <footer>
   <span class="no-break">
     apix
-      2.2.0
+      2.3.0
   </span>
   
 </footer>

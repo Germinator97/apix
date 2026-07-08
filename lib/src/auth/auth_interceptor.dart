@@ -265,10 +265,13 @@ class AuthInterceptor extends Interceptor {
         case DioExceptionType.receiveTimeout:
           final mapped = ErrorMapperInterceptor.mapDioException(error);
           return mapped is NetworkException ? mapped : null;
-        case DioExceptionType.badCertificate:
-        case DioExceptionType.badResponse:
-        case DioExceptionType.cancel:
-        case DioExceptionType.unknown:
+        // badCertificate, badResponse, cancel, unknown, `transformTimeout` (a
+        // data-transformation timeout added in dio 5.10.0) and any future types
+        // are not transport blips, so they are not network failures. Named
+        // cases are intentionally omitted so this default stays reachable on
+        // older dio (apix supports dio >=5.4.0, where new values can't be named
+        // without breaking the lower bound).
+        default:
           return null;
       }
     }

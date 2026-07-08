@@ -8,20 +8,33 @@ on:
 
 jobs:
   analyze:
-    name: Analyze
+    # Matrix over the declared dio range (see pubspec `dio: ">=5.4.0 <7.0.0"`).
+    # `floor` catches referencing a dio symbol that only exists in a newer
+    # release; `latest` catches a non-exhaustive switch when dio adds an enum
+    # value. pubspec.lock is not committed, so CI resolves fresh every run —
+    # this matrix pins the bounds we actually promise to support.
+    name: Analyze (dio ${{ matrix.dio }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dio: [floor, latest]
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v5
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
-      
+
       - name: Install dependencies
         run: flutter pub get
-      
+
+      - name: Pin dio to floor
+        if: matrix.dio == 'floor'
+        run: flutter pub downgrade dio
+
       - name: Analyze
         run: dart analyze --fatal-infos lib test
 
@@ -29,38 +42,47 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v5
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
-      
+
       - name: Check formatting
         run: dart format --set-exit-if-changed lib test
 
   test:
-    name: Test
+    name: Test (dio ${{ matrix.dio }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dio: [floor, latest]
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@v5
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.0'
           channel: 'stable'
           cache: true
-      
+
       - name: Install dependencies
         run: flutter pub get
-      
+
+      - name: Pin dio to floor
+        if: matrix.dio == 'floor'
+        run: flutter pub downgrade dio
+
       - name: Run tests with coverage
         run: flutter test --coverage
-      
+
       - name: Upload coverage
+        if: matrix.dio == 'latest'
         uses: codecov/codecov-action@v4
         with:
           files: coverage/lcov.info

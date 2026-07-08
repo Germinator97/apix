@@ -1,3 +1,31 @@
+## 2.3.0
+
+### Changed
+
+* **⚠️ BREAKING BEHAVIOR — Retry is now HTTP-method-aware; `POST` and `PATCH` are no longer retried by default**
+  - Automatic retry previously replayed **any** request whose status code matched `retryStatusCodes`, ignoring the HTTP method. A `5xx` returned *after* the server had already committed (e.g. a gateway `502`/`504` timeout following a payment) would replay a non-idempotent request and produce a **duplicate** (double charge / double top-up).
+  - `RetryInterceptor` now retries only requests whose method is in the new `RetryConfig.retryableMethods`, which defaults to the **idempotent** methods per RFC 7231 §4.2.2: `{GET, HEAD, OPTIONS, TRACE, PUT, DELETE}`. Method matching is case-insensitive.
+  - **Migration** — if you relied on `POST`/`PATCH` being retried, either widen the set globally with `RetryConfig(retryableMethods: {...'POST'})`, or opt in **per request** (recommended) with `RequestOptions.forceRetry()` — see below.
+  - Unchanged: no retry on a no-response network error (`statusCode == null`), `Retry-After` handling, and the per-request `disableRetry()` opt-out (still takes precedence).
+
+### Added
+
+* **`RetryConfig.retryableMethods`** — `Set<String>` of upper-case HTTP methods eligible for retry (default = idempotent methods)
+  - Fully configurable: remove a method a backend mishandles, or add one you know is safe.
+
+* **`RequestOptions.forceRetry()`** — per-request opt-in to retry a non-idempotent method
+  - Overrides the method guard **only** — for a request that is provably safe to replay, typically a `POST`/`PATCH` protected by an `Idempotency-Key`.
+  - Never overrides the no-response network guard, the status-code guard, or `maxAttempts`; `disableRetry()` still wins if both are set.
+  - Symmetric counterpart of `disableRetry()`; backed by the exported `forceRetryKey` extra.
+
+* **Dio `Options`, `CancelToken` and `Response` re-exported from the `apix` barrel** — no more direct `package:dio` import for common calls (`Options(extra: {noRetryKey: true})`, `cancelToken:`, typing a returned `Response<T>`, ...)
+
+### Fixed
+
+* **dio 5.10.0 compatibility across the declared `>=5.4.0 <7.0.0` range** — dio 5.10.0 introduced the `DioExceptionType.transformTimeout` enum value (breaking the exhaustive exception-mapping switches) and an optional parameter on `ErrorInterceptorHandler.reject`. Exception mapping now routes `transformTimeout` — and any future `DioExceptionType` — through its default branch (`ErrorMapperInterceptor` maps it to a generic `ApiException`; `AuthInterceptor` treats it as a non-network failure), so apix builds on both the floor and the latest of its declared dio range.
+
+---
+
 ## 2.2.0
 
 ### Added
