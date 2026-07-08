@@ -92,7 +92,12 @@ class ErrorMapperInterceptor extends Interceptor {
           stackTrace: err.stackTrace,
         );
 
-      case DioExceptionType.unknown:
+      // `unknown`, `transformTimeout` (added in dio 5.10.0) and any future
+      // DioExceptionType land here. apix supports dio >=5.4.0, so newer enum
+      // values cannot be matched by name without breaking the lower bound; a
+      // named `unknown` case is intentionally omitted so this default stays
+      // reachable on older dio where every value is otherwise covered.
+      default:
         // Check if the inner error is already an ApiException
         if (err.error is ApiException) {
           return err.error as ApiException;
