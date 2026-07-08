@@ -18,6 +18,8 @@
   - Never overrides the no-response network guard, the status-code guard, or `maxAttempts`; `disableRetry()` still wins if both are set.
   - Symmetric counterpart of `disableRetry()`; backed by the exported `forceRetryKey` extra.
 
+* **Dio `Options`, `CancelToken` and `Response` re-exported from the `apix` barrel** — no more direct `package:dio` import for common calls (`Options(extra: {noRetryKey: true})`, `cancelToken:`, typing a returned `Response<T>`, ...)
+
 ---
 
 ## 2.2.0

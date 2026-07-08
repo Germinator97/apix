@@ -5,7 +5,6 @@
 library;
 
 import 'package:apix/apix.dart';
-import 'package:dio/dio.dart' show Options;
 import 'package:flutter/material.dart';
 
 /// Simple example showing API client creation and usage.
