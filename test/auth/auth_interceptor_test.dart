@@ -824,7 +824,7 @@ class TestErrorHandler extends ErrorInterceptorHandler {
   }
 
   @override
-  void reject(DioException err) {
+  void reject(DioException err, [bool callFollowingErrorInterceptor = false]) {
     rejectCalled = true;
     lastRejectedError = err;
   }
