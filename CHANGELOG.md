@@ -20,6 +20,10 @@
 
 * **Dio `Options`, `CancelToken` and `Response` re-exported from the `apix` barrel** — no more direct `package:dio` import for common calls (`Options(extra: {noRetryKey: true})`, `cancelToken:`, typing a returned `Response<T>`, ...)
 
+### Fixed
+
+* **dio 5.10.0 compatibility across the declared `>=5.4.0 <7.0.0` range** — dio 5.10.0 introduced the `DioExceptionType.transformTimeout` enum value (breaking the exhaustive exception-mapping switches) and an optional parameter on `ErrorInterceptorHandler.reject`. Exception mapping now routes `transformTimeout` — and any future `DioExceptionType` — through its default branch (`ErrorMapperInterceptor` maps it to a generic `ApiException`; `AuthInterceptor` treats it as a non-network failure), so apix builds on both the floor and the latest of its declared dio range.
+
 ---
 
 ## 2.2.0
