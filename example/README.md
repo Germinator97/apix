@@ -8,6 +8,9 @@ See `example.dart` for:
 - **Simplified refresh flow** - Auto token refresh with `refreshEndpoint`
 - API client creation with `ApiClientFactory`
 - Retry interceptor configuration (with `respectRetryAfter`, v2.1.0+)
+- **(v2.3.0)** Method-aware retry: idempotent methods only by default
+  (`retryableMethods`); per-request `forceRetry()` opt-in for a POST protected
+  by an `Idempotency-Key`
 - Cache interceptor with strategies
 - Logger interceptor with header redaction
 - Typed response deserialization (3 levels: standard / parse-decode / data)
