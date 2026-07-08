@@ -145,6 +145,14 @@ and handles token refresh on configured status codes.
   Abstract interface for cache storage backends.
 </dd>
 
+          <dt id="CancelToken">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.9.2/dio/CancelToken-class.html">CancelToken</a></span> 
+
+</dt>
+<dd>
+  Controls cancellation of <a href="https://pub.dev/documentation/dio/5.9.2/dio/Dio-class.html">Dio</a>'s requests.
+</dd>
+
           <dt id="ErrorMapperInterceptor">
   <span class="name "><a href="../apix/ErrorMapperInterceptor-class.html">ErrorMapperInterceptor</a></span> 
 
@@ -233,6 +241,16 @@ and handles token refresh on configured status codes.
   Interceptor that automatically handles multipart/form-data requests.
 </dd>
 
+          <dt id="Options">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a></span> 
+
+</dt>
+<dd>
+  The configuration for a single request.
+<a href="https://pub.dev/documentation/dio/5.9.2/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.9.2/dio/Options-class.html">Options</a> will be merged into one <a href="https://pub.dev/documentation/dio/5.9.2/dio/RequestOptions-class.html">RequestOptions</a> before
+sending the requests. See <a href="https://pub.dev/documentation/dio/5.9.2/dio/Options/compose.html">Options.compose</a>.
+</dd>
+
           <dt id="RequestBreadcrumb">
   <span class="name "><a href="../apix/RequestBreadcrumb-class.html">RequestBreadcrumb</a></span> 
 
@@ -255,6 +273,15 @@ and handles token refresh on configured status codes.
 </dt>
 <dd>
   Request metrics data.
+</dd>
+
+          <dt id="Response">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span> 
+
+</dt>
+<dd>
+  The <a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a> class contains the payload (could be transformed)
+that respond from the request, and other information of the response.
 </dd>
 
           <dt id="ResponseValidatorInterceptor">

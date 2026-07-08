@@ -53,3 +53,10 @@ export 'src/logging/logger_interceptor.dart';
 export 'src/observability/error_tracking_interceptor.dart';
 export 'src/observability/metrics_interceptor.dart';
 export 'src/observability/sentry_setup.dart';
+
+// Dio re-exports
+//
+// Types surfaced by apix's public API (e.g. `client.get(options: ...)` returns
+// `Response<T>`, `Options(extra: {noRetryKey: true})`, `cancelToken:`) so
+// consumers don't need a direct `package:dio` import for common calls.
+export 'package:dio/dio.dart' show CancelToken, Options, Response;
