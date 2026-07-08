@@ -91,8 +91,21 @@ void onError(
       return;
     }
 
-    &#47;&#47; Check if we should retry based on status code
+    &#47;&#47; Check if we should retry based on status code.
+    &#47;&#47; A null status code means no response was received (network error);
+    &#47;&#47; such requests are never retried, as they may have reached the server.
     if (statusCode == null || !config.shouldRetry(statusCode)) {
+      handler.next(err);
+      return;
+    }
+
+    &#47;&#47; Check if the HTTP method is eligible for retry. Non-idempotent methods
+    &#47;&#47; (POST&#47;PATCH by default) are skipped to avoid duplicating a side effect
+    &#47;&#47; that may already have been committed before the 5xx. A per-request
+    &#47;&#47; `forceRetry()` opt-in overrides this guard for provably safe replays
+    &#47;&#47; (e.g. an idempotency-key-protected POST).
+    if (!config.shouldRetryMethod(requestOptions.method) &amp;&amp;
+        !_isForceRetry(requestOptions)) {
       handler.next(err);
       return;
     }
@@ -152,7 +165,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      2.2.0
+      2.3.0
   </span>
   
 </footer>

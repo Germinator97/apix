@@ -7,6 +7,14 @@ import 'retry_config.dart';
 /// Key used to mark a request as non-retryable.
 const String noRetryKey = 'x-no-retry';
 
+/// Key used to force retry of a request whose method is not in
+/// [RetryConfig.retryableMethods] (e.g. an idempotency-key-protected POST).
+///
+/// Overrides the method guard only. It never overrides the no-response
+/// (network) guard, the status-code guard, or [RetryConfig.maxAttempts], and
+/// [noRetryKey] still takes precedence over it.
+const String forceRetryKey = 'x-force-retry';
+
 /// Interceptor that automatically retries failed requests.
 ///
 /// Uses [RetryConfig] to determine retry behavior including
@@ -48,8 +56,21 @@ class RetryInterceptor extends Interceptor {
         return;
       }
 
-      // Check if we should retry based on status code
+      // Check if we should retry based on status code.
+      // A null status code means no response was received (network error);
+      // such requests are never retried, as they may have reached the server.
       if (statusCode == null || !config.shouldRetry(statusCode)) {
+        handler.next(err);
+        return;
+      }
+
+      // Check if the HTTP method is eligible for retry. Non-idempotent methods
+      // (POST/PATCH by default) are skipped to avoid duplicating a side effect
+      // that may already have been committed before the 5xx. A per-request
+      // `forceRetry()` opt-in overrides this guard for provably safe replays
+      // (e.g. an idempotency-key-protected POST).
+      if (!config.shouldRetryMethod(requestOptions.method) &&
+          !_isForceRetry(requestOptions)) {
         handler.next(err);
         return;
       }
@@ -133,6 +154,11 @@ class RetryInterceptor extends Interceptor {
     return options.extra[noRetryKey] == true;
   }
 
+  /// Returns true if the request forces retry past the method guard.
+  bool _isForceRetry(RequestOptions options) {
+    return options.extra[forceRetryKey] == true;
+  }
+
   /// Returns the current attempt count for the request.
   int _getAttemptCount(RequestOptions options) {
     return options.extra['_retryAttempt'] as int? ?? 0;
@@ -153,4 +179,19 @@ extension NoRetryExtension on RequestOptions {
 
   /// Returns true if retry is disabled for this request.
   bool get isNoRetry => extra[noRetryKey] == true;
+
+  /// Forces retry of this request even when its HTTP method is not in
+  /// [RetryConfig.retryableMethods] (e.g. a `POST`/`PATCH`).
+  ///
+  /// Use only when the request is provably safe to replay — typically a
+  /// non-idempotent request protected by an `Idempotency-Key`. This overrides
+  /// the method guard only; the network guard (no response), the status-code
+  /// guard, and [RetryConfig.maxAttempts] still apply, and [disableRetry]
+  /// still wins if both are set.
+  void forceRetry() {
+    extra[forceRetryKey] = true;
+  }
+
+  /// Returns true if retry is forced past the method guard for this request.
+  bool get isForceRetry => extra[forceRetryKey] == true;
 }
