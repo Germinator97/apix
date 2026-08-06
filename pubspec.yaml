@@ -2,13 +2,20 @@ name: apix
 
 description: "Production-ready Flutter/Dart API client with auth refresh queue, exponential retry, smart caching and error tracking (Sentry-ready). Powered by Dio."
 
-version: 2.3.0
+version: 3.0.0
 
 homepage: https://github.com/Germinator97/apix
 
 repository: https://github.com/Germinator97/apix
 
 issue_tracker: https://github.com/Germinator97/apix/issues
+
+# Shown as a gallery on the pub.dev package page, separately from the README.
+screenshots:
+  - description: "The example app: cache strategies, cache invalidation and mutations, with live request metrics in the status bar."
+    path: assets/screenshots/home.png
+  - description: "The example app: method-aware retry probes, Sentry error triggers, and the data fetched through apix."
+    path: assets/screenshots/demos.png
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

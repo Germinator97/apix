@@ -4,3 +4,10 @@ test/
 *.log
 _bmad/
 build/
+
+# Repo-only assets: referenced by nothing that ships (README, example/, lib/),
+# so publishing them only inflates what every consumer downloads. logo.png
+# alone is 140 KB — a fifth of the archive. The README uses
+# logo_icon_filled.svg, which stays.
+assets/logo.png
+assets/brand_guidelines.md
