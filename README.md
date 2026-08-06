@@ -85,6 +85,7 @@ final client = ApiClientFactory.create(
   ),
   
   // 🔄 Retry with exponential backoff
+  // Idempotent methods only by default — POST/PATCH are NOT replayed.
   retryConfig: const RetryConfig(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
@@ -316,6 +317,8 @@ await SentrySetup.init(
 ```
 
 > The callback runs **after** every apix default, so it can override anything — including `beforeSend`. For composition that preserves apix's network-noise filter, prefer `customBeforeSend` / `customBeforeSendTransaction`.
+>
+> ⚠️ `SentrySetupOptions.production()` and `.development()` do **not** forward `configureOptions`. To use it, spell the options out with the full constructor as above — the factories are only shorthands for the sample-rate presets.
 
 **2. API client configuration:**
 
@@ -661,10 +664,14 @@ A complete Flutter app demonstrating all ApiX features is available on GitHub:
 
 Features demonstrated:
 - 🔐 SecureTokenProvider with simplified refresh flow
-- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache)
-- 🔄 Retry logic with exponential backoff
+- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API
+- 🔄 Retry: exponential backoff, `Retry-After`, and the method-aware guard — three live probes measure how many times the server is actually hit for `GET`, `POST` and `POST` + `forceRetry()`
+- 🛡️ Typed failures: `ParsingException`, `UnexpectedContentTypeException`, `responseValidator` → custom exception, `TokenProviderException`
+- 📦 Envelope API (`*Data` methods) against a mocked backend
 - 🐛 Sentry integration with error testing
 - 📊 Request metrics and logging
+
+> A shorter, single-file example lives in [`example/example.dart`](example/example.dart) — that is the one rendered on pub.dev. The linked repo is the full Flutter app.
 
 ## Contributing
 
