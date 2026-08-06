@@ -1,17 +1,95 @@
-## Unreleased
+## 3.0.0
+
+This release is about the cache. Two of its promises were not kept: `cacheFirst`
+did not refresh in the background despite saying so, and the TTL was only as
+strong as whichever `CacheStorage` you plugged in. Both are now true. Error
+tracking also stops flattening every failure into one `DioException`.
+
+### Migration at a glance
+
+| If you… | Then… |
+|---|---|
+| use `CacheStrategy.cacheFirst` | responses may now be **older than `defaultTtl`**. Check `response.isStale`, or move to `networkFirst` where freshness matters |
+| call `CacheRequestExtension.isFromCache(response)` | replace with `response.isFromCache` |
+| implement `CacheStorage` yourself | delete the expiry filter from `get` — keep it in `has` |
+| inspect the argument of `ErrorTrackingConfig.onError` | it is the typed `ApiException` now, not a `DioException`. `e is DioException` stops matching **silently** — use `(e as ApiException).originalError` |
+| catch `on ApiException` around a `cacheOnly` call | you will now actually catch `CacheException`; before, it slipped through |
+| catch `on HttpException` for 4xx/5xx | still works — `ClientException` / `ServerException` are subtypes |
+| use `SentrySetup` with `filterNetworkNoise` | your 5xx start reaching Sentry. Expect **more** events, not fewer — they were being dropped |
+| use nothing but `networkFirst` (the default) | nothing to do |
+
+### ⚠️ Breaking behavior
+
+* **`CacheStrategy.cacheFirst` now serves stale data** — it does what it always
+  documented: serve the cache immediately, refresh behind
+  (stale-while-revalidate). An expired entry is returned, flagged `isStale`,
+  while one background request renews it.
+  - Network volume is unchanged: a fresh entry costs nothing, a stale one costs
+    exactly one request — asserted by a test, not assumed. Only the waiting
+    disappears.
+  - **The risk to check**: a response may now be older than `defaultTtl`. Where
+    that is unacceptable — an amount, a balance, an authorisation — use
+    `networkFirst`, or surface `response.isStale`.
+  - Other strategies are unaffected.
+
+### Breaking
+
+* **`ErrorTrackingConfig.onError` receives the typed `ApiException`**, not the
+  raw `DioException`. Trackers group by runtime type, so a 500, a 404 and a
+  timeout used to land in a single issue titled `DioException`. Nothing fails to
+  compile; `e is DioException` just stops matching — reach the original through
+  `(e as ApiException).originalError`.
+
+* **`CacheRequestExtension.isFromCache(response)` removed** — use
+  `response.isFromCache`. The old form was a static on an extension of
+  `RequestOptions` taking a `Response`, so autocomplete never surfaced it.
+
+* **`CacheStorage.get` must no longer filter on expiry** — only affects custom
+  implementations. It returns entries expired or not; `null` means absent. The
+  interceptor owns the TTL, so a backend can no longer weaken it by forgetting
+  to filter. `has` keeps filtering.
+
+### Added
+
+* **`response.isFromCache` / `response.isStale`** — `isStale` is true wherever
+  apix knowingly returns expired data: `cacheFirst` revalidating, and the
+  offline fallback of `networkFirst` / `httpCacheAware`. **On an amount, a
+  balance or a status, surface it.** A `304` is not stale. The underlying keys
+  are exported as `fromCacheKey` / `fromCacheStaleKey`.
+
+* **`FileCacheStorage`** — a cache that survives restarts, with **no new
+  dependency**: one JSON file per entry, in a directory you supply.
+  - **Bounded by default** (`maxEntries: 200`) — a process cache dies with the
+    app, a disk cache does not. Expired entries are evicted first.
+    `maxEntries: null` opts out.
+  - Reads never throw (a corrupt file is a miss, and is discarded); writes are
+    atomic; only its own files are touched.
+  - ⚠️ Entries are stored **in clear text** — never point it at credentials,
+    tokens, personal data or amounts.
 
 ### Fixed
 
-* **`ClientException` and `ServerException` were never thrown** (major) — the documented exception hierarchy did not match runtime behaviour
-  - `ErrorMapperInterceptor` specialised only `401`/`403`/`404` and mapped **every** other status, `4xx` and `5xx` alike, to a bare `HttpException`. Neither `ClientException` nor `ServerException` was constructed anywhere in the package, so `on ClientException catch` / `on ServerException catch` — both shown as the canonical usage in the README and in the `http_exception.dart` doc comments — were **dead clauses at every call site**, silently falling through to the next handler.
-  - Every `4xx` without a dedicated subclass now maps to `ClientException`, every `5xx` to `ServerException`. Statuses outside those ranges (a `3xx` reaching the error path, or `0` when no status could be read) stay a bare `HttpException` rather than guessing a fault category.
-  - **Not a breaking change**: both types extend `HttpException`, so existing `on HttpException catch` (and `on ApiException catch`) keep matching exactly as before. Only code asserting an *exact* runtime type is affected.
-  - `401`/`403`/`404` keep their dedicated subclasses, which are themselves `ClientException`s — so `on ClientException` catches a `404` too.
+* **`ClientException` and `ServerException` were never thrown** — `ErrorMapper`
+  specialised only 401/403/404 and mapped everything else to a bare
+  `HttpException`, leaving both clauses dead at every call site despite the
+  documented hierarchy. Unspecialised 4xx now map to `ClientException`, 5xx to
+  `ServerException`; other statuses stay `HttpException`. Not breaking — both
+  are `HttpException` subtypes.
 
-* **ApiX's own errors were being discarded by ApiX's own Sentry filter** (critical) — server errors never reached Sentry
-  - `SentryException.type` is `throwable.runtimeType.toString()`, a **bare** class name with no package qualifier. `SentrySetup.isNetworkNoiseError` matched that name against a list containing `HttpException`, `ClientException` and `TimeoutException` — intended to catch the `dart:io` / `dart:async` types of the same name. Because the names are identical, **every `HttpException` apix produced (i.e. every 5xx and every unspecialised 4xx) was classified as network noise and dropped from `beforeSend`**. The code comment claiming apix types "would be prefixed with a package path" was incorrect; Dart runtime type names are never package-qualified.
-  - ApiX exceptions are now classified from the **type hierarchy** via the event's `throwable`: a `NetworkException` (timeout, connection) is noise, any other `ApiException` is a real error and is reported. Name matching is untouched for everything else, so a genuine `dart:async` `TimeoutException` or `dart:io` `HttpException` is still filtered as before.
-  - `isNetworkNoiseError` had **no test coverage**; it is now covered, including the name-collision case that caused the bug.
+* **ApiX errors were discarded by ApiX's own Sentry filter** — `SentryException.type`
+  is a bare class name, so the noise filter could not tell apix's
+  `HttpException` from `dart:io`'s and **dropped every 5xx**. Classification is
+  now by type hierarchy. Name matching is unchanged for everything else.
+
+* **`CacheException` was not an `ApiException`** — a `cacheOnly` miss escaped
+  the typed-error contract entirely, because `RequestInterceptorHandler.reject`
+  skips the following error interceptors.
+
+* **`cacheOnly` served expired entries** — it now rejects them, distinguishing a
+  miss from an expiry.
+
+* **Cache eviction ignored expiry** — `InMemoryCacheStorage` could drop a fresh
+  entry while keeping a stale one.
 
 ---
 
