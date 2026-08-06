@@ -329,6 +329,8 @@ final client = ApiClientFactory.create(
 );
 ```
 
+**Network-noise filter**: `SentrySetupOptions.filterNetworkNoise` (default `true`) drops transport-level noise before it reaches Sentry — `SocketException`, TLS handshake failures, and apix's own `NetworkException` subtypes (`TimeoutException`, `ConnectionException`). Every other `ApiException` — including `ClientException` and `ServerException` — is **always reported**: apix classifies its own errors by type hierarchy, never by type name, so a 5xx is never mistaken for a socket error that happens to share a class name.
+
 | Option | Description |
 |--------|-------------|
 | `captureStatusCodes` | HTTP status codes to capture (default: 5xx) |
@@ -351,7 +353,9 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 401 | `UnauthorizedException` |
 | HTTP 403 | `ForbiddenException` |
 | HTTP 404 | `NotFoundException` |
-| HTTP 4xx/5xx | `HttpException` |
+| HTTP 4xx (other) | `ClientException` |
+| HTTP 5xx | `ServerException` |
+| Other status on the error path (3xx, unknown) | `HttpException` |
 | `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
@@ -385,6 +389,22 @@ ApiException
 ├── ParsingException (decode / parse failure)
 ├── TokenProviderException (TokenProvider failure)
 └── UnexpectedContentTypeException (strictContentType only)
+```
+
+Every 4xx maps to a `ClientException` and every 5xx to a `ServerException`, so
+branching on the category works whether or not the status has a dedicated
+subclass:
+
+```dart
+try {
+  await client.get<Map<String, dynamic>>('/orders');
+} on NotFoundException {
+  // 404 — the specific subclass still wins
+} on ClientException catch (e) {
+  // any other 4xx: 400, 409, 422, 429... — e.statusCode tells you which
+} on ServerException catch (e) {
+  // any 5xx — retryable, worth reporting
+}
 ```
 
 `AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
