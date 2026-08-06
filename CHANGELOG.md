@@ -1,3 +1,20 @@
+## Unreleased
+
+### Fixed
+
+* **`ClientException` and `ServerException` were never thrown** (major) — the documented exception hierarchy did not match runtime behaviour
+  - `ErrorMapperInterceptor` specialised only `401`/`403`/`404` and mapped **every** other status, `4xx` and `5xx` alike, to a bare `HttpException`. Neither `ClientException` nor `ServerException` was constructed anywhere in the package, so `on ClientException catch` / `on ServerException catch` — both shown as the canonical usage in the README and in the `http_exception.dart` doc comments — were **dead clauses at every call site**, silently falling through to the next handler.
+  - Every `4xx` without a dedicated subclass now maps to `ClientException`, every `5xx` to `ServerException`. Statuses outside those ranges (a `3xx` reaching the error path, or `0` when no status could be read) stay a bare `HttpException` rather than guessing a fault category.
+  - **Not a breaking change**: both types extend `HttpException`, so existing `on HttpException catch` (and `on ApiException catch`) keep matching exactly as before. Only code asserting an *exact* runtime type is affected.
+  - `401`/`403`/`404` keep their dedicated subclasses, which are themselves `ClientException`s — so `on ClientException` catches a `404` too.
+
+* **ApiX's own errors were being discarded by ApiX's own Sentry filter** (critical) — server errors never reached Sentry
+  - `SentryException.type` is `throwable.runtimeType.toString()`, a **bare** class name with no package qualifier. `SentrySetup.isNetworkNoiseError` matched that name against a list containing `HttpException`, `ClientException` and `TimeoutException` — intended to catch the `dart:io` / `dart:async` types of the same name. Because the names are identical, **every `HttpException` apix produced (i.e. every 5xx and every unspecialised 4xx) was classified as network noise and dropped from `beforeSend`**. The code comment claiming apix types "would be prefixed with a package path" was incorrect; Dart runtime type names are never package-qualified.
+  - ApiX exceptions are now classified from the **type hierarchy** via the event's `throwable`: a `NetworkException` (timeout, connection) is noise, any other `ApiException` is a real error and is reported. Name matching is untouched for everything else, so a genuine `dart:async` `TimeoutException` or `dart:io` `HttpException` is still filtered as before.
+  - `isNetworkNoiseError` had **no test coverage**; it is now covered, including the name-collision case that caused the bug.
+
+---
+
 ## 2.3.0
 
 ### Changed
