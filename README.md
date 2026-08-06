@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^2.3.0
+  apix: ^3.0.0
 ```
 
 ```bash
@@ -247,12 +247,62 @@ final fresh = await client.get<Map<String, dynamic>>(
 );
 ```
 
-| Strategy | Behavior |
-|----------|----------|
-| `cacheFirst` | Cache first, network in background |
-| `networkFirst` | Network first, fallback to cache |
-| `cacheOnly` | Cache only |
-| `networkOnly` | Network only |
+| Strategy | Behavior | Can return stale? |
+|----------|----------|-------------------|
+| `cacheFirst` | Serve cache immediately, refresh in the background (stale-while-revalidate) | **Yes** — flagged |
+| `networkFirst` | Network first, fall back to cache on failure | **Yes**, on fallback — flagged |
+| `httpCacheAware` | Follow the server's `Cache-Control` / `ETag` | No (`304` is server-confirmed) |
+| `cacheOnly` | Cache only, never network — fails if missing **or expired** | No |
+| `networkOnly` | Network only, never read cache | No |
+
+`networkFirst` is the default: configure nothing and you get fresh data.
+
+#### Knowing what you got
+
+Any response served from the cache says so, and says whether it was past its
+TTL:
+
+```dart
+final response = await client.get<Map<String, dynamic>>('/orders');
+
+if (response.isFromCache && response.isStale) {
+  showBanner('Showing data from earlier — refreshing…');
+}
+```
+
+`isStale` is true in the two places apix knowingly returns expired data:
+`cacheFirst` serving instantly while it revalidates, and the offline fallback
+of `networkFirst` / `httpCacheAware`. Both are useful; both are lies if the
+caller can't tell. **On an amount, a balance or a status, surface it.**
+
+#### The TTL is a guarantee
+
+`defaultTtl` is enforced by the interceptor, not by the storage backend — a
+custom `CacheStorage` cannot weaken it by forgetting to filter. Backends just
+store and return; deciding what to do with an expired entry is the strategy's
+job.
+
+#### Persistent cache
+
+`InMemoryCacheStorage` (the default) starts empty on every launch, so it does
+nothing for a cold start — which is exactly when the wait is most visible.
+`FileCacheStorage` survives restarts and pulls in **no extra dependency**: you
+hand it the directory.
+
+```dart
+final dir = await getTemporaryDirectory(); // path_provider, in your app
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  cacheConfig: CacheConfig(
+    storage: FileCacheStorage(Directory('${dir.path}/apix_cache')),
+    strategy: CacheStrategy.cacheFirst,
+  ),
+);
+```
+
+> ⚠️ Entries are stored **in clear text**. Never cache credentials, tokens,
+> personal data or amounts you would not write to a log. Prefer a cache
+> directory the OS may purge over a backed-up documents directory.
 
 ---
 
@@ -331,6 +381,8 @@ final client = ApiClientFactory.create(
   ),
 );
 ```
+
+**What `onError` receives**: the **typed `ApiException`** — `ServerException`, `NotFoundException`, `ConnectionException`, ... — not the underlying `DioException`. Trackers group issues by the exception's runtime type, so a single `DioException` for everything would file every 500, 404 and timeout under one issue. The original is still reachable through `(exception as ApiException).originalError`.
 
 **Network-noise filter**: `SentrySetupOptions.filterNetworkNoise` (default `true`) drops transport-level noise before it reaches Sentry — `SocketException`, TLS handshake failures, and apix's own `NetworkException` subtypes (`TimeoutException`, `ConnectionException`). Every other `ApiException` — including `ClientException` and `ServerException` — is **always reported**: apix classifies its own errors by type hierarchy, never by type name, so a 5xx is never mistaken for a socket error that happens to share a class name.
 
@@ -659,7 +711,9 @@ A complete Flutter app demonstrating all ApiX features is available on GitHub:
 👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
 
 <p align="center">
-  <img src="assets/screenshots/home.png" alt="ApiX Example App" width="300">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
+  &nbsp;&nbsp;
+  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
 </p>
 
 Features demonstrated:

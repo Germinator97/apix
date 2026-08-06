@@ -4,6 +4,8 @@
 /// including SecureTokenProvider for secure token storage.
 library;
 
+import 'dart:io';
+
 import 'package:apix/apix.dart';
 import 'package:flutter/material.dart';
 
@@ -44,6 +46,12 @@ void main() async {
   // ============================================================
   // SecureTokenProvider uses flutter_secure_storage under the hood
   final tokenProvider = SecureTokenProvider();
+
+  // Where the persistent cache lives. In a real app this comes from
+  // `path_provider`: `final cacheDir = await getTemporaryDirectory();`
+  // apix takes the directory rather than resolving it, so it needs no
+  // dependency on path_provider itself.
+  final cacheDir = Directory.systemTemp;
 
   // Create an API client with authentication and retry
   final client = ApiClientFactory.create(
@@ -103,8 +111,27 @@ void main() async {
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
+      // networkFirst is the default: fresh data, with the cache used only as
+      // an offline fallback. cacheFirst is the opposite trade — it paints
+      // instantly from the cache, serving it even when expired (flagged
+      // `isStale`) while a background request refreshes it.
       strategy: CacheStrategy.networkFirst,
       defaultTtl: const Duration(minutes: 5),
+      // (v3.0.0+) Survives restarts, unlike the default InMemoryCacheStorage
+      // which starts empty on every cold start — precisely when the wait is
+      // most visible. You supply the directory (here from `path_provider`),
+      // so apix needs no extra dependency of its own.
+      //
+      // Bounded at 200 entries by default: a process cache disappears when the
+      // app closes, a disk cache does not. Pass `maxEntries: null` to opt out.
+      //
+      // ⚠️ Entries are stored in CLEAR TEXT. Never cache credentials, tokens,
+      // personal data or amounts — and prefer a cache directory the OS may
+      // purge over a backed-up documents directory.
+      storage: FileCacheStorage(
+        Directory('${cacheDir.path}/apix_cache'),
+        maxEntries: 200,
+      ),
     ),
     // Logger configuration (v1.0.1+)
     loggerConfig: const LoggerConfig(
@@ -113,8 +140,16 @@ void main() async {
     ),
     // Error tracking configuration (v1.0.1+)
     // Wired to the SentrySetup helpers initialised in [setupSentry] above.
-    // Only NetworkException (timeout, connection) is filtered as transport
-    // noise — ClientException and ServerException always reach Sentry.
+    //
+    // (v3.0.0+) `onError` receives the TYPED ApiException — ServerException,
+    // NotFoundException, ConnectionException... — not the raw DioException.
+    // Trackers group by runtime type, so this is what keeps a 500 and a 404
+    // in separate issues. The DioException stays reachable through
+    // `(exception as ApiException).originalError`.
+    //
+    // Only NetworkException (timeout, connection) is then filtered as
+    // transport noise — ClientException and ServerException always reach
+    // Sentry.
     errorTrackingConfig: const ErrorTrackingConfig(
       onError: SentrySetup.captureException,
       onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
@@ -135,6 +170,13 @@ void main() async {
   try {
     // --- Level 1: Standard (raw Response) ---
     final response = await client.get<Map<String, dynamic>>('/users/1');
+    // (v3.0.0+) Where the body came from, and whether it is past its TTL.
+    // `isStale` is true when apix knowingly serves expired data: cacheFirst
+    // revalidating behind, or an offline fallback. Surface it on anything
+    // whose age changes what the user should do — an amount, a balance.
+    if (response.isFromCache && response.isStale) {
+      debugPrint('Showing data from earlier — refreshing…');
+    }
     debugPrint('Raw: ${response.data}');
 
     // --- Level 2: Parse & Decode (formats response.data) ---
