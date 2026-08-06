@@ -1,20 +1,46 @@
 import 'cache_storage.dart';
 
 /// Cache strategy options.
+///
+/// Only [cacheFirst] and [networkFirst] can hand back data that is past its
+/// TTL; both flag it with `response.isStale`.
 enum CacheStrategy {
-  /// Return cached data first, then update from network.
+  /// Serve the cache immediately, then update from the network
+  /// (stale-while-revalidate).
+  ///
+  /// A valid entry is returned as-is and costs no request. An **expired** one
+  /// is returned too — flagged `isStale` — while a single background request
+  /// refreshes it. The caller never waits on the network when an entry exists.
+  ///
+  /// Network volume is the same as blocking on expiry would be; only the
+  /// waiting disappears. In exchange, the body may be older than [
+  /// CacheConfig.defaultTtl]: where that is unacceptable — an amount, a
+  /// balance, an authorisation — use [networkFirst], or surface `isStale` in
+  /// the UI.
   cacheFirst,
 
-  /// Try network first, fallback to cache on failure.
+  /// Try network first, fall back to cache on failure.
+  ///
+  /// The fallback serves whatever is cached, expired included, because stale
+  /// data beats no data when the network is gone; it is flagged `isStale` when
+  /// so. This is the strategy to pick when freshness matters, since the cache
+  /// is only ever consulted after the network has failed.
   networkFirst,
 
   /// Respect HTTP cache headers (Cache-Control, ETag, etc).
+  ///
+  /// Freshness is the server's call: a `304 Not Modified` serves the cached
+  /// body as fresh regardless of the local TTL.
   httpCacheAware,
 
-  /// Always use network, never cache.
+  /// Always use network, never read or serve the cache.
   networkOnly,
 
-  /// Always use cache if available, never network.
+  /// Serve the cache or fail — never any network.
+  ///
+  /// Never returns an expired entry: with no network to fall back on,
+  /// honouring [CacheConfig.defaultTtl] is the only thing that keeps it
+  /// meaningful. A miss and an expiry both raise `CacheException`.
   cacheOnly,
 }
 
