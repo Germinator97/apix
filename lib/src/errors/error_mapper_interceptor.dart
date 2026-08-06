@@ -134,6 +134,28 @@ class ErrorMapperInterceptor extends Interceptor {
           originalError: err,
           stackTrace: err.stackTrace,
         ),
+      // 4xx / 5xx that have no dedicated subclass still get the right
+      // *category*, so `on ClientException` / `on ServerException` fire as the
+      // documented hierarchy promises. Before this, every non-401/403/404
+      // status fell through to a bare HttpException and those two clauses were
+      // dead code at every call site.
+      _ when statusCode >= 400 && statusCode < 500 => ClientException(
+          message: message,
+          statusCode: statusCode,
+          responseBody: response?.data,
+          originalError: err,
+          stackTrace: err.stackTrace,
+        ),
+      _ when statusCode >= 500 && statusCode < 600 => ServerException(
+          message: message,
+          statusCode: statusCode,
+          responseBody: response?.data,
+          originalError: err,
+          stackTrace: err.stackTrace,
+        ),
+      // Anything else — 1xx/2xx/3xx reaching the error path, or 0 when no
+      // status could be read — stays a bare HttpException: claiming "client"
+      // or "server" fault there would be a guess.
       _ => HttpException(
           message: message,
           statusCode: statusCode,

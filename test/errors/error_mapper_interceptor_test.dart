@@ -123,7 +123,7 @@ void main() {
           expect(result.statusCode, equals(404));
         });
 
-        test('maps 500 to HttpException', () {
+        test('maps 500 to ServerException', () {
           final dioError = DioException(
             type: DioExceptionType.badResponse,
             requestOptions: RequestOptions(path: '/test'),
@@ -136,9 +136,112 @@ void main() {
 
           final result = ErrorMapperInterceptor.mapDioException(dioError);
 
+          expect(result, isA<ServerException>());
           expect(result, isA<HttpException>());
           expect(result.message, equals('Internal server error'));
           expect(result.statusCode, equals(500));
+        });
+
+        // The documented hierarchy promises `on ClientException` /
+        // `on ServerException` work. Until these cases existed, every
+        // non-401/403/404 status produced a bare HttpException, so both
+        // clauses were unreachable at every call site while the README and
+        // the doc comments advertised them.
+        test('maps unspecialised 4xx to ClientException', () {
+          for (final status in [400, 402, 409, 422, 429, 499]) {
+            final result = ErrorMapperInterceptor.mapDioException(
+              DioException(
+                type: DioExceptionType.badResponse,
+                requestOptions: RequestOptions(path: '/test'),
+                response: Response(
+                  statusCode: status,
+                  data: {'message': 'nope'},
+                  requestOptions: RequestOptions(path: '/test'),
+                ),
+              ),
+            );
+
+            expect(
+              result,
+              isA<ClientException>(),
+              reason: '$status must map to ClientException',
+            );
+            expect(result.statusCode, equals(status));
+          }
+        });
+
+        test('maps unspecialised 5xx to ServerException', () {
+          for (final status in [500, 501, 502, 503, 504, 599]) {
+            final result = ErrorMapperInterceptor.mapDioException(
+              DioException(
+                type: DioExceptionType.badResponse,
+                requestOptions: RequestOptions(path: '/test'),
+                response: Response(
+                  statusCode: status,
+                  data: {'message': 'boom'},
+                  requestOptions: RequestOptions(path: '/test'),
+                ),
+              ),
+            );
+
+            expect(
+              result,
+              isA<ServerException>(),
+              reason: '$status must map to ServerException',
+            );
+            expect(result.statusCode, equals(status));
+          }
+        });
+
+        test('401/403/404 keep their dedicated subclass', () {
+          final cases = <int, Matcher>{
+            401: isA<UnauthorizedException>(),
+            403: isA<ForbiddenException>(),
+            404: isA<NotFoundException>(),
+          };
+
+          cases.forEach((status, matcher) {
+            final result = ErrorMapperInterceptor.mapDioException(
+              DioException(
+                type: DioExceptionType.badResponse,
+                requestOptions: RequestOptions(path: '/test'),
+                response: Response(
+                  statusCode: status,
+                  data: {'message': 'nope'},
+                  requestOptions: RequestOptions(path: '/test'),
+                ),
+              ),
+            );
+
+            expect(result, matcher, reason: 'status $status');
+            // They are ClientExceptions too — the category must hold for the
+            // specialised ones as well, or `on ClientException` would catch
+            // a 400 but miss a 404.
+            expect(result, isA<ClientException>(), reason: 'status $status');
+          });
+        });
+
+        test('stays a bare HttpException when the status is not 4xx/5xx', () {
+          // 3xx on the error path, and 0 when no status could be read:
+          // labelling either "client" or "server" fault would be a guess.
+          for (final status in [null, 302]) {
+            final result = ErrorMapperInterceptor.mapDioException(
+              DioException(
+                type: DioExceptionType.badResponse,
+                requestOptions: RequestOptions(path: '/test'),
+                response: Response(
+                  statusCode: status,
+                  requestOptions: RequestOptions(path: '/test'),
+                ),
+              ),
+            );
+
+            expect(result, isA<HttpException>(), reason: 'status $status');
+            expect(result, isNot(isA<ClientException>()),
+                reason: 'status $status');
+            expect(result, isNot(isA<ServerException>()),
+                reason: 'status $status');
+          }
         });
 
         test('extracts message from various response fields', () {
