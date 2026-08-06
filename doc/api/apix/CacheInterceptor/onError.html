@@ -60,8 +60,8 @@
     </ol>
   </div>
 <span class="returntype">void</span>
-<span class="name ">onError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span></li>
-<li><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
+<span class="name ">onError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span></li>
+<li><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
 </ol>)
 
       <div class="features"><span class="feature">override</span></div>
@@ -101,10 +101,16 @@ void onError(
     final cacheKey =
         options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
 
-    &#47;&#47; Try to return cached response on network failure
+    &#47;&#47; Try to return cached response on network failure. An expired entry is
+    &#47;&#47; served on purpose here — stale data beats no data when the network is
+    &#47;&#47; gone — but it is flagged so the caller can say so.
     final cached = await config.storage.get(cacheKey);
     if (cached != null) {
-      final response = _buildResponseFromCache(options, cached);
+      final response = _buildResponseFromCache(
+        options,
+        cached,
+        stale: cached.isExpired,
+      );
       handler.resolve(response);
       return;
     }
@@ -142,7 +148,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

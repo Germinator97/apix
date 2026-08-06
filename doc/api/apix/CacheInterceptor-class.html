@@ -57,11 +57,20 @@
   <p>Interceptor that provides response caching with configurable strategies.</p>
 <p>Supports multiple caching strategies:</p>
 <ul>
-<li><a href="../apix/CacheStrategy.html">CacheStrategy.cacheFirst</a>: Return cache if available, otherwise network</li>
-<li><a href="../apix/CacheStrategy.html">CacheStrategy.networkFirst</a>: Try network first, fallback to cache</li>
-<li><a href="../apix/CacheStrategy.html">CacheStrategy.cacheOnly</a>: Only use cache, fail if not available</li>
-<li><a href="../apix/CacheStrategy.html">CacheStrategy.networkOnly</a>: Always use network, never cache</li>
+<li><a href="../apix/CacheStrategy.html">CacheStrategy.cacheFirst</a>: serve cache immediately — stale included —
+and revalidate in the background</li>
+<li><a href="../apix/CacheStrategy.html">CacheStrategy.networkFirst</a>: try network first, fall back to cache
+(possibly stale) on failure</li>
+<li><a href="../apix/CacheStrategy.html">CacheStrategy.httpCacheAware</a>: follow the server's <code>Cache-Control</code> /
+<code>ETag</code> directives</li>
+<li><a href="../apix/CacheStrategy.html">CacheStrategy.cacheOnly</a>: only use cache, and only while it is valid</li>
+<li><a href="../apix/CacheStrategy.html">CacheStrategy.networkOnly</a>: always use network, never read cache</li>
 </ul>
+<p>The TTL is enforced here, not by the <a href="../apix/CacheStorage-class.html">CacheStorage</a>: a backend only stores
+and returns. See <a href="../apix/CacheStorage/get.html">CacheStorage.get</a>.</p>
+<p>Whenever a cached body is handed back, <code>Response.extra</code> carries
+<a href="../apix/fromCacheKey-constant.html">fromCacheKey</a>, plus <a href="../apix/fromCacheStaleKey-constant.html">fromCacheStaleKey</a> when that body had expired — read
+them through <code>response.isFromCache</code> / <code>response.isStale</code>.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">final cacheInterceptor = CacheInterceptor(
   config: CacheConfig(
@@ -81,7 +90,7 @@ dio.interceptors.add(cacheInterceptor);
   <dd>
     <ul class="gt-separated dark clazz-relationships">
       <li><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></li>
-        <li><a href="https://pub.dev/documentation/dio/5.9.2/dio/Interceptor-class.html">Interceptor</a></li>
+        <li><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></li>
       <li>CacheInterceptor</li>
     </ul>
   </dd>
@@ -290,7 +299,7 @@ dio.interceptors.add(cacheInterceptor);
 </dd>
 
         <dt id="onError" class="callable">
-  <span class="name"><a href="../apix/CacheInterceptor/onError.html">onError</a></span><span class="signature">(<wbr><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="../apix/CacheInterceptor/onError.html">onError</a></span><span class="signature">(<wbr><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -303,7 +312,7 @@ dio.interceptors.add(cacheInterceptor);
 </dd>
 
         <dt id="onRequest" class="callable">
-  <span class="name"><a href="../apix/CacheInterceptor/onRequest.html">onRequest</a></span><span class="signature">(<wbr><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="../apix/CacheInterceptor/onRequest.html">onRequest</a></span><span class="signature">(<wbr><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -316,7 +325,7 @@ dio.interceptors.add(cacheInterceptor);
 </dd>
 
         <dt id="onResponse" class="callable">
-  <span class="name"><a href="../apix/CacheInterceptor/onResponse.html">onResponse</a></span><span class="signature">(<wbr><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="../apix/CacheInterceptor/onResponse.html">onResponse</a></span><span class="signature">(<wbr><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -329,7 +338,7 @@ dio.interceptors.add(cacheInterceptor);
 </dd>
 
         <dt id="setDio" class="callable">
-  <span class="name"><a href="../apix/CacheInterceptor/setDio.html">setDio</a></span><span class="signature">(<wbr><span class="parameter" id="setDio-param-dio"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.9.2/dio/Dio-class.html">Dio</a></span> <span class="parameter-name">dio</span></span>)
+  <span class="name"><a href="../apix/CacheInterceptor/setDio.html">setDio</a></span><span class="signature">(<wbr><span class="parameter" id="setDio-param-dio"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a></span> <span class="parameter-name">dio</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -405,7 +414,7 @@ Must be called after adding this interceptor to Dio.
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

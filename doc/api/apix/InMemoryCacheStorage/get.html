@@ -68,8 +68,16 @@
     </section>
     
 <section class="desc markdown">
-  <p>Retrieves a cached entry by key.</p>
-<p>Returns null if the key doesn't exist or the entry has expired.</p>
+  <p>Retrieves a cached entry by key, <strong>expired or not</strong>.</p>
+<p>Returns null only when the key doesn't exist. Expiry is <strong>not</strong> a storage
+concern: <code>CacheInterceptor</code> decides what to do with a stale entry, because
+the right answer depends on the strategy — <code>cacheFirst</code> serves it while
+revalidating, <code>networkFirst</code> serves it only as an offline fallback, and
+<code>cacheOnly</code> refuses it.</p>
+<p>This used to be the storage's job, and that made the TTL a guarantee only
+as strong as the implementation: any backend that forgot to filter made
+<code>defaultTtl</code> silently inoperative. Implementations must now simply store
+and return.</p>
 </section>
 
 
@@ -78,16 +86,9 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
 Future&lt;CacheEntry?&gt; get(String key) async {
-  final entry = _cache[key];
-  if (entry == null) return null;
-
-  &#47;&#47; Auto-remove expired entries
-  if (entry.isExpired) {
-    _cache.remove(key);
-    return null;
-  }
-
-  return entry;
+  &#47;&#47; Expired entries are returned, not purged: the interceptor needs them to
+  &#47;&#47; serve stale-while-revalidating and offline fallbacks. See [CacheStorage.get].
+  return _cache[key];
 }</code></pre>
 </section>
 
@@ -116,7 +117,7 @@ Future&lt;CacheEntry?&gt; get(String key) async {
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>
