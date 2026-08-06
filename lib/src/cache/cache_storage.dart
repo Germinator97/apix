@@ -21,9 +21,18 @@ import 'cache_entry.dart';
 /// }
 /// ```
 abstract class CacheStorage {
-  /// Retrieves a cached entry by key.
+  /// Retrieves a cached entry by key, **expired or not**.
   ///
-  /// Returns null if the key doesn't exist or the entry has expired.
+  /// Returns null only when the key doesn't exist. Expiry is **not** a storage
+  /// concern: `CacheInterceptor` decides what to do with a stale entry, because
+  /// the right answer depends on the strategy — `cacheFirst` serves it while
+  /// revalidating, `networkFirst` serves it only as an offline fallback, and
+  /// `cacheOnly` refuses it.
+  ///
+  /// This used to be the storage's job, and that made the TTL a guarantee only
+  /// as strong as the implementation: any backend that forgot to filter made
+  /// `defaultTtl` silently inoperative. Implementations must now simply store
+  /// and return.
   Future<CacheEntry?> get(String key);
 
   /// Stores a cache entry with the given key.
@@ -35,7 +44,11 @@ abstract class CacheStorage {
   /// Clears all cached entries.
   Future<void> clear();
 
-  /// Returns true if a valid (non-expired) entry exists for the key.
+  /// Returns true if a **valid (non-expired)** entry exists for the key.
+  ///
+  /// Unlike [get], this one does filter on expiry — it answers "is there
+  /// usable fresh data here?", which is the only question worth asking of a
+  /// boolean.
   Future<bool> has(String key);
 
   /// Returns all cached keys.
@@ -68,16 +81,9 @@ class InMemoryCacheStorage implements CacheStorage {
 
   @override
   Future<CacheEntry?> get(String key) async {
-    final entry = _cache[key];
-    if (entry == null) return null;
-
-    // Auto-remove expired entries
-    if (entry.isExpired) {
-      _cache.remove(key);
-      return null;
-    }
-
-    return entry;
+    // Expired entries are returned, not purged: the interceptor needs them to
+    // serve stale-while-revalidating and offline fallbacks. See [CacheStorage.get].
+    return _cache[key];
   }
 
   @override
@@ -86,12 +92,29 @@ class InMemoryCacheStorage implements CacheStorage {
     _evictIfNeeded();
   }
 
-  /// Evicts oldest entries when the cache exceeds [maxEntries].
+  /// Evicts entries when the cache exceeds [maxEntries].
+  ///
+  /// Expired entries go first — they are the ones least likely to be served
+  /// again — then the oldest inserted (FIFO). Evicting purely by insertion
+  /// order would drop a fresh entry while keeping a stale one.
   void _evictIfNeeded() {
     if (maxEntries == null || _cache.length <= maxEntries!) return;
-    final excess = _cache.length - maxEntries!;
-    final keysToRemove = _cache.keys.take(excess).toList();
-    for (final key in keysToRemove) {
+
+    var excess = _cache.length - maxEntries!;
+
+    final expired = _cache.entries
+        .where((e) => e.value.isExpired)
+        .map((e) => e.key)
+        .take(excess)
+        .toList();
+    for (final key in expired) {
+      _cache.remove(key);
+    }
+
+    excess -= expired.length;
+    if (excess <= 0) return;
+
+    for (final key in _cache.keys.take(excess).toList()) {
       _cache.remove(key);
     }
   }
@@ -108,8 +131,10 @@ class InMemoryCacheStorage implements CacheStorage {
 
   @override
   Future<bool> has(String key) async {
-    final entry = await get(key);
-    return entry != null;
+    final entry = _cache[key];
+    // Filters explicitly rather than delegating to [get], which no longer
+    // rejects expired entries.
+    return entry != null && entry.isValid;
   }
 
   @override
