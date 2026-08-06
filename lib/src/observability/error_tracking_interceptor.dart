@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 
+import '../errors/api_exception.dart';
+import '../errors/error_mapper_interceptor.dart';
+
 /// Signature for capturing exceptions to an error tracking service.
 typedef CaptureException = Future<void> Function(
   Object exception, {
@@ -60,6 +63,16 @@ class ErrorTrackingConfig {
   final String? environment;
 
   /// Callback to capture exceptions.
+  ///
+  /// Receives the **typed [ApiException]** — `ServerException`,
+  /// `NotFoundException`, `ConnectionException`, ... — not the underlying
+  /// `DioException`. That matters for a tracker: the exception's runtime type
+  /// is what Sentry (and most others) group issues by, so reporting the raw
+  /// `DioException` collapsed every 500, 404 and timeout into a single issue
+  /// titled `DioException`.
+  ///
+  /// The original `DioException` is still reachable through
+  /// `(exception as ApiException).originalError`.
   final CaptureException? onError;
 
   /// Callback to add breadcrumbs.
@@ -243,8 +256,24 @@ class ErrorTrackingInterceptor extends Interceptor {
   void _captureException(DioException err) {
     final options = err.requestOptions;
 
+    // Report the mapped ApiException, not the raw DioException.
+    //
+    // This interceptor sits *before* ErrorMapperInterceptor in the chain, and
+    // it has to: ErrorMapperInterceptor ends the error chain with
+    // `handler.reject`, so moving it earlier would stop this interceptor (and
+    // the metrics one) from ever seeing the failure. Mapping here instead
+    // gives the tracker the same typed exception the caller will catch.
+    //
+    // Why it matters: trackers group by the exception's runtime type. Sending
+    // `DioException` for everything filed every 500, every 404 and every
+    // timeout under one issue, and left type-based noise filtering unable to
+    // tell them apart — leaving only message string-matching, which is exactly
+    // the fragility this release removed elsewhere.
+    //
+    // `mapDioException` is a pure static; the original DioException stays
+    // reachable through `ApiException.originalError`.
     config.onError!(
-      err,
+      ErrorMapperInterceptor.mapDioException(err),
       stackTrace: err.stackTrace,
       extra: _buildErrorContext(options, err.response),
       tags: _buildTags(options, err.response?.statusCode),
