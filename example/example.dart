@@ -183,7 +183,15 @@ void main() async {
   } on UnauthorizedException catch (e) {
     // Includes AuthException (refresh failure) — see e.originalError for cause
     debugPrint('Auth error: ${e.message}');
+  } on ClientException catch (e) {
+    // Any other 4xx (400, 409, 422, 429...). The caller is at fault, so
+    // retrying as-is won't help — surface the backend message.
+    debugPrint('Client error ${e.statusCode}: ${e.message}');
+  } on ServerException catch (e) {
+    // Any 5xx. Transient by nature: worth retrying and worth reporting.
+    debugPrint('Server error ${e.statusCode}: ${e.message}');
   } on HttpException catch (e) {
+    // Statuses outside 4xx/5xx that still reached the error path.
     debugPrint('HTTP ${e.statusCode}: ${e.message}');
   } on NetworkException catch (e) {
     debugPrint('Network: ${e.message}');
