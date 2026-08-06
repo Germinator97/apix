@@ -60,6 +60,8 @@
     
 <section class="desc markdown">
   <p>Cache strategy options.</p>
+<p>Only <a href="../apix/CacheStrategy.html">cacheFirst</a> and <a href="../apix/CacheStrategy.html">networkFirst</a> can hand back data that is past its
+TTL; both flag it with <code>response.isStale</code>.</p>
 </section>
 
 
@@ -98,7 +100,16 @@
 
 </dt>
 <dd>
-  <p>Return cached data first, then update from network.</p>
+  <p>Serve the cache immediately, then update from the network
+(stale-while-revalidate).</p>
+<p>A valid entry is returned as-is and costs no request. An <strong>expired</strong> one
+is returned too — flagged <code>isStale</code> — while a single background request
+refreshes it. The caller never waits on the network when an entry exists.</p>
+<p>Network volume is the same as blocking on expiry would be; only the
+waiting disappears. In exchange, the body may be older than <a href="../apix/CacheConfig/defaultTtl.html">
+CacheConfig.defaultTtl</a>: where that is unacceptable — an amount, a
+balance, an authorisation — use <a href="../apix/CacheStrategy.html">networkFirst</a>, or surface <code>isStale</code> in
+the UI.</p>
   
 
 </dd>
@@ -110,7 +121,11 @@
 
 </dt>
 <dd>
-  <p>Try network first, fallback to cache on failure.</p>
+  <p>Try network first, fall back to cache on failure.</p>
+<p>The fallback serves whatever is cached, expired included, because stale
+data beats no data when the network is gone; it is flagged <code>isStale</code> when
+so. This is the strategy to pick when freshness matters, since the cache
+is only ever consulted after the network has failed.</p>
   
 
 </dd>
@@ -123,6 +138,8 @@
 </dt>
 <dd>
   <p>Respect HTTP cache headers (Cache-Control, ETag, etc).</p>
+<p>Freshness is the server's call: a <code>304 Not Modified</code> serves the cached
+body as fresh regardless of the local TTL.</p>
   
 
 </dd>
@@ -134,7 +151,7 @@
 
 </dt>
 <dd>
-  <p>Always use network, never cache.</p>
+  <p>Always use network, never read or serve the cache.</p>
   
 
 </dd>
@@ -146,7 +163,10 @@
 
 </dt>
 <dd>
-  <p>Always use cache if available, never network.</p>
+  <p>Serve the cache or fail — never any network.</p>
+<p>Never returns an expired entry: with no network to fall back on,
+honouring <a href="../apix/CacheConfig/defaultTtl.html">CacheConfig.defaultTtl</a> is the only thing that keeps it
+meaningful. A miss and an expiry both raise <code>CacheException</code>.</p>
   
 
 </dd>
@@ -314,7 +334,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

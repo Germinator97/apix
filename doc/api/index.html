@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^2.3.0
+  apix: ^3.0.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -127,6 +127,7 @@ final client = ApiClientFactory.create(
   ),
   
   // 🔄 Retry with exponential backoff
+  // Idempotent methods only by default — POST/PATCH are NOT replayed.
   retryConfig: const RetryConfig(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
@@ -274,27 +275,75 @@ final fresh = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
 <tr>
 <th>Strategy</th>
 <th>Behavior</th>
+<th>Can return stale?</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>cacheFirst</code></td>
-<td>Cache first, network in background</td>
+<td>Serve cache immediately, refresh in the background (stale-while-revalidate)</td>
+<td><strong>Yes</strong> — flagged</td>
 </tr>
 <tr>
 <td><code>networkFirst</code></td>
-<td>Network first, fallback to cache</td>
+<td>Network first, fall back to cache on failure</td>
+<td><strong>Yes</strong>, on fallback — flagged</td>
+</tr>
+<tr>
+<td><code>httpCacheAware</code></td>
+<td>Follow the server's <code>Cache-Control</code> / <code>ETag</code></td>
+<td>No (<code>304</code> is server-confirmed)</td>
 </tr>
 <tr>
 <td><code>cacheOnly</code></td>
-<td>Cache only</td>
+<td>Cache only, never network — fails if missing <strong>or expired</strong></td>
+<td>No</td>
 </tr>
 <tr>
 <td><code>networkOnly</code></td>
-<td>Network only</td>
+<td>Network only, never read cache</td>
+<td>No</td>
 </tr>
 </tbody>
 </table>
+<p><code>networkFirst</code> is the default: configure nothing and you get fresh data.</p>
+<h4 id="knowing-what-you-got">Knowing what you got</h4>
+<p>Any response served from the cache says so, and says whether it was past its
+TTL:</p>
+<pre class="language-dart"><code class="language-dart">final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/orders');
+
+if (response.isFromCache &amp;&amp; response.isStale) {
+  showBanner('Showing data from earlier — refreshing…');
+}
+</code></pre>
+<p><code>isStale</code> is true in the two places apix knowingly returns expired data:
+<code>cacheFirst</code> serving instantly while it revalidates, and the offline fallback
+of <code>networkFirst</code> / <code>httpCacheAware</code>. Both are useful; both are lies if the
+caller can't tell. <strong>On an amount, a balance or a status, surface it.</strong></p>
+<h4 id="the-ttl-is-a-guarantee">The TTL is a guarantee</h4>
+<p><code>defaultTtl</code> is enforced by the interceptor, not by the storage backend — a
+custom <code>CacheStorage</code> cannot weaken it by forgetting to filter. Backends just
+store and return; deciding what to do with an expired entry is the strategy's
+job.</p>
+<h4 id="persistent-cache">Persistent cache</h4>
+<p><code>InMemoryCacheStorage</code> (the default) starts empty on every launch, so it does
+nothing for a cold start — which is exactly when the wait is most visible.
+<code>FileCacheStorage</code> survives restarts and pulls in <strong>no extra dependency</strong>: you
+hand it the directory.</p>
+<pre class="language-dart"><code class="language-dart">final dir = await getTemporaryDirectory(); // path_provider, in your app
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  cacheConfig: CacheConfig(
+    storage: FileCacheStorage(Directory('${dir.path}/apix_cache')),
+    strategy: CacheStrategy.cacheFirst,
+  ),
+);
+</code></pre>
+<blockquote>
+<p>⚠️ Entries are stored <strong>in clear text</strong>. Never cache credentials, tokens,
+personal data or amounts you would not write to a log. Prefer a cache
+directory the OS may purge over a backed-up documents directory.</p>
+</blockquote>
 <hr>
 <h3 id="-logging">📊 Logging</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
@@ -369,6 +418,7 @@ await SentrySetup.init(
 </code></pre>
 <blockquote>
 <p>The callback runs <strong>after</strong> every apix default, so it can override anything — including <code>beforeSend</code>. For composition that preserves apix's network-noise filter, prefer <code>customBeforeSend</code> / <code>customBeforeSendTransaction</code>.</p>
+<p>⚠️ <code>SentrySetupOptions.production()</code> and <code>.development()</code> do <strong>not</strong> forward <code>configureOptions</code>. To use it, spell the options out with the full constructor as above — the factories are only shorthands for the sample-rate presets.</p>
 </blockquote>
 <p><strong>2. API client configuration:</strong></p>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
@@ -379,6 +429,7 @@ await SentrySetup.init(
   ),
 );
 </code></pre>
+<p><strong>Network-noise filter</strong>: <code>SentrySetupOptions.filterNetworkNoise</code> (default <code>true</code>) drops transport-level noise before it reaches Sentry — <code>SocketException</code>, TLS handshake failures, and apix's own <code>NetworkException</code> subtypes (<code>TimeoutException</code>, <code>ConnectionException</code>). Every other <code>ApiException</code> — including <code>ClientException</code> and <code>ServerException</code> — is <strong>always reported</strong>: apix classifies its own errors by type hierarchy, never by type name, so a 5xx is never mistaken for a socket error that happens to share a class name.</p>
 <table>
 <thead>
 <tr>
@@ -438,7 +489,15 @@ await SentrySetup.init(
 <td><code>NotFoundException</code></td>
 </tr>
 <tr>
-<td>HTTP 4xx/5xx</td>
+<td>HTTP 4xx (other)</td>
+<td><code>ClientException</code></td>
+</tr>
+<tr>
+<td>HTTP 5xx</td>
+<td><code>ServerException</code></td>
+</tr>
+<tr>
+<td>Other status on the error path (3xx, unknown)</td>
 <td><code>HttpException</code></td>
 </tr>
 <tr>
@@ -478,6 +537,19 @@ await SentrySetup.init(
 ├── ParsingException (decode / parse failure)
 ├── TokenProviderException (TokenProvider failure)
 └── UnexpectedContentTypeException (strictContentType only)
+</code></pre>
+<p>Every 4xx maps to a <code>ClientException</code> and every 5xx to a <code>ServerException</code>, so
+branching on the category works whether or not the status has a dedicated
+subclass:</p>
+<pre class="language-dart"><code class="language-dart">try {
+  await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/orders');
+} on NotFoundException {
+  // 404 — the specific subclass still wins
+} on ClientException catch (e) {
+  // any other 4xx: 400, 409, 422, 429... — e.statusCode tells you which
+} on ServerException catch (e) {
+  // any 5xx — retryable, worth reporting
+}
 </code></pre>
 <p><code>AuthException</code> exposes <code>originalError</code> so the underlying cause (e.g. <code>TokenProviderException</code> or a custom error from a legacy <code>onRefresh</code>) is recoverable.</p>
 <h3 id="classic-try-catch">Classic Try-catch</h3>
@@ -880,11 +952,16 @@ with <code>actualContentType: null</code>.</p>
 <p>Features demonstrated:</p>
 <ul>
 <li>🔐 SecureTokenProvider with simplified refresh flow</li>
-<li>💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache)</li>
-<li>🔄 Retry logic with exponential backoff</li>
+<li>💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API</li>
+<li>🔄 Retry: exponential backoff, <code>Retry-After</code>, and the method-aware guard — three live probes measure how many times the server is actually hit for <code>GET</code>, <code>POST</code> and <code>POST</code> + <code>forceRetry()</code></li>
+<li>🛡️ Typed failures: <code>ParsingException</code>, <code>UnexpectedContentTypeException</code>, <code>responseValidator</code> → custom exception, <code>TokenProviderException</code></li>
+<li>📦 Envelope API (<code>*Data</code> methods) against a mocked backend</li>
 <li>🐛 Sentry integration with error testing</li>
 <li>📊 Request metrics and logging</li>
 </ul>
+<blockquote>
+<p>A shorter, single-file example lives in <a href="example/example.dart"><code>example/example.dart</code></a> — that is the one rendered on pub.dev. The linked repo is the full Flutter app.</p>
+</blockquote>
 <h2 id="contributing">Contributing</h2>
 <p>Contributions are welcome! Please read our <a href="CONTRIBUTING.md">contributing guidelines</a> first.</p>
 <ol>
@@ -945,7 +1022,7 @@ with <code>actualContentType: null</code>.</p>
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

@@ -61,14 +61,16 @@
     <section>
       <dl class="dl-horizontal">
         
-
-        
-  <dt>Implemented types</dt>
+  <dt>Inheritance</dt>
   <dd>
-    <ul class="comma-separated clazz-relationships">
-        <li><a href="https://api.flutter.dev/flutter/dart-core/Exception-class.html">Exception</a></li>
+    <ul class="gt-separated dark clazz-relationships">
+      <li><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></li>
+        <li><a href="../apix/ApiException-class.html">ApiException</a></li>
+      <li>CacheException</li>
     </ul>
   </dd>
+
+        
         
 
 
@@ -94,12 +96,12 @@
   </section>
     
   <section
-      class="summary offset-anchor"
+      class="summary offset-anchor inherited"
       id="instance-properties">
     <h2>Properties</h2>
     <dl class="properties">
         <dt id="hashCode" class="property inherited">
-  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a></span>
+  <span class="name"><a href="../apix/ApiException/hashCode.html">hashCode</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
   
 
@@ -110,15 +112,27 @@
 
 </dd>
 
-        <dt id="message" class="property">
-  <span class="name"><a href="../apix/CacheException/message.html">message</a></span>
+        <dt id="message" class="property inherited">
+  <span class="name"><a href="../apix/ApiException/message.html">message</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
   
 
 </dt>
-<dd>
-  The error message.
-  <div class="features"><span class="feature">final</span></div>
+<dd class="inherited">
+  Human-readable error message.
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="originalError" class="property inherited">
+  <span class="name"><a href="../apix/ApiException/originalError.html">originalError</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span>
+  
+
+</dt>
+<dd class="inherited">
+  The original error that caused this exception.
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
 
 </dd>
 
@@ -131,6 +145,30 @@
 <dd class="inherited">
   A representation of the runtime type of the object.
   <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="stackTrace" class="property inherited">
+  <span class="name"><a href="../apix/ApiException/stackTrace.html">stackTrace</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span>
+  
+
+</dt>
+<dd class="inherited">
+  The stack trace from the original error.
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="statusCode" class="property inherited">
+  <span class="name"><a href="../apix/ApiException/statusCode.html">statusCode</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span>
+  
+
+</dt>
+<dd class="inherited">
+  HTTP status code if available.
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
 
 </dd>
 
@@ -178,7 +216,7 @@
     <h2>Operators</h2>
     <dl class="callables">
         <dt id="operator ==" class="callable inherited">
-  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
+  <span class="name"><a href="../apix/ApiException/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
   </span>
   
@@ -219,7 +257,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>
