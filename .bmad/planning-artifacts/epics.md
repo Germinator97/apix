@@ -162,6 +162,21 @@ Le développeur peut utiliser SecureTokenProvider prêt à l'emploi avec refresh
 **FRs covered:** FR43, FR44, FR45, FR46, FR47, FR48, FR49, FR50, FR51, FR52, FR53
 **Depends on:** Epic 4
 
+### Epic 10: Unified Configuration API (v1.0.1)
+Le développeur configure tout le client en un seul appel déclaratif.
+**Depends on:** Epic 3
+
+### Epic 11: Polish & 2.0 Contract Consistency (v2.1.0)
+Le contrat « toute erreur est une ApiException typée » ne fuit plus.
+**Depends on:** Epic 2, Epic 3, Epic 5
+
+### Epic 12: Production Hardening (v2.4.0)
+Capacités production critiques pour les apps fintech. **Pas encore démarré.**
+**Depends on:** Epic 5, Epic 6
+
+> Les releases **2.2.0** et **2.3.0** sont sorties hors epic — voir la section
+> « Releases hors epic » plus bas.
+
 ---
 
 ## Epic 1: Project Foundation
@@ -867,9 +882,31 @@ Opt-in via `ApiClientConfig(strictContentType: true)`. Detects captive-portal re
 
 ---
 
-## Epic 12: Production Hardening (v2.2.0)
+## Releases hors epic (2.2.0, 2.3.0)
+
+Ces deux versions ont été développées et publiées **sans passer par le workflow
+stories** : aucun fichier `stories/*.md` ne les porte. Elles sont consignées ici
+pour que la lecture des epics ne laisse pas croire qu'Epic 12 a été livré.
+Détail machine dans `.bmad/implementation-artifacts/sprint-status.yaml`
+(`unplanned_releases`).
+
+- **2.2.0** (2026-05-12) — `SentrySetupOptions.configureOptions`, échappatoire
+  vers les `SentryFlutterOptions` non exposées par apix.
+- **2.3.0** (2026-07-08) — retry **idempotency-aware par méthode HTTP**
+  (`POST`/`PATCH` ne sont plus rejoués par défaut) + opt-in
+  `RequestOptions.forceRetry()` ; ré-export de `Options`/`CancelToken`/
+  `Response` depuis le barrel ; compatibilité dio 5.10.0 et matrice CI sur la
+  plage déclarée ; `RELEASING.md`.
+
+---
+
+## Epic 12: Production Hardening (v2.4.0)
 
 Ajoute des capacités production critiques pour les apps fintech (the internal consumer apps) et améliore la robustesse face aux backends hostiles ou misconfigurés.
+
+> **Cible corrigée.** Cet epic était étiqueté « (v2.2.0) » ; 2.2.0 **et** 2.3.0
+> sont sorties sans lui (voir la section ci-dessus). Prochaine cible réelle :
+> **v2.4.0**.
 
 **Stories:** détails complets dans `.bmad/implementation-artifacts/stories/12-*.md`
 
