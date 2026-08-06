@@ -393,6 +393,51 @@ final client = ApiClientFactory.create(
 | `captureResponseBody` | Include response body (default: true) |
 | `redactedHeaders` | Headers to redact (Authorization, Cookie...) |
 
+**3. Upload debug symbols — or your release stack traces are unreadable.**
+
+`sentry_flutter` reports the error; it does **not** upload the symbols needed
+to make sense of it. Without this step everything looks fine — events arrive,
+nothing fails — but a release stack trace reads:
+
+```
+QKa: Provider<Gx> not found for Ez
+```
+
+instead of `ProfileScreen: Provider<ProfileBloc> not found for _ProfileScreenView`.
+Debug builds are unaffected, so the gap only shows up in production.
+
+```yaml
+# pubspec.yaml
+dev_dependencies:
+  sentry_dart_plugin: ^3.0.0
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: false
+  project: your-project
+  org: your-org
+```
+
+Credentials go in a **gitignored** `sentry.properties` at the project root —
+flat keys, not the `defaults.*` form the `sentry-cli` binary uses:
+
+```properties
+org=your-org
+project=your-project
+auth_token=sntrys_...
+```
+
+Then run it after **every release build**, or the symbols on Sentry drift out
+of step with the binary your users are running:
+
+```bash
+flutter build apk --release
+dart run sentry_dart_plugin
+```
+
+The token needs the *Project Read & Write* and *Release Admin* scopes, plus
+*Organization Read*.
+
 ---
 
 ## Error Handling
