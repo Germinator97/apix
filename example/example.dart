@@ -7,6 +7,36 @@ library;
 import 'package:apix/apix.dart';
 import 'package:flutter/material.dart';
 
+/// Sentry wiring, shown separately because it belongs in your real entry
+/// point: `SentrySetup.init` takes the `appRunner` that starts the app.
+///
+/// ```dart
+/// void main() async {
+///   SentryWidgetsFlutterBinding.ensureInitialized();
+///   await setupSentry(() async => runApp(const MyApp()));
+/// }
+/// ```
+Future<void> setupSentry(Future<void> Function() appRunner) {
+  return SentrySetup.init(
+    options: SentrySetupOptions(
+      dsn: 'https://xxx@xxx.ingest.sentry.io/xxx',
+      environment: 'production',
+      // (v2.2.0+) Escape hatch for SentryFlutterOptions apix does not expose.
+      // Runs LAST, after every apix default, so it can override anything —
+      // including beforeSend. To compose with apix's network-noise filter
+      // instead of replacing it, use customBeforeSend.
+      //
+      // Note the convenience factories (SentrySetupOptions.production /
+      // .development) do NOT forward this callback, which is why the options
+      // are spelled out here.
+      configureOptions: (sentryOptions) {
+        sentryOptions.maxBreadcrumbs = 200;
+      },
+    ),
+    appRunner: appRunner,
+  );
+}
+
 /// Simple example showing API client creation and usage.
 void main() async {
   // ============================================================
@@ -82,13 +112,12 @@ void main() async {
       redactedHeaders: ['Authorization'],
     ),
     // Error tracking configuration (v1.0.1+)
-    errorTrackingConfig: ErrorTrackingConfig(
-      onError: (Object e,
-          {StackTrace? stackTrace,
-          Map<String, dynamic>? extra,
-          Map<String, String>? tags}) async {
-        debugPrint('Error captured: $e');
-      },
+    // Wired to the SentrySetup helpers initialised in [setupSentry] above.
+    // Only NetworkException (timeout, connection) is filtered as transport
+    // noise — ClientException and ServerException always reach Sentry.
+    errorTrackingConfig: const ErrorTrackingConfig(
+      onError: SentrySetup.captureException,
+      onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
     ),
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
