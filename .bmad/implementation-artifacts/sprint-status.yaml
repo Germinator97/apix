@@ -1,5 +1,5 @@
 # generated: 2026-03-16
-# last_updated: 2026-05-04
+# last_updated: 2026-08-06
 # project: apix
 # project_key: NOKEY
 # tracking_system: file-system
@@ -20,7 +20,7 @@
 #   - done: Story completed
 
 generated: 2026-03-16
-last_updated: 2026-05-04
+last_updated: 2026-08-06
 project: apix
 project_key: NOKEY
 tracking_system: file-system
@@ -108,10 +108,39 @@ development_status:
   11-5-unexpected-content-type-exception: done
   11-6-response-validator-callback: done
 
-  # Epic 12: Production Hardening (v2.2.0)
+  # Epic 12: Production Hardening (v2.4.0 — see note below)
   epic-12: backlog
   12-1-idempotency-key-helper: ready-for-dev
   12-2-cache-size-limit-and-eviction: ready-for-dev
   12-3-ssl-pinning-support: ready-for-dev
   12-4-max-redirects-config: ready-for-dev
   12-5-progress-interceptor-dev-mode: ready-for-dev
+
+# ==============================================================
+# RELEASES SHIPPED OUTSIDE BMAD
+# ==============================================================
+# 2.2.0 and 2.3.0 were developed and released without going through the
+# story workflow: no `stories/*.md` file backs them, which is why this
+# file stood still at 2.1.0 from 2026-05-04 to 2026-08-06.
+#
+# They are recorded here rather than back-filled as stories — inventing
+# story files after the fact would fabricate a history that never
+# happened. Epic 12 was NOT part of either release, despite its former
+# "(v2.2.0)" label; its real target is now v2.4.0.
+unplanned_releases:
+  2.2.0:
+    date: 2026-05-12
+    tag: v2.2.0
+    shipped:
+      - SentrySetupOptions.configureOptions escape hatch (3cab9b4)
+
+  2.3.0:
+    date: 2026-07-08
+    tag: v2.3.0
+    shipped:
+      # Behavioural break: POST/PATCH are no longer replayed by default.
+      - retry made idempotency-aware by HTTP method (eba263e)
+      - RequestOptions.forceRetry() per-request opt-in (eba263e)
+      - Dio Options/CancelToken/Response re-exported from the barrel (5fb39c0)
+      - dio 5.10.0 compatibility + CI matrix over the declared range (be9c6a9)
+      - RELEASING.md pre-publish checklist (6d79415)

@@ -599,24 +599,44 @@ void main() {
     });
   });
 
-  group('CacheRequestExtension', () {
-    test('isFromCache detects cached response', () {
-      final response = Response<dynamic>(
-        requestOptions: RequestOptions(path: '/test'),
-        data: <String, dynamic>{},
-        extra: <String, dynamic>{'fromCache': true},
-      );
+  group('CacheResponseExtension', () {
+    Response<dynamic> responseWith(Map<String, dynamic>? extra) =>
+        Response<dynamic>(
+          requestOptions: RequestOptions(path: '/test'),
+          data: <String, dynamic>{},
+          extra: extra ?? <String, dynamic>{},
+        );
 
-      expect(CacheRequestExtension.isFromCache(response), isTrue);
+    test('isFromCache detects a cached response', () {
+      expect(responseWith({fromCacheKey: true}).isFromCache, isTrue);
     });
 
-    test('isFromCache returns false for network response', () {
-      final response = Response<dynamic>(
-        requestOptions: RequestOptions(path: '/test'),
-        data: <String, dynamic>{},
-      );
+    test('isFromCache is false for a network response', () {
+      expect(responseWith(null).isFromCache, isFalse);
+    });
 
-      expect(CacheRequestExtension.isFromCache(response), isFalse);
+    test('isStale is false for a fresh cached response', () {
+      final response = responseWith({
+        fromCacheKey: true,
+        fromCacheStaleKey: false,
+      });
+
+      expect(response.isFromCache, isTrue);
+      expect(response.isStale, isFalse);
+    });
+
+    test('isStale is true for an expired cached response', () {
+      final response = responseWith({
+        fromCacheKey: true,
+        fromCacheStaleKey: true,
+      });
+
+      expect(response.isFromCache, isTrue);
+      expect(response.isStale, isTrue);
+    });
+
+    test('isStale is false for a network response', () {
+      expect(responseWith(null).isStale, isFalse);
     });
   });
 }

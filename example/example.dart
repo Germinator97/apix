@@ -4,8 +4,40 @@
 /// including SecureTokenProvider for secure token storage.
 library;
 
+import 'dart:io';
+
 import 'package:apix/apix.dart';
 import 'package:flutter/material.dart';
+
+/// Sentry wiring, shown separately because it belongs in your real entry
+/// point: `SentrySetup.init` takes the `appRunner` that starts the app.
+///
+/// ```dart
+/// void main() async {
+///   SentryWidgetsFlutterBinding.ensureInitialized();
+///   await setupSentry(() async => runApp(const MyApp()));
+/// }
+/// ```
+Future<void> setupSentry(Future<void> Function() appRunner) {
+  return SentrySetup.init(
+    options: SentrySetupOptions(
+      dsn: 'https://xxx@xxx.ingest.sentry.io/xxx',
+      environment: 'production',
+      // (v2.2.0+) Escape hatch for SentryFlutterOptions apix does not expose.
+      // Runs LAST, after every apix default, so it can override anything —
+      // including beforeSend. To compose with apix's network-noise filter
+      // instead of replacing it, use customBeforeSend.
+      //
+      // Note the convenience factories (SentrySetupOptions.production /
+      // .development) do NOT forward this callback, which is why the options
+      // are spelled out here.
+      configureOptions: (sentryOptions) {
+        sentryOptions.maxBreadcrumbs = 200;
+      },
+    ),
+    appRunner: appRunner,
+  );
+}
 
 /// Simple example showing API client creation and usage.
 void main() async {
@@ -14,6 +46,12 @@ void main() async {
   // ============================================================
   // SecureTokenProvider uses flutter_secure_storage under the hood
   final tokenProvider = SecureTokenProvider();
+
+  // Where the persistent cache lives. In a real app this comes from
+  // `path_provider`: `final cacheDir = await getTemporaryDirectory();`
+  // apix takes the directory rather than resolving it, so it needs no
+  // dependency on path_provider itself.
+  final cacheDir = Directory.systemTemp;
 
   // Create an API client with authentication and retry
   final client = ApiClientFactory.create(
@@ -73,8 +111,27 @@ void main() async {
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
+      // networkFirst is the default: fresh data, with the cache used only as
+      // an offline fallback. cacheFirst is the opposite trade — it paints
+      // instantly from the cache, serving it even when expired (flagged
+      // `isStale`) while a background request refreshes it.
       strategy: CacheStrategy.networkFirst,
       defaultTtl: const Duration(minutes: 5),
+      // (v3.0.0+) Survives restarts, unlike the default InMemoryCacheStorage
+      // which starts empty on every cold start — precisely when the wait is
+      // most visible. You supply the directory (here from `path_provider`),
+      // so apix needs no extra dependency of its own.
+      //
+      // Bounded at 200 entries by default: a process cache disappears when the
+      // app closes, a disk cache does not. Pass `maxEntries: null` to opt out.
+      //
+      // ⚠️ Entries are stored in CLEAR TEXT. Never cache credentials, tokens,
+      // personal data or amounts — and prefer a cache directory the OS may
+      // purge over a backed-up documents directory.
+      storage: FileCacheStorage(
+        Directory('${cacheDir.path}/apix_cache'),
+        maxEntries: 200,
+      ),
     ),
     // Logger configuration (v1.0.1+)
     loggerConfig: const LoggerConfig(
@@ -82,13 +139,20 @@ void main() async {
       redactedHeaders: ['Authorization'],
     ),
     // Error tracking configuration (v1.0.1+)
-    errorTrackingConfig: ErrorTrackingConfig(
-      onError: (Object e,
-          {StackTrace? stackTrace,
-          Map<String, dynamic>? extra,
-          Map<String, String>? tags}) async {
-        debugPrint('Error captured: $e');
-      },
+    // Wired to the SentrySetup helpers initialised in [setupSentry] above.
+    //
+    // (v3.0.0+) `onError` receives the TYPED ApiException — ServerException,
+    // NotFoundException, ConnectionException... — not the raw DioException.
+    // Trackers group by runtime type, so this is what keeps a 500 and a 404
+    // in separate issues. The DioException stays reachable through
+    // `(exception as ApiException).originalError`.
+    //
+    // Only NetworkException (timeout, connection) is then filtered as
+    // transport noise — ClientException and ServerException always reach
+    // Sentry.
+    errorTrackingConfig: const ErrorTrackingConfig(
+      onError: SentrySetup.captureException,
+      onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
     ),
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
@@ -106,6 +170,13 @@ void main() async {
   try {
     // --- Level 1: Standard (raw Response) ---
     final response = await client.get<Map<String, dynamic>>('/users/1');
+    // (v3.0.0+) Where the body came from, and whether it is past its TTL.
+    // `isStale` is true when apix knowingly serves expired data: cacheFirst
+    // revalidating behind, or an offline fallback. Surface it on anything
+    // whose age changes what the user should do — an amount, a balance.
+    if (response.isFromCache && response.isStale) {
+      debugPrint('Showing data from earlier — refreshing…');
+    }
     debugPrint('Raw: ${response.data}');
 
     // --- Level 2: Parse & Decode (formats response.data) ---
@@ -183,7 +254,15 @@ void main() async {
   } on UnauthorizedException catch (e) {
     // Includes AuthException (refresh failure) — see e.originalError for cause
     debugPrint('Auth error: ${e.message}');
+  } on ClientException catch (e) {
+    // Any other 4xx (400, 409, 422, 429...). The caller is at fault, so
+    // retrying as-is won't help — surface the backend message.
+    debugPrint('Client error ${e.statusCode}: ${e.message}');
+  } on ServerException catch (e) {
+    // Any 5xx. Transient by nature: worth retrying and worth reporting.
+    debugPrint('Server error ${e.statusCode}: ${e.message}');
   } on HttpException catch (e) {
+    // Statuses outside 4xx/5xx that still reached the error path.
     debugPrint('HTTP ${e.statusCode}: ${e.message}');
   } on NetworkException catch (e) {
     debugPrint('Network: ${e.message}');

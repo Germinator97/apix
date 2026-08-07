@@ -119,9 +119,26 @@ void main() {
       );
 
       await storage.set('expired', entry);
-      final result = await storage.get('expired');
 
-      expect(result, isNull);
+      // Since 3.0.0 storage no longer filters on expiry — the interceptor
+      // owns the TTL, because it is the only place that knows whether the
+      // strategy wants a stale entry (cacheFirst, offline fallback) or not.
+      final result = await storage.get('expired');
+      expect(
+        result,
+        isNotNull,
+        reason: 'get must hand back stale entries for the interceptor to judge',
+      );
+      expect(result!.isExpired, isTrue);
+
+      // has() is the one that still answers "is there usable fresh data?".
+      expect(
+        await storage.has('expired'),
+        isFalse,
+        reason: 'has() keeps filtering on expiry — it delegated to get() '
+            'before, and would silently start reporting stale entries as '
+            'present if it still did',
+      );
     });
 
     test('remove deletes entry', () async {

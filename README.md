@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^2.3.0
+  apix: ^3.0.0
 ```
 
 ```bash
@@ -85,6 +85,7 @@ final client = ApiClientFactory.create(
   ),
   
   // 🔄 Retry with exponential backoff
+  // Idempotent methods only by default — POST/PATCH are NOT replayed.
   retryConfig: const RetryConfig(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
@@ -246,12 +247,62 @@ final fresh = await client.get<Map<String, dynamic>>(
 );
 ```
 
-| Strategy | Behavior |
-|----------|----------|
-| `cacheFirst` | Cache first, network in background |
-| `networkFirst` | Network first, fallback to cache |
-| `cacheOnly` | Cache only |
-| `networkOnly` | Network only |
+| Strategy | Behavior | Can return stale? |
+|----------|----------|-------------------|
+| `cacheFirst` | Serve cache immediately, refresh in the background (stale-while-revalidate) | **Yes** — flagged |
+| `networkFirst` | Network first, fall back to cache on failure | **Yes**, on fallback — flagged |
+| `httpCacheAware` | Follow the server's `Cache-Control` / `ETag` | No (`304` is server-confirmed) |
+| `cacheOnly` | Cache only, never network — fails if missing **or expired** | No |
+| `networkOnly` | Network only, never read cache | No |
+
+`networkFirst` is the default: configure nothing and you get fresh data.
+
+#### Knowing what you got
+
+Any response served from the cache says so, and says whether it was past its
+TTL:
+
+```dart
+final response = await client.get<Map<String, dynamic>>('/orders');
+
+if (response.isFromCache && response.isStale) {
+  showBanner('Showing data from earlier — refreshing…');
+}
+```
+
+`isStale` is true in the two places apix knowingly returns expired data:
+`cacheFirst` serving instantly while it revalidates, and the offline fallback
+of `networkFirst` / `httpCacheAware`. Both are useful; both are lies if the
+caller can't tell. **On an amount, a balance or a status, surface it.**
+
+#### The TTL is a guarantee
+
+`defaultTtl` is enforced by the interceptor, not by the storage backend — a
+custom `CacheStorage` cannot weaken it by forgetting to filter. Backends just
+store and return; deciding what to do with an expired entry is the strategy's
+job.
+
+#### Persistent cache
+
+`InMemoryCacheStorage` (the default) starts empty on every launch, so it does
+nothing for a cold start — which is exactly when the wait is most visible.
+`FileCacheStorage` survives restarts and pulls in **no extra dependency**: you
+hand it the directory.
+
+```dart
+final dir = await getTemporaryDirectory(); // path_provider, in your app
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  cacheConfig: CacheConfig(
+    storage: FileCacheStorage(Directory('${dir.path}/apix_cache')),
+    strategy: CacheStrategy.cacheFirst,
+  ),
+);
+```
+
+> ⚠️ Entries are stored **in clear text**. Never cache credentials, tokens,
+> personal data or amounts you would not write to a log. Prefer a cache
+> directory the OS may purge over a backed-up documents directory.
 
 ---
 
@@ -316,6 +367,8 @@ await SentrySetup.init(
 ```
 
 > The callback runs **after** every apix default, so it can override anything — including `beforeSend`. For composition that preserves apix's network-noise filter, prefer `customBeforeSend` / `customBeforeSendTransaction`.
+>
+> ⚠️ `SentrySetupOptions.production()` and `.development()` do **not** forward `configureOptions`. To use it, spell the options out with the full constructor as above — the factories are only shorthands for the sample-rate presets.
 
 **2. API client configuration:**
 
@@ -329,12 +382,61 @@ final client = ApiClientFactory.create(
 );
 ```
 
+**What `onError` receives**: the **typed `ApiException`** — `ServerException`, `NotFoundException`, `ConnectionException`, ... — not the underlying `DioException`. Trackers group issues by the exception's runtime type, so a single `DioException` for everything would file every 500, 404 and timeout under one issue. The original is still reachable through `(exception as ApiException).originalError`.
+
+**Network-noise filter**: `SentrySetupOptions.filterNetworkNoise` (default `true`) drops transport-level noise before it reaches Sentry — `SocketException`, TLS handshake failures, and apix's own `NetworkException` subtypes (`TimeoutException`, `ConnectionException`). Every other `ApiException` — including `ClientException` and `ServerException` — is **always reported**: apix classifies its own errors by type hierarchy, never by type name, so a 5xx is never mistaken for a socket error that happens to share a class name.
+
 | Option | Description |
 |--------|-------------|
 | `captureStatusCodes` | HTTP status codes to capture (default: 5xx) |
 | `captureRequestBody` | Include request body (default: false) |
 | `captureResponseBody` | Include response body (default: true) |
 | `redactedHeaders` | Headers to redact (Authorization, Cookie...) |
+
+**3. Upload debug symbols — or your release stack traces are unreadable.**
+
+`sentry_flutter` reports the error; it does **not** upload the symbols needed
+to make sense of it. Without this step everything looks fine — events arrive,
+nothing fails — but a release stack trace reads:
+
+```
+QKa: Provider<Gx> not found for Ez
+```
+
+instead of `ProfileScreen: Provider<ProfileBloc> not found for _ProfileScreenView`.
+Debug builds are unaffected, so the gap only shows up in production.
+
+```yaml
+# pubspec.yaml
+dev_dependencies:
+  sentry_dart_plugin: ^3.0.0
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: false
+  project: your-project
+  org: your-org
+```
+
+Credentials go in a **gitignored** `sentry.properties` at the project root —
+flat keys, not the `defaults.*` form the `sentry-cli` binary uses:
+
+```properties
+org=your-org
+project=your-project
+auth_token=sntrys_...
+```
+
+Then run it after **every release build**, or the symbols on Sentry drift out
+of step with the binary your users are running:
+
+```bash
+flutter build apk --release
+dart run sentry_dart_plugin
+```
+
+The token needs the *Project Read & Write* and *Release Admin* scopes, plus
+*Organization Read*.
 
 ---
 
@@ -351,7 +453,9 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 401 | `UnauthorizedException` |
 | HTTP 403 | `ForbiddenException` |
 | HTTP 404 | `NotFoundException` |
-| HTTP 4xx/5xx | `HttpException` |
+| HTTP 4xx (other) | `ClientException` |
+| HTTP 5xx | `ServerException` |
+| Other status on the error path (3xx, unknown) | `HttpException` |
 | `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
@@ -385,6 +489,22 @@ ApiException
 ├── ParsingException (decode / parse failure)
 ├── TokenProviderException (TokenProvider failure)
 └── UnexpectedContentTypeException (strictContentType only)
+```
+
+Every 4xx maps to a `ClientException` and every 5xx to a `ServerException`, so
+branching on the category works whether or not the status has a dedicated
+subclass:
+
+```dart
+try {
+  await client.get<Map<String, dynamic>>('/orders');
+} on NotFoundException {
+  // 404 — the specific subclass still wins
+} on ClientException catch (e) {
+  // any other 4xx: 400, 409, 422, 429... — e.statusCode tells you which
+} on ServerException catch (e) {
+  // any 5xx — retryable, worth reporting
+}
 ```
 
 `AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
@@ -636,15 +756,21 @@ A complete Flutter app demonstrating all ApiX features is available on GitHub:
 👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
 
 <p align="center">
-  <img src="assets/screenshots/home.png" alt="ApiX Example App" width="300">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
+  &nbsp;&nbsp;
+  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
 </p>
 
 Features demonstrated:
 - 🔐 SecureTokenProvider with simplified refresh flow
-- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache)
-- 🔄 Retry logic with exponential backoff
+- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API
+- 🔄 Retry: exponential backoff, `Retry-After`, and the method-aware guard — three live probes measure how many times the server is actually hit for `GET`, `POST` and `POST` + `forceRetry()`
+- 🛡️ Typed failures: `ParsingException`, `UnexpectedContentTypeException`, `responseValidator` → custom exception, `TokenProviderException`
+- 📦 Envelope API (`*Data` methods) against a mocked backend
 - 🐛 Sentry integration with error testing
 - 📊 Request metrics and logging
+
+> A shorter, single-file example lives in [`example/example.dart`](example/example.dart) — that is the one rendered on pub.dev. The linked repo is the full Flutter app.
 
 ## Contributing
 

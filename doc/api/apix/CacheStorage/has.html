@@ -63,7 +63,10 @@
     </section>
     
 <section class="desc markdown">
-  <p>Returns true if a valid (non-expired) entry exists for the key.</p>
+  <p>Returns true if a <strong>valid (non-expired)</strong> entry exists for the key.</p>
+<p>Unlike <a href="../../apix/CacheStorage/get.html">get</a>, this one does filter on expiry — it answers "is there
+usable fresh data here?", which is the only question worth asking of a
+boolean.</p>
 </section>
 
 
@@ -98,7 +101,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

@@ -122,7 +122,10 @@ void main() {
           equals(200));
     });
 
-    test('captures DioException errors', () {
+    test('reports the mapped ApiException, not the raw DioException', () {
+      // Trackers group issues by the exception's runtime type. Reporting
+      // DioException filed every 500, 404 and timeout under one issue, and
+      // left type-based noise filtering nothing to work with.
       final options = RequestOptions(path: '/fail', method: 'POST');
       final error = DioException(
         requestOptions: options,
@@ -134,11 +137,63 @@ void main() {
       interceptor.onError(error, handler);
 
       expect(capturedErrors.length, equals(1));
-      expect(capturedErrors[0].exception, isA<DioException>());
+      final reported = capturedErrors[0].exception;
+      expect(reported, isA<TimeoutException>());
+      expect(reported, isNot(isA<DioException>()));
+      // Nothing is lost: the DioException is still reachable.
+      expect((reported as ApiException).originalError, same(error));
+
       expect(capturedErrors[0].extra, isNotNull);
       expect(capturedErrors[0].extra!['method'], equals('POST'));
       expect(capturedErrors[0].tags, isNotNull);
       expect(capturedErrors[0].tags!['http.method'], equals('POST'));
+    });
+
+    test('an HTTP failure is reported with its status-specific type', () {
+      // The point of the change: a 500 and a 404 must land as different types
+      // so a tracker files them as different issues instead of collapsing
+      // both into one titled `DioException`.
+      //
+      // captureStatusCodes is widened here on purpose — 404 is outside the
+      // default set, and skipping it on an empty capture would leave this
+      // test silently proving half of what it claims.
+      final reported = <Object>[];
+      final wide = ErrorTrackingInterceptor(
+        config: ErrorTrackingConfig(
+          captureStatusCodes: const {404, 500},
+          onError: (Object exception,
+              {StackTrace? stackTrace,
+              Map<String, dynamic>? extra,
+              Map<String, String>? tags}) async {
+            reported.add(exception);
+          },
+        ),
+      );
+
+      for (final status in [500, 404]) {
+        final options = RequestOptions(path: '/x', method: 'GET');
+        wide.onError(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.badResponse,
+            response: Response<dynamic>(
+              requestOptions: options,
+              statusCode: status,
+              data: {'message': 'boom'},
+            ),
+          ),
+          _MockErrorHandler(),
+        );
+      }
+
+      expect(reported, hasLength(2), reason: 'both statuses must be captured');
+      expect(reported[0], isA<ServerException>());
+      expect(reported[1], isA<NotFoundException>());
+      expect(
+        reported[0].runtimeType,
+        isNot(reported[1].runtimeType),
+        reason: 'distinct types are what makes a tracker group them apart',
+      );
     });
 
     test('captures 5xx status codes as errors', () {

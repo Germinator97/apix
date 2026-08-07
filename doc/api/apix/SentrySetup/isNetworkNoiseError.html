@@ -55,7 +55,7 @@
     <section class="multi-line-signature">
       
 <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
-<span class="name ">isNetworkNoiseError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="isNetworkNoiseError-param-event"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.16.0/sentry/SentryEvent-class.html">SentryEvent</a></span> <span class="parameter-name">event</span></span></li>
+<span class="name ">isNetworkNoiseError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="isNetworkNoiseError-param-event"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.24.0/sentry/SentryEvent-class.html">SentryEvent</a></span> <span class="parameter-name">event</span></span></li>
 </ol>)
 
       
@@ -64,6 +64,16 @@
     
 <section class="desc markdown">
   <p>Checks if an event is a network noise error that should be filtered.</p>
+<p>ApiX's own exceptions are classified from the <strong>type hierarchy</strong>, never
+from the type name: <code>SentryException.type</code> is
+<code>throwable.runtimeType.toString()</code>, i.e. a bare class name with no
+package qualifier, so <code>HttpException</code>, <code>ClientException</code> and
+<code>TimeoutException</code> are indistinguishable by name from their <code>dart:io</code> /
+<code>dart:async</code> namesakes. Name matching alone silently discarded every
+server error ApiX reported.</p>
+<p>Everything else keeps the name-based matching below, so a genuine
+<code>dart:async</code> <code>TimeoutException</code> or <code>dart:io</code> <code>HttpException</code> is still
+filtered as before.</p>
 </section>
 
 
@@ -74,6 +84,16 @@
   final exceptions = event.exceptions ?? [];
 
   for (final exception in exceptions) {
+    final throwable = exception.throwable;
+
+    &#47;&#47; When the original object is available, the hierarchy is authoritative
+    &#47;&#47; and no string is consulted: an ApiX NetworkException is transport
+    &#47;&#47; noise, any other ApiException is a real error worth reporting.
+    if (throwable is ApiException) {
+      if (throwable is NetworkException) return true;
+      continue;
+    }
+
     final type = exception.type ?? &#39;&#39;;
     final value = exception.value ?? &#39;&#39;;
 
@@ -117,7 +137,7 @@
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>

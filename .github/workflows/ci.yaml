@@ -36,7 +36,7 @@ jobs:
         run: flutter pub downgrade dio
 
       - name: Analyze
-        run: dart analyze --fatal-infos lib test
+        run: dart analyze --fatal-infos lib test example
 
   format:
     name: Format
@@ -52,7 +52,7 @@ jobs:
           cache: true
 
       - name: Check formatting
-        run: dart format --set-exit-if-changed lib test
+        run: dart format --set-exit-if-changed lib test example
 
   test:
     name: Test (dio ${{ matrix.dio }})

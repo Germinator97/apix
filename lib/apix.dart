@@ -43,6 +43,7 @@ export 'src/cache/cache_config.dart';
 export 'src/cache/cache_entry.dart';
 export 'src/cache/cache_interceptor.dart';
 export 'src/cache/cache_storage.dart';
+export 'src/cache/file_cache_storage.dart';
 export 'src/cache/request_deduplicator.dart';
 
 // Logging

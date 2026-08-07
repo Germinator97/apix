@@ -1,18 +1,32 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../errors/api_exception.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
+import 'cache_storage.dart';
 import 'request_deduplicator.dart';
 
 /// Interceptor that provides response caching with configurable strategies.
 ///
 /// Supports multiple caching strategies:
-/// - [CacheStrategy.cacheFirst]: Return cache if available, otherwise network
-/// - [CacheStrategy.networkFirst]: Try network first, fallback to cache
-/// - [CacheStrategy.cacheOnly]: Only use cache, fail if not available
-/// - [CacheStrategy.networkOnly]: Always use network, never cache
+/// - [CacheStrategy.cacheFirst]: serve cache immediately — stale included —
+///   and revalidate in the background
+/// - [CacheStrategy.networkFirst]: try network first, fall back to cache
+///   (possibly stale) on failure
+/// - [CacheStrategy.httpCacheAware]: follow the server's `Cache-Control` /
+///   `ETag` directives
+/// - [CacheStrategy.cacheOnly]: only use cache, and only while it is valid
+/// - [CacheStrategy.networkOnly]: always use network, never read cache
+///
+/// The TTL is enforced here, not by the [CacheStorage]: a backend only stores
+/// and returns. See [CacheStorage.get].
+///
+/// Whenever a cached body is handed back, `Response.extra` carries
+/// [fromCacheKey], plus [fromCacheStaleKey] when that body had expired — read
+/// them through `response.isFromCache` / `response.isStale`.
 ///
 /// Example:
 /// ```dart
@@ -285,10 +299,16 @@ class CacheInterceptor extends Interceptor {
       final cacheKey =
           options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
 
-      // Try to return cached response on network failure
+      // Try to return cached response on network failure. An expired entry is
+      // served on purpose here — stale data beats no data when the network is
+      // gone — but it is flagged so the caller can say so.
       final cached = await config.storage.get(cacheKey);
       if (cached != null) {
-        final response = _buildResponseFromCache(options, cached);
+        final response = _buildResponseFromCache(
+          options,
+          cached,
+          stale: cached.isExpired,
+        );
         handler.resolve(response);
         return;
       }
@@ -300,7 +320,16 @@ class CacheInterceptor extends Interceptor {
     }
   }
 
-  /// Handles CacheFirst strategy: return cache if available.
+  /// Handles CacheFirst strategy: serve the cache immediately, refresh behind.
+  ///
+  /// The caller never waits on the network when an entry exists — including an
+  /// expired one, which is served with `isStale` set while a background
+  /// revalidation updates the entry. This is stale-while-revalidate, and it is
+  /// what `cacheFirst` has always claimed to do.
+  ///
+  /// Network volume is unchanged compared with blocking on expiry: a fresh
+  /// entry still triggers nothing, a stale one still triggers exactly one
+  /// request. Only the waiting disappears.
   Future<void> _handleCacheFirst(
     RequestOptions options,
     RequestInterceptorHandler handler,
@@ -309,14 +338,49 @@ class CacheInterceptor extends Interceptor {
     final cached = await config.storage.get(cacheKey);
 
     if (cached != null) {
-      final response = _buildResponseFromCache(options, cached);
-      handler.resolve(response);
-      return;
+      if (cached.isValid) {
+        handler.resolve(_buildResponseFromCache(options, cached));
+        return;
+      }
+
+      // Stale: serve it now, revalidate behind. If no Dio is wired (setDio was
+      // never called) there is nothing to revalidate with, so fall through to
+      // a normal blocking request rather than serving stale data forever.
+      if (_dio != null) {
+        handler.resolve(
+          _buildResponseFromCache(options, cached, stale: true),
+        );
+        _revalidateInBackground(options, cacheKey);
+        return;
+      }
     }
 
     // No cache, proceed with network request
     options.extra['_cacheKey'] = cacheKey;
     handler.next(options);
+  }
+
+  /// Refreshes [cacheKey] out of band, after a stale entry was already served.
+  ///
+  /// Nothing awaits this. Every failure is swallowed on purpose: the caller
+  /// already holds a usable response, and an unhandled asynchronous error
+  /// would surface as a zone-level crash with no request to attach it to. The
+  /// stale entry simply survives until the next attempt.
+  void _revalidateInBackground(RequestOptions options, String cacheKey) {
+    unawaited(() async {
+      try {
+        final response = await _executeRequest(options);
+        if (_shouldCacheResponse(response)) {
+          await _cacheResponse(
+            cacheKey,
+            response,
+            strategy: CacheStrategy.cacheFirst,
+          );
+        }
+      } catch (_) {
+        // Offline, server error, storage failure: keep the stale entry.
+      }
+    }());
   }
 
   /// Handles HttpCacheAware strategy: add conditional headers if cached.
@@ -349,7 +413,11 @@ class CacheInterceptor extends Interceptor {
     handler.next(options);
   }
 
-  /// Handles CacheOnly strategy: return cache or fail.
+  /// Handles CacheOnly strategy: return a valid cache entry, or fail.
+  ///
+  /// Never serves an expired entry: this strategy has no network to fall back
+  /// on, so honouring the TTL is the only thing keeping `defaultTtl` meaningful
+  /// here.
   Future<void> _handleCacheOnly(
     RequestOptions options,
     RequestInterceptorHandler handler,
@@ -357,17 +425,21 @@ class CacheInterceptor extends Interceptor {
   ) async {
     final cached = await config.storage.get(cacheKey);
 
-    if (cached != null) {
+    if (cached != null && cached.isValid) {
       final response = _buildResponseFromCache(options, cached);
       handler.resolve(response);
       return;
     }
 
-    // No cache available, reject
+    // No usable cache available, reject
     handler.reject(
       DioException(
         requestOptions: options,
-        error: const CacheException('No cached response available'),
+        error: CacheException(
+          cached == null
+              ? 'No cached response available'
+              : 'Cached response has expired',
+        ),
         type: DioExceptionType.unknown,
       ),
     );
@@ -397,7 +469,11 @@ class CacheInterceptor extends Interceptor {
       if (strategy == CacheStrategy.networkFirst) {
         final cached = await config.storage.get(cacheKey);
         if (cached != null) {
-          final cachedResponse = _buildResponseFromCache(options, cached);
+          final cachedResponse = _buildResponseFromCache(
+            options,
+            cached,
+            stale: cached.isExpired,
+          );
           handler.resolve(cachedResponse);
           return;
         }
@@ -546,8 +622,9 @@ class CacheInterceptor extends Interceptor {
   /// Builds a response from a cached entry.
   Response<dynamic> _buildResponseFromCache(
     RequestOptions options,
-    CacheEntry entry,
-  ) {
+    CacheEntry entry, {
+    bool stale = false,
+  }) {
     dynamic data;
     try {
       data = jsonDecode(entry.data);
@@ -562,7 +639,7 @@ class CacheInterceptor extends Interceptor {
       headers: Headers.fromMap(
         entry.headers?.map((k, v) => MapEntry(k, [v])) ?? {},
       ),
-      extra: {'fromCache': true},
+      extra: {fromCacheKey: true, fromCacheStaleKey: stale},
     );
   }
 }
@@ -597,16 +674,19 @@ class CacheControlHeader {
 }
 
 /// Exception thrown when cache operations fail.
-class CacheException implements Exception {
-  /// The error message.
-  final String message;
-
+class CacheException extends ApiException {
   /// Creates a [CacheException] with the given [message].
-  const CacheException(this.message);
+  const CacheException(String message) : super(message: message);
 
   @override
   String toString() => 'CacheException: $message';
 }
+
+/// Key set on `Response.extra` when the body came from the cache.
+const String fromCacheKey = 'fromCache';
+
+/// Key set on `Response.extra` when the cached body served had expired.
+const String fromCacheStaleKey = 'fromCacheStale';
 
 /// Extension for per-request cache control.
 extension CacheRequestExtension on RequestOptions {
@@ -619,9 +699,24 @@ extension CacheRequestExtension on RequestOptions {
   void noCache() {
     extra['cacheStrategy'] = CacheStrategy.networkOnly;
   }
+}
 
-  /// Returns true if this response was served from cache.
-  static bool isFromCache(Response<dynamic> response) {
-    return response.extra['fromCache'] == true;
-  }
+/// Provenance of a response: cache or network, fresh or stale.
+extension CacheResponseExtension on Response<dynamic> {
+  /// Whether this body was served from the cache rather than the network.
+  bool get isFromCache => extra[fromCacheKey] == true;
+
+  /// Whether this body was served from the cache **past its TTL**.
+  ///
+  /// True in the two situations where apix knowingly hands back expired data:
+  /// `cacheFirst` serving instantly while it revalidates behind, and
+  /// `networkFirst` / `httpCacheAware` falling back to cache after a network
+  /// failure. Both are useful; both are lies if the caller can't tell.
+  ///
+  /// Surface it — "showing data from earlier, refreshing…" — anywhere the
+  /// value's age changes what the user should do with it. On an amount, a
+  /// balance or a status, treat it as mandatory.
+  ///
+  /// Always false for a network response.
+  bool get isStale => extra[fromCacheStaleKey] == true;
 }
