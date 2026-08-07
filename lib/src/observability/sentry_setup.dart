@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../errors/api_exception.dart';
+import '../errors/network_exception.dart';
+
 /// Configuration options for Sentry initialization.
 class SentrySetupOptions {
   /// Sentry DSN (Data Source Name).
@@ -261,10 +264,32 @@ class SentrySetup {
   }
 
   /// Checks if an event is a network noise error that should be filtered.
+  ///
+  /// ApiX's own exceptions are classified from the **type hierarchy**, never
+  /// from the type name: `SentryException.type` is
+  /// `throwable.runtimeType.toString()`, i.e. a bare class name with no
+  /// package qualifier, so `HttpException`, `ClientException` and
+  /// `TimeoutException` are indistinguishable by name from their `dart:io` /
+  /// `dart:async` namesakes. Name matching alone silently discarded every
+  /// server error ApiX reported.
+  ///
+  /// Everything else keeps the name-based matching below, so a genuine
+  /// `dart:async` `TimeoutException` or `dart:io` `HttpException` is still
+  /// filtered as before.
   static bool isNetworkNoiseError(SentryEvent event) {
     final exceptions = event.exceptions ?? [];
 
     for (final exception in exceptions) {
+      final throwable = exception.throwable;
+
+      // When the original object is available, the hierarchy is authoritative
+      // and no string is consulted: an ApiX NetworkException is transport
+      // noise, any other ApiException is a real error worth reporting.
+      if (throwable is ApiException) {
+        if (throwable is NetworkException) return true;
+        continue;
+      }
+
       final type = exception.type ?? '';
       final value = exception.value ?? '';
 
@@ -283,18 +308,17 @@ class SentrySetup {
   }
 
   static bool _isNetworkExceptionType(String type) {
-    // Match fully qualified dart:io / dart:async exception names only.
-    // Uses prefix matching to handle package-qualified names like
-    // 'dart:io.SocketException' while excluding ApiX's own exceptions
-    // (e.g., 'apix.TimeoutException', 'apix.HttpException').
+    // Reached only for non-ApiX throwables (and for events with no throwable
+    // at all), so matching by name is both safe and necessary here: a real
+    // `dart:async` TimeoutException or a `dart:io` HttpException must still
+    // be filtered. ApiX's own types never reach this point — they are settled
+    // by the hierarchy in [isNetworkNoiseError].
     const networkExceptionPrefixes = [
       'SocketException',
       'HandshakeException',
       'TlsException',
     ];
 
-    // These are only dart:io / dart:async — must not match ApiX's own types
-    // which would be prefixed with a package path.
     const dartOnlyTypes = [
       'ClientException',
       'TimeoutException',
@@ -305,8 +329,6 @@ class SentrySetup {
       return true;
     }
 
-    // For types that conflict with ApiX names, only match if they're from
-    // dart: packages (no dot prefix) or exact match (no package qualifier)
     for (final t in dartOnlyTypes) {
       if (type == t || type.startsWith('dart:') && type.contains(t)) {
         return true;

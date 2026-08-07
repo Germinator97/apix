@@ -68,7 +68,10 @@
     </section>
     
 <section class="desc markdown">
-  <p>Returns true if a valid (non-expired) entry exists for the key.</p>
+  <p>Returns true if a <strong>valid (non-expired)</strong> entry exists for the key.</p>
+<p>Unlike <a href="../../apix/InMemoryCacheStorage/get.html">get</a>, this one does filter on expiry — it answers "is there
+usable fresh data here?", which is the only question worth asking of a
+boolean.</p>
 </section>
 
 
@@ -77,8 +80,10 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
 Future&lt;bool&gt; has(String key) async {
-  final entry = await get(key);
-  return entry != null;
+  final entry = _cache[key];
+  &#47;&#47; Filters explicitly rather than delegating to [get], which no longer
+  &#47;&#47; rejects expired entries.
+  return entry != null &amp;&amp; entry.isValid;
 }</code></pre>
 </section>
 
@@ -107,7 +112,7 @@ Future&lt;bool&gt; has(String key) async {
 <footer>
   <span class="no-break">
     apix
-      2.3.0
+      3.0.0
   </span>
   
 </footer>
