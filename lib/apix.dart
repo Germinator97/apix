@@ -57,6 +57,7 @@ export 'src/logging/logger_interceptor.dart';
 export 'src/observability/error_tracking_interceptor.dart';
 export 'src/observability/metrics_interceptor.dart';
 export 'src/observability/sentry_setup.dart';
+export 'src/observability/tracing_interceptor.dart';
 
 // Dio re-exports
 //

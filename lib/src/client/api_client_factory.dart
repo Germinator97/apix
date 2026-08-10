@@ -11,6 +11,7 @@ import '../logging/logger_config.dart';
 import '../logging/logger_interceptor.dart';
 import '../observability/error_tracking_interceptor.dart';
 import '../observability/metrics_interceptor.dart';
+import '../observability/tracing_interceptor.dart';
 import '../retry/retry_config.dart';
 import '../retry/retry_interceptor.dart';
 import 'api_client.dart';
@@ -64,6 +65,7 @@ class ApiClientFactory {
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
+    TracingConfig? tracingConfig,
     List<Interceptor>? interceptors,
     HttpClientAdapter? httpClientAdapter,
     String dataKey = 'data',
@@ -94,6 +96,7 @@ class ApiClientFactory {
       loggerConfig: loggerConfig,
       errorTrackingConfig: errorTrackingConfig,
       metricsConfig: metricsConfig,
+      tracingConfig: tracingConfig,
       httpClientAdapter: httpClientAdapter,
     );
   }
@@ -115,6 +118,7 @@ class ApiClientFactory {
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
+    TracingConfig? tracingConfig,
     HttpClientAdapter? httpClientAdapter,
   }) {
     final dio = Dio();
@@ -170,6 +174,14 @@ class ApiClientFactory {
       final cacheInterceptor = CacheInterceptor(config: effectiveCacheConfig);
       cacheInterceptor.setDio(dio);
       dio.interceptors.add(cacheInterceptor);
+    }
+
+    // Add tracing AFTER the cache, deliberately: a cache hit resolves the
+    // chain early and would leave a span opened before it dangling forever.
+    // Sitting here, a cached response never opens one at all — which is also
+    // the truth, since it spent no time on the network.
+    if (tracingConfig != null) {
+      dio.interceptors.add(TracingInterceptor(config: tracingConfig));
     }
 
     // Add logger interceptor if configured
