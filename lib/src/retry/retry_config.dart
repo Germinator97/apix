@@ -1,3 +1,11 @@
+import 'dart:math' show Random;
+
+/// Shared generator for jitter, so a const [RetryConfig] can still draw one.
+///
+/// Not seeded: reproducibility is a test concern, and tests inject their own
+/// [Random] through `getDelay(attempt, random: ...)`.
+final Random _sharedRandom = Random();
+
 /// Configuration for retry behavior.
 ///
 /// Defines how failed requests should be retried, including
@@ -66,6 +74,30 @@ class RetryConfig {
   /// which would re-enable retry for *every* request of that method.
   final Set<String> retryableMethods;
 
+  /// Randomness applied to each computed backoff delay, as a fraction of that
+  /// delay.
+  ///
+  /// **Enabled by default (`0.2`, i.e. ±20 %).** Pure exponential backoff is
+  /// deterministic: every client that failed during the same outage second
+  /// retries at the same instants, so a server coming back up is met with a
+  /// synchronised spike at the worst possible moment. Spreading the delays is
+  /// what turns that spike back into a curve.
+  ///
+  /// The default is on because the failure it prevents is a
+  /// thundering-herd — it harms whoever *didn't* read the changelog, and an
+  /// opt-in would leave every existing consumer exposed.
+  ///
+  /// A delay of `d` becomes a uniform draw in `[d * (1 - jitter),
+  /// d * (1 + jitter)]`, then clamped to `[0, maxDelayMs]`. Set to `0.0` to
+  /// restore the previous, strictly deterministic behaviour.
+  ///
+  /// Must be between `0.0` and `1.0`: above 1.0 the lower bound would go
+  /// negative and the delay would collapse to zero for part of the range.
+  ///
+  /// `Retry-After` is never jittered — when the server names a delay, honouring
+  /// it exactly matters more than spreading load.
+  final double jitter;
+
   /// Creates a [RetryConfig] with the given parameters.
   const RetryConfig({
     this.maxAttempts = 3,
@@ -74,6 +106,7 @@ class RetryConfig {
     this.multiplier = 2.0,
     this.maxDelayMs = 30000,
     this.respectRetryAfter = true,
+    this.jitter = 0.2,
     this.retryableMethods = const {
       'GET',
       'HEAD',
@@ -82,7 +115,10 @@ class RetryConfig {
       'PUT',
       'DELETE',
     },
-  });
+  }) : assert(
+          jitter >= 0.0 && jitter <= 1.0,
+          'jitter must be within [0.0, 1.0]',
+        );
 
   /// Returns true if the given [statusCode] should trigger a retry.
   bool shouldRetry(int statusCode) => retryStatusCodes.contains(statusCode);
@@ -95,15 +131,30 @@ class RetryConfig {
 
   /// Calculates the delay for the given [attempt] number (0-indexed).
   ///
-  /// Uses exponential backoff: baseDelayMs * (multiplier ^ attempt),
-  /// capped at [maxDelayMs].
-  Duration getDelay(int attempt) {
+  /// Uses exponential backoff: baseDelayMs * (multiplier ^ attempt), spread by
+  /// [jitter], then capped at [maxDelayMs].
+  ///
+  /// [random] is injectable so tests can pin the draw; production callers omit
+  /// it and share a single generator.
+  Duration getDelay(int attempt, {Random? random}) {
     final delayMs = baseDelayMs * _pow(multiplier, attempt);
-    final capped = delayMs.clamp(0, maxDelayMs).toInt();
+    final spread = _applyJitter(delayMs, random ?? _sharedRandom);
+    final capped = spread.clamp(0, maxDelayMs).toInt();
     return Duration(milliseconds: capped);
   }
 
-  /// Simple power function to avoid importing dart:math.
+  /// Spreads [delayMs] uniformly across `±jitter` of itself.
+  ///
+  /// Clamping happens in [getDelay], after this: jittering a value that was
+  /// already capped at [maxDelayMs] could only ever push it back down, which
+  /// would quietly bias every capped retry downwards instead of spreading it.
+  double _applyJitter(double delayMs, Random random) {
+    if (jitter <= 0.0) return delayMs;
+    final factor = 1 + (random.nextDouble() * 2 - 1) * jitter;
+    return delayMs * factor;
+  }
+
+  /// Simple power function, kept to avoid a `pow` call on an int exponent.
   double _pow(double base, int exponent) {
     if (exponent == 0) return 1.0;
     var result = base;
@@ -121,6 +172,7 @@ class RetryConfig {
     double? multiplier,
     int? maxDelayMs,
     bool? respectRetryAfter,
+    double? jitter,
     Set<String>? retryableMethods,
   }) {
     return RetryConfig(
@@ -130,6 +182,7 @@ class RetryConfig {
       multiplier: multiplier ?? this.multiplier,
       maxDelayMs: maxDelayMs ?? this.maxDelayMs,
       respectRetryAfter: respectRetryAfter ?? this.respectRetryAfter,
+      jitter: jitter ?? this.jitter,
       retryableMethods: retryableMethods ?? this.retryableMethods,
     );
   }
@@ -140,6 +193,7 @@ class RetryConfig {
         'retryStatusCodes: $retryStatusCodes, '
         'baseDelayMs: $baseDelayMs, '
         'multiplier: $multiplier, '
+        'jitter: $jitter, '
         'retryableMethods: $retryableMethods)';
   }
 
@@ -153,6 +207,7 @@ class RetryConfig {
           multiplier == other.multiplier &&
           maxDelayMs == other.maxDelayMs &&
           respectRetryAfter == other.respectRetryAfter &&
+          jitter == other.jitter &&
           _listEquals(retryStatusCodes, other.retryStatusCodes) &&
           _setEquals(retryableMethods, other.retryableMethods);
 
@@ -176,6 +231,7 @@ class RetryConfig {
       multiplier.hashCode ^
       maxDelayMs.hashCode ^
       respectRetryAfter.hashCode ^
+      jitter.hashCode ^
       retryStatusCodes.hashCode ^
       // Order-independent so two equal sets share a hash code.
       retryableMethods.fold<int>(0, (h, m) => h ^ m.hashCode);

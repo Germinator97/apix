@@ -58,6 +58,7 @@ class ApiClientFactory {
     Map<String, dynamic>? headers,
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
+    void Function(RetryAttempt attempt)? onRetry,
     CacheConfig? cacheConfig,
     DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
@@ -87,6 +88,7 @@ class ApiClientFactory {
       config,
       authConfig: authConfig,
       retryConfig: retryConfig,
+      onRetry: onRetry,
       cacheConfig: cacheConfig,
       deduplicationConfig: deduplicationConfig,
       loggerConfig: loggerConfig,
@@ -107,6 +109,7 @@ class ApiClientFactory {
     ApiClientConfig config, {
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
+    void Function(RetryAttempt attempt)? onRetry,
     CacheConfig? cacheConfig,
     DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
@@ -141,7 +144,9 @@ class ApiClientFactory {
 
     // Add retry interceptor if configured
     if (retryConfig != null) {
-      dio.interceptors.add(RetryInterceptor(config: retryConfig, dio: dio));
+      dio.interceptors.add(
+        RetryInterceptor(config: retryConfig, dio: dio, onRetry: onRetry),
+      );
     }
 
     // Add standalone deduplication if configured. Deliberately placed before
