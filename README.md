@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^3.0.0
+  apix: ^4.0.0
 ```
 
 ```bash
@@ -59,7 +59,7 @@ flutter pub get
 
 ## Full Configuration
 
-ApiX supports declarative configuration with 6 optional parameters:
+ApiX supports declarative configuration with 8 optional config blocks:
 
 ```dart
 final tokenProvider = SecureTokenProvider();
@@ -130,6 +130,13 @@ final client = ApiClientFactory.create(
       debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
     },
   ),
+
+  // 🔗 Collapse identical concurrent requests — independent of the cache,
+  // so you can have this without storing anything.
+  deduplicationConfig: const DeduplicationConfig(),
+
+  // ⏱️ One performance span per request, under the current Sentry transaction
+  tracingConfig: const TracingConfig(),
 );
 ```
 
@@ -188,12 +195,20 @@ final client = ApiClientFactory.create(
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
     baseDelayMs: 1000,
-    multiplier: 2.0,  // 1s → 2s → 4s
+    multiplier: 2.0,  // 1s → 2s → 4s, each spread by jitter
     maxDelayMs: 30000, // Never wait more than 30s
     respectRetryAfter: true, // Honor Retry-After header (default)
+    jitter: 0.2, // ±20 % spread, ON by default — 0.0 disables it
     // Idempotent methods only (RFC 7231 §4.2.2) — POST/PATCH excluded (default)
     retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
   ),
+  // Observe every retry — route it to a breadcrumb and a storm stops being
+  // invisible.
+  onRetry: (attempt) => Sentry.addBreadcrumb(Breadcrumb(
+    message: 'retry #${attempt.attempt} in ${attempt.delay.inMilliseconds}ms '
+        '(status ${attempt.statusCode})',
+    category: 'http',
+  )),
 );
 
 // Disable retry for a specific request
@@ -215,6 +230,13 @@ final topup = await client.post<Map<String, dynamic>>(
 ```
 
 **Method-aware retry (idempotency)**: retry only replays requests whose method is in `retryableMethods`, which defaults to the **idempotent** methods per RFC 7231 §4.2.2 (`GET, HEAD, OPTIONS, TRACE, PUT, DELETE`). **`POST` and `PATCH` are excluded by default** — replaying them after a `5xx` that the server may already have committed (e.g. a gateway `502`/`504`) would duplicate the side effect (double charge). To retry a non-idempotent request that is provably safe to replay, opt in per request with `forceRetryKey` (or `RequestOptions.forceRetry()`); it overrides the method guard only.
+
+**Jitter (on by default)**: a purely deterministic backoff makes every client
+that failed during the same outage second retry at exactly the same instants, so
+a server coming back up meets a synchronised spike. `jitter` spreads each delay
+uniformly across ±20 % of itself. Set `jitter: 0.0` for the strictly
+deterministic sequence — and note that any test asserting an exact delay needs
+it. A server-named `Retry-After` is never jittered.
 
 **`Retry-After` header (RFC 7231 §7.1.3)**: when `respectRetryAfter` is `true` (default), responses carrying a `Retry-After` header — typically on `429 Too Many Requests` or `503 Service Unavailable` — are honored. Both delta-seconds (`"60"`) and HTTP-date (`"Wed, 21 Oct 2026 07:28:00 GMT"`) formats are parsed. The resolved delay is capped at `maxDelayMs`. Falls back to exponential backoff if the header is absent or malformed.
 
@@ -305,6 +327,136 @@ final client = ApiClientFactory.create(
 > directory the OS may purge over a backed-up documents directory.
 
 ---
+
+### 🔗 Deduplication without a cache
+
+Deduplication collapses identical concurrent requests into one call. It says
+nothing about whether responses should be *stored*, so it no longer requires a
+cache:
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  deduplicationConfig: const DeduplicationConfig(),
+  // no cacheConfig — nothing is ever written anywhere
+);
+```
+
+Three widgets asking for the same profile at once produce one request. A later,
+sequential request still hits the network: this is about concurrency, not
+caching.
+
+When both `deduplicationConfig` and `cacheConfig` are supplied, the cache's own
+deduplication is switched off so a request is not collapsed twice.
+
+### 🔒 Encrypted cache
+
+`FileCacheStorage` writes in clear text. Where the data worth keeping between
+launches is also the data that must not leak, wrap it:
+
+```dart
+final storage = EncryptedCacheStorage(
+  delegate: FileCacheStorage(directory: dir),
+  encrypt: (plain) => myCipher.encrypt(plain),
+  decrypt: (sealed) => myCipher.decrypt(sealed),
+);
+```
+
+You supply the cipher, so apix carries neither a crypto dependency nor your key.
+
+Body and headers are sealed. **Cache keys are not** — the whole invalidation API
+reads them (`removeByPrefix`, `invalidateUrl`), so an identifying path or query
+parameter stays readable on disk. Keep those out of the URL, or don't cache that
+endpoint. Status, timestamps and ETag stay readable too, so expiry can be checked
+without a key.
+
+An entry that cannot be decrypted — rotated key, corrupted file — reads as a miss
+and is purged, rather than throwing on the request path.
+
+### ⏱️ Performance spans
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  tracingConfig: const TracingConfig(),
+);
+```
+
+Opens one span per request as a child of the current Sentry transaction, with
+method, host, path and final status. One span covers the whole logical
+request — retries and backoff included — because that is what the caller waited
+for. A response served from cache opens none: it spent no time on the network.
+
+Requires an active transaction (`tracesSampleRate` > 0 in `SentrySetup`);
+without one, nothing is traced.
+
+### 📦 No dio import required
+
+apix re-exports the dio types its own API hands back, so consumer code — and,
+more to the point, consumer *tests* — need not depend on `package:dio`
+directly. That matters beyond convenience: a direct import makes apix's
+declared dio version range a constraint on your code too.
+
+```dart
+import 'package:apix/apix.dart';
+
+// Binary downloads (statements, receipts)
+final pdf = await client.get<List<int>>(
+  '/statements/2026-08.pdf',
+  options: Options(responseType: ResponseType.bytes),
+);
+
+// A custom interceptor — `create(interceptors:)` takes a List<Interceptor>
+class TenantInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers['X-Tenant'] = currentTenant;
+    handler.next(options);
+  }
+}
+
+// Uploads
+final form = FormData.fromMap({'file': await MultipartFile.fromFile(path)});
+```
+
+Covered: `Response`, `Options`, `CancelToken`, `ResponseType`,
+`RequestOptions`, `Interceptor` and its three handlers, `DioException`,
+`DioExceptionType`, `FormData`, `MultipartFile`, `Headers`.
+
+#### Testing without I/O
+
+Adapter stubbing lives in a separate entry point, kept out of production
+autocomplete:
+
+```dart
+import 'package:apix/apix.dart';
+import 'package:apix/testing.dart';
+
+class FakeAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<dynamic>? cancelFuture,
+  ) async =>
+      ResponseBody.fromString(
+        '{"code":"RATE_LIMITED","message":"Slow down"}',
+        429,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+          'retry-after': ['30'],
+        },
+      );
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.test',
+  httpClientAdapter: FakeAdapter(),
+);
+```
 
 ### 📊 Logging
 
@@ -484,8 +636,10 @@ ApiException
 │   │   ├── UnauthorizedException (401)
 │   │   │   └── AuthException (refresh failure)
 │   │   ├── ForbiddenException (403)
-│   │   └── NotFoundException (404)
-│   └── ServerException (5xx)
+│   │   ├── NotFoundException (404)
+│   │   └── TooManyRequestsException (429, carries `retryAfter`)
+│   ├── ServerException (5xx)
+│   └── HttpTrackingException (a captured status, see Sentry section)
 ├── ParsingException (decode / parse failure)
 ├── TokenProviderException (TokenProvider failure)
 └── UnexpectedContentTypeException (strictContentType only)
@@ -506,6 +660,52 @@ try {
   // any 5xx — retryable, worth reporting
 }
 ```
+
+### Branching on the application error code
+
+An HTTP status drifts. The same business case can move from `400` to `409` to
+`422` across server revisions without changing meaning, and a call site keyed on
+the status changes behaviour the day it does. When your backend publishes a
+stable code, branch on that instead:
+
+```dart
+try {
+  await client.post<void>('/transfers', data: payload);
+} on ApiException catch (e) {
+  switch (e.code) {
+    case 'OPERATION_NOT_RETRYABLE':
+      showFinalFailure();
+    case 'INSUFFICIENT_FUNDS':
+      showTopUpPrompt();
+    default:
+      showGenericError();
+  }
+}
+```
+
+`code` is read from the response body — flat (`{"code": ...}`) or nested
+(`{"error": {"code": ...}}`) — under the key named by `errorCodeKey`
+(default `'code'`). It is always a `String`, even when the server sends a
+number, so a `switch` never has to care which. It is null on non-HTTP failures,
+which have no body to read.
+
+Keep status branching for the cross-cutting cases — `401` refresh, `403`, a
+generic `5xx` — or when no code is guaranteed.
+
+### Rate limits
+
+```dart
+on TooManyRequestsException catch (e) {
+  final wait = e.retryAfter;
+  showMessage(wait == null
+      ? 'Trop de tentatives. Réessayez plus tard.'
+      : 'Trop de tentatives. Réessayez dans ${wait.inSeconds} s.');
+}
+```
+
+`retryAfter` is the parsed `Retry-After` header (delta-seconds or HTTP-date), or
+null when the server sent none — treat null as *unknown delay*, never as *retry
+now*.
 
 `AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
 
@@ -709,14 +909,18 @@ with `actualContentType: null`.
 | `defaultContentType` | `String?` | Default `Content-Type` (`application/json`) |
 | `headers` | `Map<String, dynamic>?` | Default headers |
 | `dataKey` | `String` | Envelope key for `*Data` methods (`'data'`) |
+| `errorCodeKey` | `String` | Body key holding the application error code (`'code'`) |
 | `strictContentType` | `bool` | Enforce `application/json` on `*AndDecode` (false) |
 | `responseValidator` | `ResponseValidator?` | Hook to validate 2xx responses |
 | `authConfig` | `AuthConfig?` | Auth configuration |
 | `retryConfig` | `RetryConfig?` | Retry configuration |
+| `onRetry` | `void Function(RetryAttempt)?` | Called before each retry waits |
 | `cacheConfig` | `CacheConfig?` | Cache configuration |
+| `deduplicationConfig` | `DeduplicationConfig?` | Standalone deduplication, no cache required |
 | `loggerConfig` | `LoggerConfig?` | Logging configuration |
 | `errorTrackingConfig` | `ErrorTrackingConfig?` | Error tracking configuration |
 | `metricsConfig` | `MetricsConfig?` | Metrics configuration |
+| `tracingConfig` | `TracingConfig?` | One performance span per request |
 | `interceptors` | `List<Interceptor>?` | Custom interceptors |
 | `httpClientAdapter` | `HttpClientAdapter?` | Custom Dio adapter |
 
@@ -732,6 +936,7 @@ with `actualContentType: null`.
 | `defaultContentType` | `String?` | `'application/json'` | Default content type |
 | `interceptors` | `List<Interceptor>?` | null | Custom interceptors |
 | `dataKey` | `String` | `'data'` | Key for envelope unwrapping in `*Data` methods |
+| `errorCodeKey` | `String` | `'code'` | Body key read into `ApiException.code` |
 | `strictContentType` | `bool` | `false` | Throw `UnexpectedContentTypeException` when `*AndDecode` receives a non-JSON response |
 | `responseValidator` | `ResponseValidator?` | null | Inspect 2xx responses; return an `ApiException` to fail the request |
 

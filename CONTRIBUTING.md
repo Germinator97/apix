@@ -68,11 +68,18 @@ flutter test
 
 ## Pull Request Process
 
+`develop` and `master` are protected: neither accepts a direct push, and a PR
+cannot merge until the CI matrix is green — `analyze` and `test` on **both** the
+floor and the latest of the declared `dio` range, plus `format`.
+
 1. Create your feature branch from `develop`
 2. Make your changes with appropriate tests
 3. Ensure all tests pass and code is formatted
 4. Update documentation if needed
 5. Submit a PR to `develop`
+
+`master` only ever receives release merges from `develop` — see
+[RELEASING.md](RELEASING.md).
 
 ## Code Style
 

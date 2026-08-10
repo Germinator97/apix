@@ -63,13 +63,18 @@
 <li><span class="parameter" id="create-param-headers"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">headers</span>, </span></li>
 <li><span class="parameter" id="create-param-authConfig"><span class="type-annotation"><a href="../../apix/AuthConfig-class.html">AuthConfig</a>?</span> <span class="parameter-name">authConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-retryConfig"><span class="type-annotation"><a href="../../apix/RetryConfig-class.html">RetryConfig</a>?</span> <span class="parameter-name">retryConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-onRetry"><span class="type-annotation">void</span> <span class="parameter-name">onRetry</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-attempt"><span class="type-annotation"><a href="../../apix/RetryAttempt-class.html">RetryAttempt</a></span> <span class="parameter-name">attempt</span></span></li>
+</ol>)?, </span></li>
 <li><span class="parameter" id="create-param-cacheConfig"><span class="type-annotation"><a href="../../apix/CacheConfig-class.html">CacheConfig</a>?</span> <span class="parameter-name">cacheConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-deduplicationConfig"><span class="type-annotation"><a href="../../apix/DeduplicationConfig-class.html">DeduplicationConfig</a>?</span> <span class="parameter-name">deduplicationConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-loggerConfig"><span class="type-annotation"><a href="../../apix/LoggerConfig-class.html">LoggerConfig</a>?</span> <span class="parameter-name">loggerConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-errorTrackingConfig"><span class="type-annotation"><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a>?</span> <span class="parameter-name">errorTrackingConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-metricsConfig"><span class="type-annotation"><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a>?</span> <span class="parameter-name">metricsConfig</span>, </span></li>
+<li><span class="parameter" id="create-param-tracingConfig"><span class="type-annotation"><a href="../../apix/TracingConfig-class.html">TracingConfig</a>?</span> <span class="parameter-name">tracingConfig</span>, </span></li>
 <li><span class="parameter" id="create-param-interceptors"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?</span> <span class="parameter-name">interceptors</span>, </span></li>
 <li><span class="parameter" id="create-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
 <li><span class="parameter" id="create-param-dataKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">dataKey</span> = <span class="default-value">&#39;data&#39;</span>, </span></li>
+<li><span class="parameter" id="create-param-errorCodeKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">errorCodeKey</span> = <span class="default-value">&#39;code&#39;</span>, </span></li>
 <li><span class="parameter" id="create-param-strictContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">strictContentType</span> = <span class="default-value">false</span>, </span></li>
 <li><span class="parameter" id="create-param-responseValidator"><span class="type-annotation"><a href="../../apix/ResponseValidator.html">ResponseValidator</a>?</span> <span class="parameter-name">responseValidator</span>, </span></li>
 </ol>})
@@ -113,13 +118,17 @@ final client = ApiClientFactory.create(
   Map&lt;String, dynamic&gt;? headers,
   AuthConfig? authConfig,
   RetryConfig? retryConfig,
+  void Function(RetryAttempt attempt)? onRetry,
   CacheConfig? cacheConfig,
+  DeduplicationConfig? deduplicationConfig,
   LoggerConfig? loggerConfig,
   ErrorTrackingConfig? errorTrackingConfig,
   MetricsConfig? metricsConfig,
+  TracingConfig? tracingConfig,
   List&lt;Interceptor&gt;? interceptors,
   HttpClientAdapter? httpClientAdapter,
   String dataKey = &#39;data&#39;,
+  String errorCodeKey = &#39;code&#39;,
   bool strictContentType = false,
   ResponseValidator? responseValidator,
 }) {
@@ -132,6 +141,7 @@ final client = ApiClientFactory.create(
     headers: headers,
     interceptors: interceptors,
     dataKey: dataKey,
+    errorCodeKey: errorCodeKey,
     strictContentType: strictContentType,
     responseValidator: responseValidator,
   );
@@ -139,10 +149,13 @@ final client = ApiClientFactory.create(
     config,
     authConfig: authConfig,
     retryConfig: retryConfig,
+    onRetry: onRetry,
     cacheConfig: cacheConfig,
+    deduplicationConfig: deduplicationConfig,
     loggerConfig: loggerConfig,
     errorTrackingConfig: errorTrackingConfig,
     metricsConfig: metricsConfig,
+    tracingConfig: tracingConfig,
     httpClientAdapter: httpClientAdapter,
   );
 }</code></pre>
@@ -173,7 +186,7 @@ final client = ApiClientFactory.create(
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

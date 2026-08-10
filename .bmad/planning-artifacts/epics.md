@@ -170,6 +170,10 @@ Le développeur configure tout le client en un seul appel déclaratif.
 Le contrat « toute erreur est une ApiException typée » ne fuit plus.
 **Depends on:** Epic 2, Epic 3, Epic 5
 
+### Epic 13: Cache & observability contracts (v3.0.0) — LIVRÉ
+Le cache et le suivi d'erreurs tiennent enfin leurs promesses.
+**Depends on:** Epic 6, Epic 7
+
 ### Epic 12: Production Hardening (v2.4.0)
 Capacités production critiques pour les apps fintech. **Pas encore démarré.**
 **Depends on:** Epic 5, Epic 6
@@ -879,6 +883,37 @@ Opt-in via `ApiClientConfig(strictContentType: true)`. Detects captive-portal re
 ### Story 11.6: Add responseValidator callback to ApiClientConfig
 
 `ResponseValidator = ApiException? Function(Response)`. Hook for legacy APIs returning `{success: false}` in HTTP 200. Fires only on 2xx (4xx/5xx still go through `ErrorMapperInterceptor`).
+
+---
+
+## Epic 13: Cache & observability contracts (v3.0.0) — LIVRÉ le 2026-08-07
+
+Déclenché par un relevé d'une app consommatrice
+(`03_DOCUMENTATION/ApiX/note-apix-cache.md`) listant quatre manques du cache.
+Trois tenaient, un était faux — le marqueur de provenance existait mais était
+introuvable par autocomplétion. En creusant, **cinq défauts supplémentaires**
+sont sortis, tous silencieux : aucune exception, aucun log, aucun test rouge.
+
+**Ruptures** — `cacheFirst` sert du périmé en revalidant, `onError` reçoit
+l'`ApiException` typée, `isFromCache` déplacé sur `Response`, `CacheStorage.get`
+ne filtre plus la péremption.
+
+**Ajouts** — `response.isStale`, `FileCacheStorage` (persistant, sans nouvelle
+dépendance, borné par défaut).
+
+**Corrections** — `ClientException`/`ServerException` jamais construits, le
+filtre Sentry qui jetait tous les 5xx d'apix, `CacheException` hors du contrat
+typé, le TTL garanti par personne, `cacheOnly` servant du périmé, l'éviction
+préférant les périmées, et le regroupement de toutes les erreurs sous
+`DioException`.
+
+**Hors paquet** — CI créée sur `apix_example_app` et étendue à `example/` côté
+paquet ; démos du retry et du tracking ; thème clair unique avec test de
+contraste WCAG ; upload de symboles Sentry documenté et câblé.
+
+Détail machine et suites ouvertes dans
+`.bmad/implementation-artifacts/sprint-status.yaml`
+(`shipped_releases` et `open_after_3_0_0`).
 
 ---
 

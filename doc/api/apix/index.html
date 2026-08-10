@@ -88,6 +88,14 @@
   Factory for creating <a href="../apix/ApiClient-class.html">ApiClient</a> instances.
 </dd>
 
+          <dt id="ApiSpan">
+  <span class="name "><a href="../apix/ApiSpan-class.html">ApiSpan</a></span> 
+
+</dt>
+<dd>
+  A performance span opened for a single request.
+</dd>
+
           <dt id="AuthConfig">
   <span class="name "><a href="../apix/AuthConfig-class.html">AuthConfig</a></span> 
 
@@ -153,6 +161,39 @@ and handles token refresh on configured status codes.
   Controls cancellation of <a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a>'s requests.
 </dd>
 
+          <dt id="DeduplicationConfig">
+  <span class="name "><a href="../apix/DeduplicationConfig-class.html">DeduplicationConfig</a></span> 
+
+</dt>
+<dd>
+  Configuration for standalone request deduplication.
+</dd>
+
+          <dt id="DeduplicationInterceptor">
+  <span class="name "><a href="../apix/DeduplicationInterceptor-class.html">DeduplicationInterceptor</a></span> 
+
+</dt>
+<dd>
+  Interceptor that collapses identical concurrent requests into one call,
+without storing anything.
+</dd>
+
+          <dt id="EncryptedCacheStorage">
+  <span class="name "><a href="../apix/EncryptedCacheStorage-class.html">EncryptedCacheStorage</a></span> 
+
+</dt>
+<dd>
+  Wraps any <a href="../apix/CacheStorage-class.html">CacheStorage</a> so response bodies are encrypted at rest.
+</dd>
+
+          <dt id="ErrorInterceptorHandler">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> 
+
+</dt>
+<dd>
+  The handler for interceptors to handle error occurred during the request.
+</dd>
+
           <dt id="ErrorMapperInterceptor">
   <span class="name "><a href="../apix/ErrorMapperInterceptor-class.html">ErrorMapperInterceptor</a></span> 
 
@@ -194,12 +235,39 @@ and handles token refresh on configured status codes.
 per entry.
 </dd>
 
+          <dt id="FormData">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/FormData-class.html">FormData</a></span> 
+
+</dt>
+<dd>
+  A class to create readable "multipart/form-data" streams.
+It can be used to submit forms and file uploads to http server.
+</dd>
+
+          <dt id="Headers">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Headers-class.html">Headers</a></span> 
+
+</dt>
+<dd>
+  The headers class for requests and responses.
+</dd>
+
           <dt id="InMemoryCacheStorage">
   <span class="name "><a href="../apix/InMemoryCacheStorage-class.html">InMemoryCacheStorage</a></span> 
 
 </dt>
 <dd>
   In-memory implementation of <a href="../apix/CacheStorage-class.html">CacheStorage</a>.
+</dd>
+
+          <dt id="Interceptor">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span> 
+
+</dt>
+<dd>
+  <a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a> helps to deal with <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a>, <a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a>,
+and <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> during the lifecycle of a request
+before it reaches users.
 </dd>
 
           <dt id="LogEntry">
@@ -242,6 +310,15 @@ per entry.
   Interceptor that tracks request metrics and breadcrumbs.
 </dd>
 
+          <dt id="MultipartFile">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/MultipartFile-class.html">MultipartFile</a></span> 
+
+</dt>
+<dd>
+  An upload content that is a part of <code>MultipartRequest</code>.
+This doesn't need to correspond to a physical file.
+</dd>
+
           <dt id="MultipartInterceptor">
   <span class="name "><a href="../apix/MultipartInterceptor-class.html">MultipartInterceptor</a></span> 
 
@@ -276,12 +353,29 @@ sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/
   Deduplicates identical concurrent requests.
 </dd>
 
+          <dt id="RequestInterceptorHandler">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> 
+
+</dt>
+<dd>
+  The handler for interceptors to handle before the request has been sent.
+</dd>
+
           <dt id="RequestMetrics">
   <span class="name "><a href="../apix/RequestMetrics-class.html">RequestMetrics</a></span> 
 
 </dt>
 <dd>
   Request metrics data.
+</dd>
+
+          <dt id="RequestOptions">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> 
+
+</dt>
+<dd>
+  The internal request option class that is the eventual result after
+<a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a> are composed.
 </dd>
 
           <dt id="Response">
@@ -291,6 +385,14 @@ sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/
 <dd>
   The <a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a> class contains the payload (could be transformed)
 that respond from the request, and other information of the response.
+</dd>
+
+          <dt id="ResponseInterceptorHandler">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> 
+
+</dt>
+<dd>
+  The handler for interceptors to handle after respond.
 </dd>
 
           <dt id="ResponseValidatorInterceptor">
@@ -307,6 +409,14 @@ that respond from the request, and other information of the response.
 </dt>
 <dd>
   A type that represents either a success value or a failure.
+</dd>
+
+          <dt id="RetryAttempt">
+  <span class="name "><a href="../apix/RetryAttempt-class.html">RetryAttempt</a></span> 
+
+</dt>
+<dd>
+  A retry about to be scheduled, handed to <code>RetryInterceptor.onRetry</code>.
 </dd>
 
           <dt id="RetryConfig">
@@ -374,6 +484,22 @@ secure key-value storage operations.
   Interface for providing authentication tokens.
 </dd>
 
+          <dt id="TracingConfig">
+  <span class="name "><a href="../apix/TracingConfig-class.html">TracingConfig</a></span> 
+
+</dt>
+<dd>
+  Configuration for <a href="../apix/TracingInterceptor-class.html">TracingInterceptor</a>.
+</dd>
+
+          <dt id="TracingInterceptor">
+  <span class="name "><a href="../apix/TracingInterceptor-class.html">TracingInterceptor</a></span> 
+
+</dt>
+<dd>
+  Interceptor that opens one performance span per network request.
+</dd>
+
       </dl>
     </section>
 
@@ -396,12 +522,29 @@ secure key-value storage operations.
   Cache strategy options.
 </dd>
 
+          <dt id="DioExceptionType">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioExceptionType.html">DioExceptionType</a></span> 
+
+</dt>
+<dd>
+  The exception enumeration indicates what type of exception
+has happened during requests.
+</dd>
+
           <dt id="LogLevel">
   <span class="name "><a href="../apix/LogLevel.html">LogLevel</a></span> 
 
 </dt>
 <dd>
   Log level for filtering log output.
+</dd>
+
+          <dt id="ResponseType">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseType.html">ResponseType</a></span> 
+
+</dt>
+<dd>
+  Indicates which transformation should be applied to the response data.
 </dd>
 
           <dt id="TokenProviderOperation">
@@ -572,6 +715,20 @@ secure key-value storage operations.
   </dd>
 
           
+  <dt id="CacheCipher" class="callable">
+    <span class="name"><a href="../apix/CacheCipher.html">CacheCipher</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a> Function<span class="signature">(<span class="parameter" id="param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">value</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Transforms a string one way and back — supplied by the caller.
+    
+
+  </dd>
+
+          
   <dt id="CaptureException" class="callable">
     <span class="name"><a href="../apix/CaptureException.html">CaptureException</a></span><span class="signature">
       <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-exception"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">exception</span>, {</span><span class="parameter" id="param-extra"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">extra</span>, </span><span class="parameter" id="param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span>, </span><span class="parameter" id="param-tags"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span> <span class="parameter-name">tags</span></span>})</span></span>
@@ -671,6 +828,20 @@ have the request fail with that exception.
 
   </dd>
 
+          
+  <dt id="SpanStarter" class="callable">
+    <span class="name"><a href="../apix/SpanStarter.html">SpanStarter</a></span><span class="signature">
+      <span class="returntype parameter">= <a href="../apix/ApiSpan-class.html">ApiSpan</a>? Function<span class="signature">(<span class="parameter" id="param-operation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">operation</span>, </span><span class="parameter" id="param-description"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">description</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Opens a span for a request. Returning null means "don't trace this one".
+    
+
+  </dd>
+
       </dl>
     </section>
 
@@ -715,6 +886,14 @@ have the request fail with that exception.
 </dt>
 <dd>
   Exception thrown when a connection cannot be established.
+</dd>
+
+          <dt id="DioException">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> 
+
+</dt>
+<dd>
+  <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> describes the exception info when a request failed.
 </dd>
 
           <dt id="ForbiddenException">
@@ -789,6 +968,14 @@ have the request fail with that exception.
   Exception thrown when a <a href="../apix/TokenProvider-class.html">TokenProvider</a> operation fails.
 </dd>
 
+          <dt id="TooManyRequestsException">
+  <span class="name "><a href="../apix/TooManyRequestsException-class.html">TooManyRequestsException</a></span> 
+
+</dt>
+<dd>
+  Exception thrown when the client is rate limited (429 Too Many Requests).
+</dd>
+
           <dt id="UnauthorizedException">
   <span class="name "><a href="../apix/UnauthorizedException-class.html">UnauthorizedException</a></span> 
 
@@ -825,6 +1012,7 @@ have the request fail with that exception.
     <ol>
       <li class="section-title">Libraries</li>
       <li><a href="../apix/">apix</a></li>
+      <li><a href="../testing/">testing</a></li>
 </ol>
 
   </div>
@@ -835,7 +1023,7 @@ have the request fail with that exception.
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

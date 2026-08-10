@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../errors/api_exception.dart';
 import '../errors/error_mapper_interceptor.dart';
+import '../errors/http_exception.dart';
 
 /// Signature for capturing exceptions to an error tracking service.
 typedef CaptureException = Future<void> Function(
@@ -244,10 +245,16 @@ class ErrorTrackingInterceptor extends Interceptor {
       message: response.statusMessage ?? 'HTTP Error',
       url: options.uri.toString(),
       method: options.method,
+      responseBody: response.data,
     );
 
     config.onError!(
       exception,
+      // No DioException reached this path — the response was a success as far
+      // as dio is concerned — so there is no original trace to forward.
+      // Capture the current one instead: without it these events arrive in the
+      // tracker with no stack at all, while the onError path always had one.
+      stackTrace: StackTrace.current,
       extra: _buildErrorContext(options, response),
       tags: _buildTags(options, response.statusCode),
     );
@@ -313,13 +320,20 @@ class ErrorTrackingInterceptor extends Interceptor {
 }
 
 /// Exception representing an HTTP error captured by error tracking.
-class HttpTrackingException implements Exception {
-  /// HTTP status code.
-  final int statusCode;
-
-  /// Error message.
-  final String message;
-
+///
+/// Extends [HttpException] — and therefore [ApiException] — so that
+/// [ErrorTrackingConfig.onError] receives **one** type across both of its call
+/// paths. Until this was true, the `onResponse` path (a status listed in
+/// [ErrorTrackingConfig.captureStatusCodes]) handed the callback something
+/// outside the documented hierarchy, while the `onError` path handed a mapped
+/// `ApiException`. A handler written from the documentation — `on HttpException`
+/// / `case HttpException(statusCode: 503)` — matched one and silently fell
+/// through on the other, with nothing raised to say so.
+///
+/// It keeps its own type so trackers still group these apart from the failures
+/// dio itself reported: this one is a status the consumer asked to capture on
+/// an otherwise successful response.
+class HttpTrackingException extends HttpException {
   /// Request URL.
   final String url;
 
@@ -327,10 +341,14 @@ class HttpTrackingException implements Exception {
   final String method;
 
   const HttpTrackingException({
-    required this.statusCode,
-    required this.message,
+    required super.statusCode,
+    required super.message,
     required this.url,
     required this.method,
+    super.responseBody,
+    super.code,
+    super.originalError,
+    super.stackTrace,
   });
 
   @override

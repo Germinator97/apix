@@ -44,8 +44,11 @@ void main() {
       expect(config.shouldRetry(504), isFalse);
     });
 
+    // `jitter: 0` is explicit here because the default is now non-zero: these
+    // two pin the exponential *formula*, which jitter spreads around but does
+    // not replace. The spreading itself lives in retry_jitter_test.dart.
     test('getDelay calculates exponential backoff', () {
-      const config = RetryConfig(baseDelayMs: 1000, multiplier: 2.0);
+      const config = RetryConfig(baseDelayMs: 1000, multiplier: 2.0, jitter: 0);
 
       expect(config.getDelay(0), equals(const Duration(milliseconds: 1000)));
       expect(config.getDelay(1), equals(const Duration(milliseconds: 2000)));
@@ -54,7 +57,7 @@ void main() {
     });
 
     test('getDelay with custom multiplier', () {
-      const config = RetryConfig(baseDelayMs: 100, multiplier: 3.0);
+      const config = RetryConfig(baseDelayMs: 100, multiplier: 3.0, jitter: 0);
 
       expect(config.getDelay(0), equals(const Duration(milliseconds: 100)));
       expect(config.getDelay(1), equals(const Duration(milliseconds: 300)));

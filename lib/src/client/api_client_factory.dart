@@ -4,11 +4,14 @@ import '../auth/auth_config.dart';
 import '../auth/auth_interceptor.dart';
 import '../cache/cache_config.dart';
 import '../cache/cache_interceptor.dart';
+import '../cache/deduplication_config.dart';
+import '../cache/deduplication_interceptor.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../logging/logger_config.dart';
 import '../logging/logger_interceptor.dart';
 import '../observability/error_tracking_interceptor.dart';
 import '../observability/metrics_interceptor.dart';
+import '../observability/tracing_interceptor.dart';
 import '../retry/retry_config.dart';
 import '../retry/retry_interceptor.dart';
 import 'api_client.dart';
@@ -56,13 +59,17 @@ class ApiClientFactory {
     Map<String, dynamic>? headers,
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
+    void Function(RetryAttempt attempt)? onRetry,
     CacheConfig? cacheConfig,
+    DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
+    TracingConfig? tracingConfig,
     List<Interceptor>? interceptors,
     HttpClientAdapter? httpClientAdapter,
     String dataKey = 'data',
+    String errorCodeKey = 'code',
     bool strictContentType = false,
     ResponseValidator? responseValidator,
   }) {
@@ -75,6 +82,7 @@ class ApiClientFactory {
       headers: headers,
       interceptors: interceptors,
       dataKey: dataKey,
+      errorCodeKey: errorCodeKey,
       strictContentType: strictContentType,
       responseValidator: responseValidator,
     );
@@ -82,10 +90,13 @@ class ApiClientFactory {
       config,
       authConfig: authConfig,
       retryConfig: retryConfig,
+      onRetry: onRetry,
       cacheConfig: cacheConfig,
+      deduplicationConfig: deduplicationConfig,
       loggerConfig: loggerConfig,
       errorTrackingConfig: errorTrackingConfig,
       metricsConfig: metricsConfig,
+      tracingConfig: tracingConfig,
       httpClientAdapter: httpClientAdapter,
     );
   }
@@ -101,10 +112,13 @@ class ApiClientFactory {
     ApiClientConfig config, {
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
+    void Function(RetryAttempt attempt)? onRetry,
     CacheConfig? cacheConfig,
+    DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
+    TracingConfig? tracingConfig,
     HttpClientAdapter? httpClientAdapter,
   }) {
     final dio = Dio();
@@ -134,14 +148,40 @@ class ApiClientFactory {
 
     // Add retry interceptor if configured
     if (retryConfig != null) {
-      dio.interceptors.add(RetryInterceptor(config: retryConfig, dio: dio));
+      dio.interceptors.add(
+        RetryInterceptor(config: retryConfig, dio: dio, onRetry: onRetry),
+      );
+    }
+
+    // Add standalone deduplication if configured. Deliberately placed before
+    // the cache: a cache hit should not pay for a deduplication round-trip.
+    if (deduplicationConfig != null) {
+      final dedupInterceptor =
+          DeduplicationInterceptor(config: deduplicationConfig);
+      dedupInterceptor.setDio(dio);
+      dio.interceptors.add(dedupInterceptor);
     }
 
     // Add cache interceptor if configured
     if (cacheConfig != null) {
-      final cacheInterceptor = CacheInterceptor(config: cacheConfig);
+      // When standalone deduplication is wired in, the cache must not
+      // deduplicate as well — two deduplicators in the same chain collapse the
+      // same request twice, and the inner one would re-enter a chain the outer
+      // one already resolved.
+      final effectiveCacheConfig = deduplicationConfig == null
+          ? cacheConfig
+          : cacheConfig.copyWith(enableDeduplication: false);
+      final cacheInterceptor = CacheInterceptor(config: effectiveCacheConfig);
       cacheInterceptor.setDio(dio);
       dio.interceptors.add(cacheInterceptor);
+    }
+
+    // Add tracing AFTER the cache, deliberately: a cache hit resolves the
+    // chain early and would leave a span opened before it dangling forever.
+    // Sitting here, a cached response never opens one at all — which is also
+    // the truth, since it spent no time on the network.
+    if (tracingConfig != null) {
+      dio.interceptors.add(TracingInterceptor(config: tracingConfig));
     }
 
     // Add logger interceptor if configured
@@ -173,8 +213,13 @@ class ApiClientFactory {
     }
 
     // Add error mapper interceptor last to transform all DioExceptions
-    // into typed ApiExceptions
-    dio.interceptors.add(const ErrorMapperInterceptor());
+    // into typed ApiExceptions. It reads the application error code from the
+    // body key the config names, so `ApiException.code` is populated for every
+    // consumer that goes through the factory — not only those who wire the
+    // mapper by hand.
+    dio.interceptors.add(ErrorMapperInterceptor(
+      errorCodeKey: config.errorCodeKey,
+    ));
 
     return ApiClient(dio, config);
   }

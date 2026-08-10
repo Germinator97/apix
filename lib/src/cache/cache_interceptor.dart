@@ -263,7 +263,7 @@ class CacheInterceptor extends Interceptor {
       }
 
       // Cache successful responses
-      if (_shouldCacheResponse(response)) {
+      if (_shouldStore(strategy) && _shouldCacheResponse(response)) {
         await _cacheResponse(cacheKey, response, strategy: strategy);
       }
 
@@ -459,7 +459,7 @@ class CacheInterceptor extends Interceptor {
       );
 
       // Cache the response if needed
-      if (_shouldCacheResponse(response)) {
+      if (_shouldStore(strategy) && _shouldCacheResponse(response)) {
         await _cacheResponse(cacheKey, response, strategy: strategy);
       }
 
@@ -527,6 +527,20 @@ class CacheInterceptor extends Interceptor {
     final override = options.extra['cacheStrategy'] as CacheStrategy?;
     return override ?? config.strategy;
   }
+
+  /// Whether [strategy] is allowed to *write* to the store at all.
+  ///
+  /// [CacheStrategy.networkOnly] documents itself as "always use network, never
+  /// read cache" — and only the reading half was ever enforced. Every response
+  /// was still written, so choosing `networkOnly` on a wallet moved balances,
+  /// transactions and entitlements through a store nobody ever read from. The
+  /// only escape was a `CacheStorage` whose writes were deliberately dropped.
+  ///
+  /// A strategy that never reads has nothing to gain from writing: the entry it
+  /// leaves behind cannot serve a later request under the same strategy, and
+  /// `onError` explicitly refuses to fall back for it.
+  bool _shouldStore(CacheStrategy strategy) =>
+      strategy != CacheStrategy.networkOnly;
 
   /// Returns true if the response should be cached.
   bool _shouldCacheResponse(Response<dynamic> response) {

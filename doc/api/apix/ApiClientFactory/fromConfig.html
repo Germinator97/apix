@@ -58,10 +58,14 @@
 <span class="name ">fromConfig</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="fromConfig-param-config"><span class="type-annotation"><a href="../../apix/ApiClientConfig-class.html">ApiClientConfig</a></span> <span class="parameter-name">config</span>, {</span></li>
 <li><span class="parameter" id="fromConfig-param-authConfig"><span class="type-annotation"><a href="../../apix/AuthConfig-class.html">AuthConfig</a>?</span> <span class="parameter-name">authConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-retryConfig"><span class="type-annotation"><a href="../../apix/RetryConfig-class.html">RetryConfig</a>?</span> <span class="parameter-name">retryConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-onRetry"><span class="type-annotation">void</span> <span class="parameter-name">onRetry</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-attempt"><span class="type-annotation"><a href="../../apix/RetryAttempt-class.html">RetryAttempt</a></span> <span class="parameter-name">attempt</span></span></li>
+</ol>)?, </span></li>
 <li><span class="parameter" id="fromConfig-param-cacheConfig"><span class="type-annotation"><a href="../../apix/CacheConfig-class.html">CacheConfig</a>?</span> <span class="parameter-name">cacheConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-deduplicationConfig"><span class="type-annotation"><a href="../../apix/DeduplicationConfig-class.html">DeduplicationConfig</a>?</span> <span class="parameter-name">deduplicationConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-loggerConfig"><span class="type-annotation"><a href="../../apix/LoggerConfig-class.html">LoggerConfig</a>?</span> <span class="parameter-name">loggerConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-errorTrackingConfig"><span class="type-annotation"><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a>?</span> <span class="parameter-name">errorTrackingConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-metricsConfig"><span class="type-annotation"><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a>?</span> <span class="parameter-name">metricsConfig</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-tracingConfig"><span class="type-annotation"><a href="../../apix/TracingConfig-class.html">TracingConfig</a>?</span> <span class="parameter-name">tracingConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
 </ol>})
 
@@ -85,10 +89,13 @@ final client = ApiClientFactory.fromConfig(config);
   ApiClientConfig config, {
   AuthConfig? authConfig,
   RetryConfig? retryConfig,
+  void Function(RetryAttempt attempt)? onRetry,
   CacheConfig? cacheConfig,
+  DeduplicationConfig? deduplicationConfig,
   LoggerConfig? loggerConfig,
   ErrorTrackingConfig? errorTrackingConfig,
   MetricsConfig? metricsConfig,
+  TracingConfig? tracingConfig,
   HttpClientAdapter? httpClientAdapter,
 }) {
   final dio = Dio();
@@ -118,14 +125,40 @@ final client = ApiClientFactory.fromConfig(config);
 
   &#47;&#47; Add retry interceptor if configured
   if (retryConfig != null) {
-    dio.interceptors.add(RetryInterceptor(config: retryConfig, dio: dio));
+    dio.interceptors.add(
+      RetryInterceptor(config: retryConfig, dio: dio, onRetry: onRetry),
+    );
+  }
+
+  &#47;&#47; Add standalone deduplication if configured. Deliberately placed before
+  &#47;&#47; the cache: a cache hit should not pay for a deduplication round-trip.
+  if (deduplicationConfig != null) {
+    final dedupInterceptor =
+        DeduplicationInterceptor(config: deduplicationConfig);
+    dedupInterceptor.setDio(dio);
+    dio.interceptors.add(dedupInterceptor);
   }
 
   &#47;&#47; Add cache interceptor if configured
   if (cacheConfig != null) {
-    final cacheInterceptor = CacheInterceptor(config: cacheConfig);
+    &#47;&#47; When standalone deduplication is wired in, the cache must not
+    &#47;&#47; deduplicate as well — two deduplicators in the same chain collapse the
+    &#47;&#47; same request twice, and the inner one would re-enter a chain the outer
+    &#47;&#47; one already resolved.
+    final effectiveCacheConfig = deduplicationConfig == null
+        ? cacheConfig
+        : cacheConfig.copyWith(enableDeduplication: false);
+    final cacheInterceptor = CacheInterceptor(config: effectiveCacheConfig);
     cacheInterceptor.setDio(dio);
     dio.interceptors.add(cacheInterceptor);
+  }
+
+  &#47;&#47; Add tracing AFTER the cache, deliberately: a cache hit resolves the
+  &#47;&#47; chain early and would leave a span opened before it dangling forever.
+  &#47;&#47; Sitting here, a cached response never opens one at all — which is also
+  &#47;&#47; the truth, since it spent no time on the network.
+  if (tracingConfig != null) {
+    dio.interceptors.add(TracingInterceptor(config: tracingConfig));
   }
 
   &#47;&#47; Add logger interceptor if configured
@@ -157,8 +190,13 @@ final client = ApiClientFactory.fromConfig(config);
   }
 
   &#47;&#47; Add error mapper interceptor last to transform all DioExceptions
-  &#47;&#47; into typed ApiExceptions
-  dio.interceptors.add(const ErrorMapperInterceptor());
+  &#47;&#47; into typed ApiExceptions. It reads the application error code from the
+  &#47;&#47; body key the config names, so `ApiException.code` is populated for every
+  &#47;&#47; consumer that goes through the factory — not only those who wire the
+  &#47;&#47; mapper by hand.
+  dio.interceptors.add(ErrorMapperInterceptor(
+    errorCodeKey: config.errorCodeKey,
+  ));
 
   return ApiClient(dio, config);
 }</code></pre>
@@ -189,7 +227,7 @@ final client = ApiClientFactory.fromConfig(config);
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

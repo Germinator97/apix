@@ -18,10 +18,16 @@ class HttpException extends ApiException {
   final dynamic responseBody;
 
   /// Creates an [HttpException] with the given [message] and [statusCode].
+  ///
+  /// [code] carries the application-level error code read from
+  /// [responseBody] — see [ApiException.code]. It is threaded through this
+  /// branch of the hierarchy only: an HTTP failure is the one that comes with
+  /// a body to read a code from.
   const HttpException({
     required super.message,
     required int super.statusCode,
     this.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   });
@@ -46,6 +52,7 @@ class ClientException extends HttpException {
     required super.message,
     required super.statusCode,
     super.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   });
@@ -69,6 +76,7 @@ class UnauthorizedException extends ClientException {
   const UnauthorizedException({
     super.message = 'Unauthorized',
     super.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   }) : super(statusCode: 401);
@@ -92,6 +100,7 @@ class ForbiddenException extends ClientException {
   const ForbiddenException({
     super.message = 'Forbidden',
     super.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   }) : super(statusCode: 403);
@@ -115,12 +124,70 @@ class NotFoundException extends ClientException {
   const NotFoundException({
     super.message = 'Not Found',
     super.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   }) : super(statusCode: 404);
 
   @override
   String toString() => 'NotFoundException: $message (status: 404)';
+}
+
+/// Exception thrown when the client is rate limited (429 Too Many Requests).
+///
+/// Carries [retryAfter] when the server sent a parseable `Retry-After` header,
+/// which is what lets a caller say *how long* to wait rather than showing the
+/// same generic message it would show for a malformed request:
+///
+/// ```dart
+/// on TooManyRequestsException catch (e) {
+///   final wait = e.retryAfter;
+///   showMessage(wait == null
+///       ? 'Trop de tentatives. Réessayez plus tard.'
+///       : 'Trop de tentatives. Réessayez dans ${wait.inSeconds} s.');
+/// }
+/// ```
+///
+/// Subclasses [ClientException], so existing `on ClientException` and
+/// `on HttpException` clauses keep matching a 429 exactly as before.
+class TooManyRequestsException extends ClientException {
+  /// How long the server asked the client to wait before retrying.
+  ///
+  /// Null when the response carried no `Retry-After` header, or one that could
+  /// not be parsed — the header is optional, so treat null as "unknown delay",
+  /// never as "retry now".
+  final Duration? retryAfter;
+
+  /// Creates a [TooManyRequestsException].
+  const TooManyRequestsException({
+    super.message = 'Too Many Requests',
+    this.retryAfter,
+    super.responseBody,
+    super.code,
+    super.originalError,
+    super.stackTrace,
+  }) : super(statusCode: 429);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('TooManyRequestsException: $message');
+    buffer.write(' (status: 429');
+    if (retryAfter != null) {
+      buffer.write(', retry after: ${retryAfter!.inSeconds}s');
+    }
+    buffer.write(')');
+    return buffer.toString();
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TooManyRequestsException &&
+          super == other &&
+          retryAfter == other.retryAfter;
+
+  @override
+  int get hashCode => super.hashCode ^ retryAfter.hashCode;
 }
 
 /// Exception for server errors (5xx HTTP responses).
@@ -139,6 +206,7 @@ class ServerException extends HttpException {
     required super.message,
     required super.statusCode,
     super.responseBody,
+    super.code,
     super.originalError,
     super.stackTrace,
   });

@@ -18,6 +18,27 @@ import 'package:flutter/material.dart';
 ///   await setupSentry(() async => runApp(const MyApp()));
 /// }
 /// ```
+/// The cipher used by [EncryptedCacheStorage] below.
+///
+/// Deliberately left abstract, and deliberately **not** given a toy
+/// implementation here: a base64 "encryption" in an example is the kind of
+/// thing that gets copied into production. Back it with real crypto — the
+/// `encrypt` package, or a key held in the platform keystore/Keychain — and
+/// assign it before building the client.
+///
+/// apix never sees your key: it only calls these two functions.
+abstract class AppCipher {
+  /// Encrypts [plaintext] before it reaches the cache storage.
+  String seal(String plaintext);
+
+  /// Reverses [seal]. Must throw on a wrong key rather than return garbage —
+  /// apix treats a throw as a cache miss and purges the entry.
+  String open(String sealed);
+}
+
+/// Supplied by your app at startup.
+late final AppCipher appCipher;
+
 Future<void> setupSentry(Future<void> Function() appRunner) {
   return SentrySetup.init(
     options: SentrySetupOptions(
@@ -108,6 +129,17 @@ void main() async {
       // (e.g. a gateway 502/504 on a payment) is never replayed into a
       // duplicate. Override the set to opt a method in globally.
       retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
+      // (v4.0.0+) Spreads each backoff across ±20 % of itself. ON by default:
+      // without it, every client that failed in the same outage second retries
+      // at the same instants and meets the recovering server with a spike.
+      // Set 0.0 for the old, strictly deterministic sequence.
+      jitter: 0.2,
+    ),
+    // (v4.0.0+) Fires before each retry waits. Without it a retry storm is
+    // invisible — only the final failure ever surfaces.
+    onRetry: (attempt) => debugPrint(
+      'retry #${attempt.attempt} in ${attempt.delay.inMilliseconds}ms '
+      '(status ${attempt.statusCode})',
     ),
     // Cache configuration (v1.0.1+)
     cacheConfig: CacheConfig(
@@ -125,14 +157,31 @@ void main() async {
       // Bounded at 200 entries by default: a process cache disappears when the
       // app closes, a disk cache does not. Pass `maxEntries: null` to opt out.
       //
-      // ⚠️ Entries are stored in CLEAR TEXT. Never cache credentials, tokens,
-      // personal data or amounts — and prefer a cache directory the OS may
-      // purge over a backed-up documents directory.
-      storage: FileCacheStorage(
-        Directory('${cacheDir.path}/apix_cache'),
-        maxEntries: 200,
+      // ⚠️ FileCacheStorage stores in CLEAR TEXT. Wrap it in
+      // EncryptedCacheStorage (v4.0.0+) whenever what you keep between launches
+      // is also what must not leak — amounts, personal data, anything about an
+      // identified user. You supply the cipher, so apix holds no key.
+      //
+      // Note what is NOT sealed: the cache keys, because the invalidation API
+      // reads them. An identifier in a path or query string stays readable on
+      // disk — keep it out of URLs you cache.
+      storage: EncryptedCacheStorage(
+        delegate: FileCacheStorage(
+          Directory('${cacheDir.path}/apix_cache'),
+          maxEntries: 200,
+        ),
+        encrypt: appCipher.seal,
+        decrypt: appCipher.open,
       ),
     ),
+    // (v4.0.0+) Deduplication is independent of the cache: pass this WITHOUT a
+    // cacheConfig when identical concurrent requests should collapse but
+    // nothing may be stored.
+    deduplicationConfig: const DeduplicationConfig(),
+    // (v4.0.0+) One performance span per request, as a child of the current
+    // Sentry transaction. apix already measured durations; this is what makes
+    // them aggregatable instead of visible only after an incident.
+    tracingConfig: const TracingConfig(),
     // Logger configuration (v1.0.1+)
     loggerConfig: const LoggerConfig(
       level: LogLevel.info,
@@ -154,6 +203,10 @@ void main() async {
       onError: SentrySetup.captureException,
       onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
     ),
+    // (v4.0.0+) Body key holding your API's application error code, surfaced
+    // as `ApiException.code`. Defaults to 'code'; set it if your envelope
+    // names the field differently (e.g. 'error_code').
+    errorCodeKey: 'code',
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
       onMetrics: (metrics) {
@@ -249,15 +302,50 @@ void main() async {
       User.fromJson,
     );
     debugPrint('Search results: ${searched.length}');
+
+    // --- Binary download (v4.0.0+) ---
+    // `ResponseType` now comes from the apix barrel, so a PDF or an image no
+    // longer forces a direct `package:dio` import — and with it, apix's dio
+    // version range — into your code.
+    final statement = await client.get<List<int>>(
+      '/statements/2026-08.pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    debugPrint('Statement: ${statement.data?.length ?? 0} bytes');
   } on NotFoundException catch (e) {
     debugPrint('Not found: ${e.message}');
   } on UnauthorizedException catch (e) {
     // Includes AuthException (refresh failure) — see e.originalError for cause
     debugPrint('Auth error: ${e.message}');
+  } on TooManyRequestsException catch (e) {
+    // (v4.0.0+) Must be caught BEFORE ClientException — it is a subtype, so
+    // the broader clause would swallow it and this branch would be dead code.
+    //
+    // `retryAfter` is null when the server sent no parseable Retry-After.
+    // Null means "unknown delay", never "retry now".
+    final wait = e.retryAfter;
+    debugPrint(wait == null
+        ? 'Trop de tentatives. Réessayez plus tard.'
+        : 'Trop de tentatives. Réessayez dans ${wait.inSeconds} s.');
   } on ClientException catch (e) {
-    // Any other 4xx (400, 409, 422, 429...). The caller is at fault, so
-    // retrying as-is won't help — surface the backend message.
-    debugPrint('Client error ${e.statusCode}: ${e.message}');
+    // Any other 4xx (400, 409, 422...). The caller is at fault, so
+    // retrying as-is won't help.
+    //
+    // (v4.0.0+) Prefer the application code over the status where your backend
+    // publishes one: the same business case can drift from 400 to 409 to 422
+    // across server revisions without changing meaning, and a call site keyed
+    // on the status changes behaviour the day it does.
+    switch (e.code) {
+      case 'INSUFFICIENT_FUNDS':
+        debugPrint('Solde insuffisant.');
+      case 'OPERATION_NOT_RETRYABLE':
+        debugPrint('Opération définitivement refusée.');
+      case null:
+        // No code in the body — fall back to the status.
+        debugPrint('Client error ${e.statusCode}: ${e.message}');
+      default:
+        debugPrint('Erreur métier ${e.code}: ${e.message}');
+    }
   } on ServerException catch (e) {
     // Any 5xx. Transient by nature: worth retrying and worth reporting.
     debugPrint('Server error ${e.statusCode}: ${e.message}');

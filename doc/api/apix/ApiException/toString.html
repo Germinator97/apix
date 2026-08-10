@@ -89,6 +89,9 @@ String toString() {
   if (statusCode != null) {
     buffer.write(&#39; (status: $statusCode)&#39;);
   }
+  if (code != null) {
+    buffer.write(&#39; [code: $code]&#39;);
+  }
   return buffer.toString();
 }</code></pre>
 </section>
@@ -118,7 +121,7 @@ String toString() {
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>
