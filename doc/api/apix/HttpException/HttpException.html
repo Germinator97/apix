@@ -57,6 +57,7 @@
       <span class="name ">HttpException</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-message"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span>, </span></li>
 <li><span class="parameter" id="-param-statusCode"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">statusCode</span>, </span></li>
 <li><span class="parameter" id="-param-responseBody"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseBody</span>, </span></li>
+<li><span class="parameter" id="-param-code"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">code</span>, </span></li>
 <li><span class="parameter" id="-param-originalError"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">originalError</span>, </span></li>
 <li><span class="parameter" id="-param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span>, </span></li>
 </ol>})
@@ -64,6 +65,10 @@
     
 <section class="desc markdown">
   <p>Creates an <a href="../../apix/HttpException-class.html">HttpException</a> with the given <code>message</code> and <code>statusCode</code>.</p>
+<p><code>code</code> carries the application-level error code read from
+<code>responseBody</code> — see <a href="../../apix/ApiException/code.html">ApiException.code</a>. It is threaded through this
+branch of the hierarchy only: an HTTP failure is the one that comes with
+a body to read a code from.</p>
 </section>
 
 
@@ -74,6 +79,7 @@
   required super.message,
   required int super.statusCode,
   this.responseBody,
+  super.code,
   super.originalError,
   super.stackTrace,
 });</code></pre>
@@ -104,7 +110,7 @@
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

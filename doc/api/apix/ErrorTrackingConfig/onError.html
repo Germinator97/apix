@@ -63,6 +63,14 @@
       
 <section class="desc markdown">
   <p>Callback to capture exceptions.</p>
+<p>Receives the <strong>typed <a href="../../apix/ApiException-class.html">ApiException</a></strong> — <code>ServerException</code>,
+<code>NotFoundException</code>, <code>ConnectionException</code>, ... — not the underlying
+<code>DioException</code>. That matters for a tracker: the exception's runtime type
+is what Sentry (and most others) group issues by, so reporting the raw
+<code>DioException</code> collapsed every 500, 404 and timeout into a single issue
+titled <code>DioException</code>.</p>
+<p>The original <code>DioException</code> is still reachable through
+<code>(exception as ApiException).originalError</code>.</p>
 </section>
 
       
@@ -97,7 +105,7 @@
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

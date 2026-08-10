@@ -55,8 +55,9 @@
     <section class="multi-line-signature">
       
 <span class="returntype"><a href="../../apix/ApiException-class.html">ApiException</a></span>
-<span class="name ">mapDioException</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="mapDioException-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span></span></li>
-</ol>)
+<span class="name ">mapDioException</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="mapDioException-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, {</span></li>
+<li><span class="parameter" id="mapDioException-param-errorCodeKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">errorCodeKey</span> = <span class="default-value">defaultErrorCodeKey</span>, </span></li>
+</ol>})
 
       
 
@@ -64,13 +65,21 @@
     
 <section class="desc markdown">
   <p>Maps a <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> to the appropriate <a href="../../apix/ApiException-class.html">ApiException</a> subtype.</p>
+<p><code>errorCodeKey</code> names the body field carrying the application-level error
+code (see <a href="../../apix/ApiException/code.html">ApiException.code</a>). It is a parameter rather than read off an
+instance because this is also called statically from
+<code>ErrorTrackingInterceptor</code>, which sits earlier in the chain and holds no
+reference to the mapper's configuration.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">static ApiException mapDioException(DioException err) {
+  <pre class="language-dart"><code class="language-dart">static ApiException mapDioException(
+  DioException err, {
+  String errorCodeKey = defaultErrorCodeKey,
+}) {
   switch (err.type) {
     case DioExceptionType.connectionTimeout:
       return TimeoutException(
@@ -104,7 +113,7 @@
       );
 
     case DioExceptionType.badResponse:
-      return _mapBadResponse(err);
+      return _mapBadResponse(err, errorCodeKey);
 
     case DioExceptionType.cancel:
       return ApiException(
@@ -164,7 +173,7 @@
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

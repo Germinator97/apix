@@ -95,7 +95,7 @@ dio.interceptors.add(retryInterceptor);
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="RetryInterceptor.new" class="callable">
-          <span class="name"><a href="../apix/RetryInterceptor/RetryInterceptor.html">RetryInterceptor.new</a></span><span class="signature">({<span class="parameter" id="-param-config"><span>required</span> <span class="type-annotation"><a href="../apix/RetryConfig-class.html">RetryConfig</a></span> <span class="parameter-name">config</span>, </span><span class="parameter" id="-param-dio"><span>required</span> <span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a></span> <span class="parameter-name">dio</span></span>})</span>
+          <span class="name"><a href="../apix/RetryInterceptor/RetryInterceptor.html">RetryInterceptor.new</a></span><span class="signature">({<span class="parameter" id="-param-config"><span>required</span> <span class="type-annotation"><a href="../apix/RetryConfig-class.html">RetryConfig</a></span> <span class="parameter-name">config</span>, </span><span class="parameter" id="-param-dio"><span>required</span> <span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a></span> <span class="parameter-name">dio</span>, </span><span class="parameter" id="-param-onRetry"><span class="type-annotation">void</span> <span class="parameter-name">onRetry</span>(<span class="parameter" id="param-attempt"><span class="type-annotation"><a href="../apix/RetryAttempt-class.html">RetryAttempt</a></span> <span class="parameter-name">attempt</span></span>)?, </span><span class="parameter" id="-param-random"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-math/Random-class.html">Random</a>?</span> <span class="parameter-name">random</span></span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/RetryInterceptor-class.html">RetryInterceptor</a> with the given <code>config</code> and <code>dio</code>.
@@ -141,6 +141,30 @@ dio.interceptors.add(retryInterceptor);
 <dd class="inherited">
   The hash code for this object.
   <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="onRetry" class="property">
+  <span class="name"><a href="../apix/RetryInterceptor/onRetry.html">onRetry</a></span>
+  <span class="signature">&#8594; void Function<span class="signature">(<span class="parameter" id="param-attempt"><span class="type-annotation"><a href="../apix/RetryAttempt-class.html">RetryAttempt</a></span> <span class="parameter-name">attempt</span></span>)</span>?</span>
+  
+
+</dt>
+<dd>
+  Called just before each retry is scheduled.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="random" class="property">
+  <span class="name"><a href="../apix/RetryInterceptor/random.html">random</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-math/Random-class.html">Random</a>?</span>
+  
+
+</dt>
+<dd>
+  Source of randomness for jitter; injectable so tests can pin the draw.
+  <div class="features"><span class="feature">final</span></div>
 
 </dd>
 
@@ -298,7 +322,7 @@ dio.interceptors.add(retryInterceptor);
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>
