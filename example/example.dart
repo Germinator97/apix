@@ -203,6 +203,10 @@ void main() async {
       onError: SentrySetup.captureException,
       onBreadcrumb: SentrySetup.addBreadcrumbFromMap,
     ),
+    // (v4.0.0+) Body key holding your API's application error code, surfaced
+    // as `ApiException.code`. Defaults to 'code'; set it if your envelope
+    // names the field differently (e.g. 'error_code').
+    errorCodeKey: 'code',
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
       onMetrics: (metrics) {
@@ -298,15 +302,50 @@ void main() async {
       User.fromJson,
     );
     debugPrint('Search results: ${searched.length}');
+
+    // --- Binary download (v4.0.0+) ---
+    // `ResponseType` now comes from the apix barrel, so a PDF or an image no
+    // longer forces a direct `package:dio` import — and with it, apix's dio
+    // version range — into your code.
+    final statement = await client.get<List<int>>(
+      '/statements/2026-08.pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    debugPrint('Statement: ${statement.data?.length ?? 0} bytes');
   } on NotFoundException catch (e) {
     debugPrint('Not found: ${e.message}');
   } on UnauthorizedException catch (e) {
     // Includes AuthException (refresh failure) — see e.originalError for cause
     debugPrint('Auth error: ${e.message}');
+  } on TooManyRequestsException catch (e) {
+    // (v4.0.0+) Must be caught BEFORE ClientException — it is a subtype, so
+    // the broader clause would swallow it and this branch would be dead code.
+    //
+    // `retryAfter` is null when the server sent no parseable Retry-After.
+    // Null means "unknown delay", never "retry now".
+    final wait = e.retryAfter;
+    debugPrint(wait == null
+        ? 'Trop de tentatives. Réessayez plus tard.'
+        : 'Trop de tentatives. Réessayez dans ${wait.inSeconds} s.');
   } on ClientException catch (e) {
-    // Any other 4xx (400, 409, 422, 429...). The caller is at fault, so
-    // retrying as-is won't help — surface the backend message.
-    debugPrint('Client error ${e.statusCode}: ${e.message}');
+    // Any other 4xx (400, 409, 422...). The caller is at fault, so
+    // retrying as-is won't help.
+    //
+    // (v4.0.0+) Prefer the application code over the status where your backend
+    // publishes one: the same business case can drift from 400 to 409 to 422
+    // across server revisions without changing meaning, and a call site keyed
+    // on the status changes behaviour the day it does.
+    switch (e.code) {
+      case 'INSUFFICIENT_FUNDS':
+        debugPrint('Solde insuffisant.');
+      case 'OPERATION_NOT_RETRYABLE':
+        debugPrint('Opération définitivement refusée.');
+      case null:
+        // No code in the body — fall back to the status.
+        debugPrint('Client error ${e.statusCode}: ${e.message}');
+      default:
+        debugPrint('Erreur métier ${e.code}: ${e.message}');
+    }
   } on ServerException catch (e) {
     // Any 5xx. Transient by nature: worth retrying and worth reporting.
     debugPrint('Server error ${e.statusCode}: ${e.message}');
