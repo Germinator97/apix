@@ -1,3 +1,46 @@
+## 4.0.1
+
+### Fixed
+
+* **`RequestDeduplicator` no longer reports an unhandled error on every failed
+  request.** Reported by a consumer as a review point, found by running the app on a device
+  after the 4.0.0 answer went out.
+
+  The deduplicator creates a `Completer` for duplicates that may never arrive —
+  and in the ordinary case none does, so nothing listens to its future. That is
+  harmless on success and not harmless on failure: `completeError` on a future
+  with no listener reports an unhandled asynchronous error to the current zone.
+  The caller already received that failure through `rethrow`, so the zone got a
+  second, orphaned copy: a console warning in debug, a Sentry event in
+  production, one per failed request.
+
+  The asymmetry is why it survived three releases. Only the failure path shows
+  it, and on the `GET`s deduplication targets failures are rare — until a
+  `CancelToken` on a search field makes cancellation happen on every keystroke.
+  a consumer measured five cancellations and five unhandled errors, one for one.
+
+  It also mattered more than it looked: `DeduplicationInterceptor`, new in
+  4.0.0, uses the same `RequestDeduplicator`. The defect had just become
+  reachable without installing a cache, so it was about to affect more
+  consumers, not fewer.
+
+  Pinned by four tests that fail without the fix, covering both directions:
+  nothing escapes to the zone, and a waiting duplicate still receives the error
+  it is owed. Two of them go through a real client with a `CancelToken`,
+  reproducing the reported scenario.
+
+### Known issue
+
+* **A cancelled request is observed twice when deduplication is active** — one
+  log line and one tracker capture per pass, because the deduplicated path runs
+  an inner request through the whole interceptor chain and then rejects the
+  outer one through it as well. Measured on 4.0.1: one network call, but two
+  `onError` deliveries against one without deduplication.
+
+  Not fixed here. Suppressing the second pass changes what reaches your logger
+  and your tracker, which is a behaviour change rather than a bug fix, and it
+  belongs in a minor release with its own migration note.
+
 ## 4.0.0
 
 This release answers an integration report from a consumer, filed after moving a
