@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../http/retry_after.dart';
 import 'api_exception.dart';
 import 'http_exception.dart';
 import 'network_exception.dart';
@@ -23,12 +24,21 @@ import 'network_exception.dart';
 /// }
 /// ```
 class ErrorMapperInterceptor extends Interceptor {
+  /// Default body key read for the application-level error code.
+  static const String defaultErrorCodeKey = 'code';
+
+  /// Body key holding the application-level error code.
+  ///
+  /// Mirrors `ApiClientConfig.errorCodeKey`, which is what
+  /// `ApiClientFactory` threads in here. See [ApiException.code].
+  final String errorCodeKey;
+
   /// Creates an [ErrorMapperInterceptor].
-  const ErrorMapperInterceptor();
+  const ErrorMapperInterceptor({this.errorCodeKey = defaultErrorCodeKey});
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    final apiException = mapDioException(err);
+    final apiException = mapDioException(err, errorCodeKey: errorCodeKey);
 
     handler.reject(
       DioException(
@@ -42,7 +52,16 @@ class ErrorMapperInterceptor extends Interceptor {
   }
 
   /// Maps a [DioException] to the appropriate [ApiException] subtype.
-  static ApiException mapDioException(DioException err) {
+  ///
+  /// [errorCodeKey] names the body field carrying the application-level error
+  /// code (see [ApiException.code]). It is a parameter rather than read off an
+  /// instance because this is also called statically from
+  /// `ErrorTrackingInterceptor`, which sits earlier in the chain and holds no
+  /// reference to the mapper's configuration.
+  static ApiException mapDioException(
+    DioException err, {
+    String errorCodeKey = defaultErrorCodeKey,
+  }) {
     switch (err.type) {
       case DioExceptionType.connectionTimeout:
         return TimeoutException(
@@ -76,7 +95,7 @@ class ErrorMapperInterceptor extends Interceptor {
         );
 
       case DioExceptionType.badResponse:
-        return _mapBadResponse(err);
+        return _mapBadResponse(err, errorCodeKey);
 
       case DioExceptionType.cancel:
         return ApiException(
@@ -110,27 +129,42 @@ class ErrorMapperInterceptor extends Interceptor {
     }
   }
 
-  static ApiException _mapBadResponse(DioException err) {
+  static ApiException _mapBadResponse(DioException err, String errorCodeKey) {
     final response = err.response;
     final statusCode = response?.statusCode ?? 0;
     final message = _extractMessage(response);
+    final code = _extractCode(response, errorCodeKey);
 
     return switch (statusCode) {
       401 => UnauthorizedException(
           message: message,
           responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
       403 => ForbiddenException(
           message: message,
           responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
       404 => NotFoundException(
           message: message,
           responseBody: response?.data,
+          code: code,
+          originalError: err,
+          stackTrace: err.stackTrace,
+        ),
+      // Must precede the generic 4xx arm below, which would otherwise swallow
+      // 429 into a plain ClientException and drop the one thing that makes a
+      // rate-limit actionable: how long to wait.
+      429 => TooManyRequestsException(
+          message: message,
+          retryAfter: _extractRetryAfter(response),
+          responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
@@ -143,6 +177,7 @@ class ErrorMapperInterceptor extends Interceptor {
           message: message,
           statusCode: statusCode,
           responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
@@ -150,6 +185,7 @@ class ErrorMapperInterceptor extends Interceptor {
           message: message,
           statusCode: statusCode,
           responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
@@ -160,9 +196,44 @@ class ErrorMapperInterceptor extends Interceptor {
           message: message,
           statusCode: statusCode,
           responseBody: response?.data,
+          code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
+    };
+  }
+
+  /// Reads and parses the `Retry-After` header, if the response carried one.
+  ///
+  /// Uses the same parser as `RetryInterceptor`, so what the caller is told to
+  /// wait and what the interceptor actually waits cannot drift apart.
+  static Duration? _extractRetryAfter(Response<dynamic>? response) {
+    final header = response?.headers.value('retry-after');
+    return header == null ? null : parseRetryAfterHeader(header);
+  }
+
+  /// Reads the application-level error code from the response body.
+  ///
+  /// Looks in the same two shapes [_extractMessage] already handles — flat
+  /// (`{"code": "..."}`) then nested (`{"error": {"code": "..."}}`) — so a
+  /// backend does not have to place its code and its message differently for
+  /// both to be picked up.
+  ///
+  /// A numeric code is stringified: a JSON `4001` comes back as `'4001'`, so
+  /// call sites can `switch` on a single type without knowing which of the two
+  /// the server sent. Any other type yields null rather than a `toString()`
+  /// that would turn a malformed body into a plausible-looking code.
+  static String? _extractCode(Response<dynamic>? response, String key) {
+    final data = response?.data;
+    if (data is! Map) return null;
+
+    final nested = data['error'];
+    final code = data[key] ?? (nested is Map ? nested[key] : null);
+
+    return switch (code) {
+      final String value => value,
+      final num value => value.toString(),
+      _ => null,
     };
   }
 

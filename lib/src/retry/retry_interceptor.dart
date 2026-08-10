@@ -1,7 +1,6 @@
-import 'dart:io' show HttpDate;
-
 import 'package:dio/dio.dart';
 
+import '../http/retry_after.dart';
 import 'retry_config.dart';
 
 /// Key used to mark a request as non-retryable.
@@ -134,20 +133,12 @@ class RetryInterceptor extends Interceptor {
   /// be parsed. Negative or past values are clamped to [Duration.zero].
   ///
   /// [now] is injectable for deterministic testing of HTTP-date values.
-  static Duration? parseRetryAfter(String value, {DateTime? now}) {
-    final trimmed = value.trim();
-    final seconds = int.tryParse(trimmed);
-    if (seconds != null) {
-      return Duration(seconds: seconds < 0 ? 0 : seconds);
-    }
-    try {
-      final target = HttpDate.parse(trimmed);
-      final delta = target.difference(now ?? DateTime.now());
-      return delta.isNegative ? Duration.zero : delta;
-    } catch (_) {
-      return null;
-    }
-  }
+  ///
+  /// Delegates to [parseRetryAfterHeader]: the error mapper needs the same
+  /// parsing to expose `TooManyRequestsException.retryAfter`, and two copies
+  /// would eventually disagree about what the server asked for.
+  static Duration? parseRetryAfter(String value, {DateTime? now}) =>
+      parseRetryAfterHeader(value, now: now);
 
   /// Returns true if the request has retry disabled.
   bool _isNoRetry(RequestOptions options) {
