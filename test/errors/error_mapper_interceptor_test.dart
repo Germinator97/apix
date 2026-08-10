@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io' show HttpDate;
+
 import 'package:apix/apix.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -405,5 +408,292 @@ void main() {
         expect(result.message, equals('Unknown error'));
       });
     });
+
+    group('429 rate limiting', () {
+      DioException rateLimited({String? retryAfter}) {
+        final options = RequestOptions(path: '/test');
+        return DioException(
+          type: DioExceptionType.badResponse,
+          requestOptions: options,
+          response: Response<dynamic>(
+            requestOptions: options,
+            statusCode: 429,
+            data: {'message': 'Slow down'},
+            headers: Headers.fromMap({
+              if (retryAfter != null) 'retry-after': [retryAfter],
+            }),
+          ),
+        );
+      }
+
+      test('maps 429 to TooManyRequestsException', () {
+        final result = ErrorMapperInterceptor.mapDioException(rateLimited());
+
+        expect(result, isA<TooManyRequestsException>());
+        expect(result.statusCode, equals(429));
+      });
+
+      // The whole point of adding a subtype is that it must not narrow what
+      // already matched: a consumer catching either of these keeps working.
+      test('stays catchable as ClientException and HttpException', () {
+        final result = ErrorMapperInterceptor.mapDioException(rateLimited());
+
+        expect(result, isA<ClientException>());
+        expect(result, isA<HttpException>());
+        expect(result, isA<ApiException>());
+      });
+
+      test('exposes retryAfter from a delta-seconds header', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          rateLimited(retryAfter: '120'),
+        );
+
+        expect(
+          (result as TooManyRequestsException).retryAfter,
+          equals(const Duration(seconds: 120)),
+        );
+      });
+
+      test('exposes retryAfter from an HTTP-date header', () {
+        final target = DateTime.now().toUtc().add(const Duration(seconds: 90));
+        final result = ErrorMapperInterceptor.mapDioException(
+          rateLimited(retryAfter: HttpDate.format(target)),
+        );
+
+        final retryAfter = (result as TooManyRequestsException).retryAfter;
+        expect(retryAfter, isNotNull);
+        // Wall-clock moves between formatting and parsing, so assert a window
+        // rather than an exact equality that would flake.
+        expect(retryAfter!.inSeconds, closeTo(90, 5));
+      });
+
+      test('leaves retryAfter null when the header is absent', () {
+        final result = ErrorMapperInterceptor.mapDioException(rateLimited());
+
+        expect(
+          (result as TooManyRequestsException).retryAfter,
+          isNull,
+          reason: 'Retry-After is optional — null must read as "unknown '
+              'delay", never as "retry now"',
+        );
+      });
+
+      test('leaves retryAfter null when the header is unparseable', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          rateLimited(retryAfter: 'whenever you feel like it'),
+        );
+
+        expect((result as TooManyRequestsException).retryAfter, isNull);
+      });
+
+      test('carries the application code alongside retryAfter', () {
+        final options = RequestOptions(path: '/test');
+        final result = ErrorMapperInterceptor.mapDioException(
+          DioException(
+            type: DioExceptionType.badResponse,
+            requestOptions: options,
+            response: Response<dynamic>(
+              requestOptions: options,
+              statusCode: 429,
+              data: {'code': 'RATE_LIMITED', 'message': 'Slow down'},
+              headers: Headers.fromMap({
+                'retry-after': ['30'],
+              }),
+            ),
+          ),
+        );
+
+        expect(result, isA<TooManyRequestsException>());
+        expect(result.code, equals('RATE_LIMITED'));
+        expect(
+          (result as TooManyRequestsException).retryAfter,
+          equals(const Duration(seconds: 30)),
+        );
+      });
+    });
+
+    group('application error code', () {
+      DioException badResponse(dynamic body, {int statusCode = 400}) {
+        final options = RequestOptions(path: '/test');
+        return DioException(
+          type: DioExceptionType.badResponse,
+          requestOptions: options,
+          response: Response<dynamic>(
+            requestOptions: options,
+            statusCode: statusCode,
+            data: body,
+          ),
+        );
+      }
+
+      test('reads the code from a flat envelope body', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({
+            'code': 'OPERATION_NOT_RETRYABLE',
+            'message': 'Cannot retry',
+            'data': null,
+          }),
+        );
+
+        expect(result.code, equals('OPERATION_NOT_RETRYABLE'));
+        expect(result.message, equals('Cannot retry'));
+      });
+
+      test('reads the code from a nested error object', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({
+            'error': {'code': 'FILE_STORAGE_UNAVAILABLE', 'message': 'Down'},
+          }),
+        );
+
+        expect(result.code, equals('FILE_STORAGE_UNAVAILABLE'));
+      });
+
+      test('stringifies a numeric code so call sites switch on one type', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({'code': 4001, 'message': 'Numeric'}),
+        );
+
+        expect(result.code, equals('4001'));
+      });
+
+      test('honours a custom errorCodeKey', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({'error_code': 'LEGACY_KEY', 'message': 'Custom'}),
+          errorCodeKey: 'error_code',
+        );
+
+        expect(result.code, equals('LEGACY_KEY'));
+      });
+
+      // Asserting through `mapDioException(..., errorCodeKey: i.errorCodeKey)`
+      // would be circular — expectation and measurement would both come from
+      // the same field. Going through the factory proves the whole chain
+      // instead: `ApiClientConfig.errorCodeKey` reaches the mapper, and what
+      // the caller catches carries the code.
+      test('the configured key reaches the caller through the factory',
+          () async {
+        final client = ApiClientFactory.create(
+          baseUrl: 'https://api.test',
+          errorCodeKey: 'error_code',
+          httpClientAdapter: _ErrorBodyAdapter({'error_code': 'WIRED'}),
+        );
+
+        await expectLater(
+          client.get<dynamic>('/test'),
+          throwsA(isA<ClientException>()
+              .having((e) => e.code, 'code', 'WIRED')
+              .having((e) => e.statusCode, 'statusCode', 400)),
+        );
+      });
+
+      test('the default key leaves a differently-keyed body null', () async {
+        final client = ApiClientFactory.create(
+          baseUrl: 'https://api.test',
+          httpClientAdapter: _ErrorBodyAdapter({'error_code': 'WIRED'}),
+        );
+
+        await expectLater(
+          client.get<dynamic>('/test'),
+          throwsA(isA<ClientException>().having((e) => e.code, 'code', isNull)),
+          reason: 'without this, the previous test would pass even if the '
+              'mapper ignored its key and read every field',
+        );
+      });
+
+      // The absent-code cases matter as much as the present ones: `code` is
+      // read defensively, so a bug that returned a plausible-looking value for
+      // a malformed body would never raise anything.
+      test('yields null when the body carries no code', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({'message': 'No code here'}),
+        );
+
+        expect(result.code, isNull);
+      });
+
+      test('yields null when the body is not a JSON object', () {
+        expect(
+          ErrorMapperInterceptor.mapDioException(badResponse('plain text'))
+              .code,
+          isNull,
+        );
+        expect(
+          ErrorMapperInterceptor.mapDioException(badResponse(null)).code,
+          isNull,
+        );
+        expect(
+          ErrorMapperInterceptor.mapDioException(badResponse([1, 2, 3])).code,
+          isNull,
+        );
+      });
+
+      test('yields null when the code is neither a string nor a number', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          badResponse({
+            'code': {'nested': 'object'},
+          }),
+        );
+
+        expect(
+          result.code,
+          isNull,
+          reason: 'a toString() here would turn a malformed body into a '
+              'plausible-looking code',
+        );
+      });
+
+      test('is null on non-HTTP failures, which have no body to read', () {
+        final result = ErrorMapperInterceptor.mapDioException(
+          DioException(
+            type: DioExceptionType.connectionError,
+            requestOptions: RequestOptions(path: '/test'),
+            message: 'Offline',
+          ),
+        );
+
+        expect(result.code, isNull);
+      });
+
+      test('is carried by every mapped status, not just the named ones', () {
+        for (final status in [401, 403, 404, 422, 500, 503]) {
+          final result = ErrorMapperInterceptor.mapDioException(
+            badResponse({'code': 'CODE_$status'}, statusCode: status),
+          );
+
+          expect(
+            result.code,
+            equals('CODE_$status'),
+            reason: 'status $status dropped the application code',
+          );
+        }
+      });
+    });
   });
+}
+
+/// Answers a fixed 400 with [body], so the error path can be exercised through
+/// a real Dio chain rather than by calling the mapper directly.
+class _ErrorBodyAdapter implements HttpClientAdapter {
+  _ErrorBodyAdapter(this.body);
+
+  final Map<String, dynamic> body;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<dynamic>? cancelFuture,
+  ) async {
+    return ResponseBody.fromBytes(
+      utf8.encode(jsonEncode(body)),
+      400,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

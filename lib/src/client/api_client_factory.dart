@@ -4,6 +4,8 @@ import '../auth/auth_config.dart';
 import '../auth/auth_interceptor.dart';
 import '../cache/cache_config.dart';
 import '../cache/cache_interceptor.dart';
+import '../cache/deduplication_config.dart';
+import '../cache/deduplication_interceptor.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../logging/logger_config.dart';
 import '../logging/logger_interceptor.dart';
@@ -57,12 +59,14 @@ class ApiClientFactory {
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
     CacheConfig? cacheConfig,
+    DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
     List<Interceptor>? interceptors,
     HttpClientAdapter? httpClientAdapter,
     String dataKey = 'data',
+    String errorCodeKey = 'code',
     bool strictContentType = false,
     ResponseValidator? responseValidator,
   }) {
@@ -75,6 +79,7 @@ class ApiClientFactory {
       headers: headers,
       interceptors: interceptors,
       dataKey: dataKey,
+      errorCodeKey: errorCodeKey,
       strictContentType: strictContentType,
       responseValidator: responseValidator,
     );
@@ -83,6 +88,7 @@ class ApiClientFactory {
       authConfig: authConfig,
       retryConfig: retryConfig,
       cacheConfig: cacheConfig,
+      deduplicationConfig: deduplicationConfig,
       loggerConfig: loggerConfig,
       errorTrackingConfig: errorTrackingConfig,
       metricsConfig: metricsConfig,
@@ -102,6 +108,7 @@ class ApiClientFactory {
     AuthConfig? authConfig,
     RetryConfig? retryConfig,
     CacheConfig? cacheConfig,
+    DeduplicationConfig? deduplicationConfig,
     LoggerConfig? loggerConfig,
     ErrorTrackingConfig? errorTrackingConfig,
     MetricsConfig? metricsConfig,
@@ -137,9 +144,25 @@ class ApiClientFactory {
       dio.interceptors.add(RetryInterceptor(config: retryConfig, dio: dio));
     }
 
+    // Add standalone deduplication if configured. Deliberately placed before
+    // the cache: a cache hit should not pay for a deduplication round-trip.
+    if (deduplicationConfig != null) {
+      final dedupInterceptor =
+          DeduplicationInterceptor(config: deduplicationConfig);
+      dedupInterceptor.setDio(dio);
+      dio.interceptors.add(dedupInterceptor);
+    }
+
     // Add cache interceptor if configured
     if (cacheConfig != null) {
-      final cacheInterceptor = CacheInterceptor(config: cacheConfig);
+      // When standalone deduplication is wired in, the cache must not
+      // deduplicate as well — two deduplicators in the same chain collapse the
+      // same request twice, and the inner one would re-enter a chain the outer
+      // one already resolved.
+      final effectiveCacheConfig = deduplicationConfig == null
+          ? cacheConfig
+          : cacheConfig.copyWith(enableDeduplication: false);
+      final cacheInterceptor = CacheInterceptor(config: effectiveCacheConfig);
       cacheInterceptor.setDio(dio);
       dio.interceptors.add(cacheInterceptor);
     }
@@ -173,8 +196,13 @@ class ApiClientFactory {
     }
 
     // Add error mapper interceptor last to transform all DioExceptions
-    // into typed ApiExceptions
-    dio.interceptors.add(const ErrorMapperInterceptor());
+    // into typed ApiExceptions. It reads the application error code from the
+    // body key the config names, so `ApiException.code` is populated for every
+    // consumer that goes through the factory — not only those who wire the
+    // mapper by hand.
+    dio.interceptors.add(ErrorMapperInterceptor(
+      errorCodeKey: config.errorCodeKey,
+    ));
 
     return ApiClient(dio, config);
   }
