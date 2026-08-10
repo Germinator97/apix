@@ -111,6 +111,7 @@ bool operator ==(Object other) =&gt;
         multiplier == other.multiplier &amp;&amp;
         maxDelayMs == other.maxDelayMs &amp;&amp;
         respectRetryAfter == other.respectRetryAfter &amp;&amp;
+        jitter == other.jitter &amp;&amp;
         _listEquals(retryStatusCodes, other.retryStatusCodes) &amp;&amp;
         _setEquals(retryableMethods, other.retryableMethods);</code></pre>
 </section>
@@ -140,7 +141,7 @@ bool operator ==(Object other) =&gt;
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

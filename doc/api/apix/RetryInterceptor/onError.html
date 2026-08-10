@@ -121,6 +121,22 @@ void onError(
 
     &#47;&#47; Calculate delay and wait
     final delay = _resolveDelay(err, currentAttempt);
+
+    &#47;&#47; Announce the retry *before* waiting, so a storm is visible while it is
+    &#47;&#47; happening rather than only once it has finished. A throwing callback
+    &#47;&#47; must not cancel the retry it was only meant to observe.
+    if (onRetry != null) {
+      try {
+        onRetry!(RetryAttempt(
+          attempt: currentAttempt,
+          delay: delay,
+          cause: err,
+        ));
+      } catch (_) {
+        &#47;&#47; Observability must never break the request path.
+      }
+    }
+
     await Future&lt;void&gt;.delayed(delay);
 
     &#47;&#47; Increment attempt count for the retry
@@ -165,7 +181,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

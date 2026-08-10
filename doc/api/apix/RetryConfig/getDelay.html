@@ -55,8 +55,9 @@
     <section class="multi-line-signature">
       
 <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Duration-class.html">Duration</a></span>
-<span class="name ">getDelay</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="getDelay-param-attempt"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">attempt</span></span></li>
-</ol>)
+<span class="name ">getDelay</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="getDelay-param-attempt"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">attempt</span>, {</span></li>
+<li><span class="parameter" id="getDelay-param-random"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-math/Random-class.html">Random</a>?</span> <span class="parameter-name">random</span>, </span></li>
+</ol>})
 
       
 
@@ -64,17 +65,20 @@
     
 <section class="desc markdown">
   <p>Calculates the delay for the given <code>attempt</code> number (0-indexed).</p>
-<p>Uses exponential backoff: baseDelayMs * (multiplier ^ attempt),
-capped at <a href="../../apix/RetryConfig/maxDelayMs.html">maxDelayMs</a>.</p>
+<p>Uses exponential backoff: baseDelayMs * (multiplier ^ attempt), spread by
+<a href="../../apix/RetryConfig/jitter.html">jitter</a>, then capped at <a href="../../apix/RetryConfig/maxDelayMs.html">maxDelayMs</a>.</p>
+<p><code>random</code> is injectable so tests can pin the draw; production callers omit
+it and share a single generator.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">Duration getDelay(int attempt) {
+  <pre class="language-dart"><code class="language-dart">Duration getDelay(int attempt, {Random? random}) {
   final delayMs = baseDelayMs * _pow(multiplier, attempt);
-  final capped = delayMs.clamp(0, maxDelayMs).toInt();
+  final spread = _applyJitter(delayMs, random ?? _sharedRandom);
+  final capped = spread.clamp(0, maxDelayMs).toInt();
   return Duration(milliseconds: capped);
 }</code></pre>
 </section>
@@ -104,7 +108,7 @@ capped at <a href="../../apix/RetryConfig/maxDelayMs.html">maxDelayMs</a>.</p>
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

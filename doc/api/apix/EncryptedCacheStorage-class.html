@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the EncryptedCacheStorage class from the apix library, for the Dart programming language.">
+  <title>EncryptedCacheStorage class - apix library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">apix</a></li>
+    <li><a href="../apix/">apix.dart</a></li>
+    <li class="self-crumb">EncryptedCacheStorage class</li>
+  </ol>
+  <div class="self-name">EncryptedCacheStorage</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar="apix&#47;apix-library-sidebar.html"
+    data-below-sidebar="apix&#47;EncryptedCacheStorage-class-sidebar.html">
+    <div>
+<h1><span class="kind-class">EncryptedCacheStorage</span> class 
+ 
+</h1></div>
+
+    
+<section class="desc markdown">
+  <p>Wraps any <a href="../apix/CacheStorage-class.html">CacheStorage</a> so response bodies are encrypted at rest.</p>
+<p><code>FileCacheStorage</code> writes in clear text, which rules it out wherever the
+thing worth keeping between launches is also the thing that must not leak —
+a balance, a medical record, a statement. This decorator closes that gap
+without apix taking on a crypto dependency or, worse, the responsibility of
+managing a key: <strong>you</strong> supply <a href="../apix/EncryptedCacheStorage/encrypt.html">encrypt</a> and <a href="../apix/EncryptedCacheStorage/decrypt.html">decrypt</a>, so the algorithm and
+the key stay in the app that owns them.</p>
+<pre class="language-dart"><code class="language-dart">final storage = EncryptedCacheStorage(
+  delegate: FileCacheStorage(directory: dir),
+  encrypt: (plain) =&gt; myCipher.encrypt(plain),
+  decrypt: (cipher) =&gt; myCipher.decrypt(cipher),
+);
+</code></pre>
+<h2 id="what-is-and-isnt-protected">What is and isn't protected</h2>
+<p>Encrypted: the response body and the stored headers — everything that came
+back from the server.</p>
+<p><strong>Not encrypted: the cache keys.</strong> They stay in clear text because the whole
+invalidation API is built on reading them — <code>keys()</code>, <code>removeWhere()</code>,
+<code>removeByPrefix()</code>, <code>invalidateUrl()</code> would all break if they were opaque.
+A key is <code>METHOD:url?sorted-query</code>, so anything identifying in a <em>path</em> or a
+<em>query parameter</em> — <code>/members/1234/balance</code>, <code>?nationalId=...</code> — remains
+readable on disk. Where that matters, keep it out of the URL, or don't cache
+that endpoint.</p>
+<p>Also unencrypted, and deliberately: status code, timestamps and ETag. The
+TTL has to be readable without a key, otherwise <code>has()</code> and every expiry
+check would have to decrypt every entry just to learn it was stale.</p>
+</section>
+
+
+    <section>
+      <dl class="dl-horizontal">
+        
+
+        
+  <dt>Implemented types</dt>
+  <dd>
+    <ul class="comma-separated clazz-relationships">
+        <li><a href="../apix/CacheStorage-class.html">CacheStorage</a></li>
+    </ul>
+  </dd>
+        
+
+
+        
+        
+
+
+      </dl>
+    </section>
+
+    
+  <section class="summary offset-anchor" id="constructors">
+    <h2>Constructors</h2>
+    <dl class="constructor-summary-list">
+        <dt id="EncryptedCacheStorage.new" class="callable">
+          <span class="name"><a href="../apix/EncryptedCacheStorage/EncryptedCacheStorage.html">EncryptedCacheStorage.new</a></span><span class="signature">({<span class="parameter" id="-param-delegate"><span>required</span> <span class="type-annotation"><a href="../apix/CacheStorage-class.html">CacheStorage</a></span> <span class="parameter-name">delegate</span>, </span><span class="parameter" id="-param-encrypt"><span>required</span> <span class="type-annotation"><a href="../apix/CacheCipher.html">CacheCipher</a></span> <span class="parameter-name">encrypt</span>, </span><span class="parameter" id="-param-decrypt"><span>required</span> <span class="type-annotation"><a href="../apix/CacheCipher.html">CacheCipher</a></span> <span class="parameter-name">decrypt</span></span>})</span>
+        </dt>
+        <dd>
+          Creates an <a href="../apix/EncryptedCacheStorage-class.html">EncryptedCacheStorage</a> around <code>delegate</code>.
+        </dd>
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-properties">
+    <h2>Properties</h2>
+    <dl class="properties">
+        <dt id="decrypt" class="property">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/decrypt.html">decrypt</a></span>
+  <span class="signature">&#8594; <a href="../apix/CacheCipher.html">CacheCipher</a></span>
+  
+
+</dt>
+<dd>
+  Applied after reading. Must be the inverse of <a href="../apix/EncryptedCacheStorage/encrypt.html">encrypt</a>.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="delegate" class="property">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/delegate.html">delegate</a></span>
+  <span class="signature">&#8594; <a href="../apix/CacheStorage-class.html">CacheStorage</a></span>
+  
+
+</dt>
+<dd>
+  The storage doing the actual persisting.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="encrypt" class="property">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/encrypt.html">encrypt</a></span>
+  <span class="signature">&#8594; <a href="../apix/CacheCipher.html">CacheCipher</a></span>
+  
+
+</dt>
+<dd>
+  Applied before writing.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
+        <dt id="hashCode" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  The hash code for this object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="runtimeType" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html">runtimeType</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Type-class.html">Type</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  A representation of the runtime type of the object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-methods">
+    <h2>Methods</h2>
+    <dl class="callables">
+        <dt id="clear" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/clear.html">clear</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Clears all cached entries.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="get" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/get.html">get</a></span><span class="signature">(<wbr><span class="parameter" id="get-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../apix/CacheEntry-class.html">CacheEntry</a>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Retrieves a cached entry by key, <strong>expired or not</strong>.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="has" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/has.html">has</a></span><span class="signature">(<wbr><span class="parameter" id="has-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether a <strong>valid, readable</strong> entry exists for <code>key</code>.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="keys" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/keys.html">keys</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns all cached keys.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="noSuchMethod" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a></span><span class="signature">(<wbr><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span>)
+    <span class="returntype parameter">&#8594; dynamic</span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  Invoked when a nonexistent method or property is accessed.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="remove" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/remove.html">remove</a></span><span class="signature">(<wbr><span class="parameter" id="remove-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Removes a specific cache entry.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="removeByPrefix" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/removeByPrefix.html">removeByPrefix</a></span><span class="signature">(<wbr><span class="parameter" id="removeByPrefix-param-prefix"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">prefix</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Removes all entries whose keys start with the given prefix.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="removeWhere" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/removeWhere.html">removeWhere</a></span><span class="signature">(<wbr><span class="parameter" id="removeWhere-param-predicate"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">predicate</span>(<span class="parameter" id="param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span></span>)</span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Removes all entries matching the given pattern.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="set" class="callable">
+  <span class="name"><a href="../apix/EncryptedCacheStorage/set.html">set</a></span><span class="signature">(<wbr><span class="parameter" id="set-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span>, </span><span class="parameter" id="set-param-entry"><span class="type-annotation"><a href="../apix/CacheEntry-class.html">CacheEntry</a></span> <span class="parameter-name">entry</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a cache entry with the given key.
+  <div class="features"><span class="feature">override</span></div>
+
+</dd>
+
+        <dt id="toString" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/toString.html">toString</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  A string representation of this object.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor inherited"
+      id="operators">
+    <h2>Operators</h2>
+    <dl class="callables">
+        <dt id="operator ==" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  The equality operator.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+    
+    
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">apix</a></li>
+    <li><a href="../apix/">apix</a></li>
+    <li class="self-crumb">EncryptedCacheStorage class</li>
+</ol>
+
+    <h5>apix library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    apix
+      4.0.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

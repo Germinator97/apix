@@ -97,13 +97,13 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^3.0.0
+  apix: ^4.0.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
 <hr>
 <h2 id="full-configuration">Full Configuration</h2>
-<p>ApiX supports declarative configuration with 6 optional parameters:</p>
+<p>ApiX supports declarative configuration with 8 optional config blocks:</p>
 <pre class="language-dart"><code class="language-dart">final tokenProvider = SecureTokenProvider();
 
 final client = ApiClientFactory.create(
@@ -172,6 +172,13 @@ final client = ApiClientFactory.create(
       debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
     },
   ),
+
+  // 🔗 Collapse identical concurrent requests — independent of the cache,
+  // so you can have this without storing anything.
+  deduplicationConfig: const DeduplicationConfig(),
+
+  // ⏱️ One performance span per request, under the current Sentry transaction
+  tracingConfig: const TracingConfig(),
 );
 </code></pre>
 <hr>
@@ -218,12 +225,20 @@ await tokenProvider.clearTokens();
     maxAttempts: 3,
     retryStatusCodes: [500, 502, 503, 504],
     baseDelayMs: 1000,
-    multiplier: 2.0,  // 1s → 2s → 4s
+    multiplier: 2.0,  // 1s → 2s → 4s, each spread by jitter
     maxDelayMs: 30000, // Never wait more than 30s
     respectRetryAfter: true, // Honor Retry-After header (default)
+    jitter: 0.2, // ±20 % spread, ON by default — 0.0 disables it
     // Idempotent methods only (RFC 7231 §4.2.2) — POST/PATCH excluded (default)
     retryableMethods: {'GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE'},
   ),
+  // Observe every retry — route it to a breadcrumb and a storm stops being
+  // invisible.
+  onRetry: (attempt) =&gt; Sentry.addBreadcrumb(Breadcrumb(
+    message: 'retry #${attempt.attempt} in ${attempt.delay.inMilliseconds}ms '
+        '(status ${attempt.statusCode})',
+    category: 'http',
+  )),
 );
 
 // Disable retry for a specific request
@@ -244,6 +259,12 @@ final topup = await client.post&lt;Map&lt;String, dynamic&gt;&gt;(
 );
 </code></pre>
 <p><strong>Method-aware retry (idempotency)</strong>: retry only replays requests whose method is in <code>retryableMethods</code>, which defaults to the <strong>idempotent</strong> methods per RFC 7231 §4.2.2 (<code>GET, HEAD, OPTIONS, TRACE, PUT, DELETE</code>). <strong><code>POST</code> and <code>PATCH</code> are excluded by default</strong> — replaying them after a <code>5xx</code> that the server may already have committed (e.g. a gateway <code>502</code>/<code>504</code>) would duplicate the side effect (double charge). To retry a non-idempotent request that is provably safe to replay, opt in per request with <code>forceRetryKey</code> (or <code>RequestOptions.forceRetry()</code>); it overrides the method guard only.</p>
+<p><strong>Jitter (on by default)</strong>: a purely deterministic backoff makes every client
+that failed during the same outage second retry at exactly the same instants, so
+a server coming back up meets a synchronised spike. <code>jitter</code> spreads each delay
+uniformly across ±20 % of itself. Set <code>jitter: 0.0</code> for the strictly
+deterministic sequence — and note that any test asserting an exact delay needs
+it. A server-named <code>Retry-After</code> is never jittered.</p>
 <p><strong><code>Retry-After</code> header (RFC 7231 §7.1.3)</strong>: when <code>respectRetryAfter</code> is <code>true</code> (default), responses carrying a <code>Retry-After</code> header — typically on <code>429 Too Many Requests</code> or <code>503 Service Unavailable</code> — are honored. Both delta-seconds (<code>"60"</code>) and HTTP-date (<code>"Wed, 21 Oct 2026 07:28:00 GMT"</code>) formats are parsed. The resolved delay is capped at <code>maxDelayMs</code>. Falls back to exponential backoff if the header is absent or malformed.</p>
 <hr>
 <h3 id="-smart-caching">💾 Smart Caching</h3>
@@ -345,6 +366,109 @@ personal data or amounts you would not write to a log. Prefer a cache
 directory the OS may purge over a backed-up documents directory.</p>
 </blockquote>
 <hr>
+<h3 id="-deduplication-without-a-cache">🔗 Deduplication without a cache</h3>
+<p>Deduplication collapses identical concurrent requests into one call. It says
+nothing about whether responses should be <em>stored</em>, so it no longer requires a
+cache:</p>
+<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  deduplicationConfig: const DeduplicationConfig(),
+  // no cacheConfig — nothing is ever written anywhere
+);
+</code></pre>
+<p>Three widgets asking for the same profile at once produce one request. A later,
+sequential request still hits the network: this is about concurrency, not
+caching.</p>
+<p>When both <code>deduplicationConfig</code> and <code>cacheConfig</code> are supplied, the cache's own
+deduplication is switched off so a request is not collapsed twice.</p>
+<h3 id="-encrypted-cache">🔒 Encrypted cache</h3>
+<p><code>FileCacheStorage</code> writes in clear text. Where the data worth keeping between
+launches is also the data that must not leak, wrap it:</p>
+<pre class="language-dart"><code class="language-dart">final storage = EncryptedCacheStorage(
+  delegate: FileCacheStorage(directory: dir),
+  encrypt: (plain) =&gt; myCipher.encrypt(plain),
+  decrypt: (sealed) =&gt; myCipher.decrypt(sealed),
+);
+</code></pre>
+<p>You supply the cipher, so apix carries neither a crypto dependency nor your key.</p>
+<p>Body and headers are sealed. <strong>Cache keys are not</strong> — the whole invalidation API
+reads them (<code>removeByPrefix</code>, <code>invalidateUrl</code>), so an identifying path or query
+parameter stays readable on disk. Keep those out of the URL, or don't cache that
+endpoint. Status, timestamps and ETag stay readable too, so expiry can be checked
+without a key.</p>
+<p>An entry that cannot be decrypted — rotated key, corrupted file — reads as a miss
+and is purged, rather than throwing on the request path.</p>
+<h3 id="-performance-spans">⏱️ Performance spans</h3>
+<pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  tracingConfig: const TracingConfig(),
+);
+</code></pre>
+<p>Opens one span per request as a child of the current Sentry transaction, with
+method, host, path and final status. One span covers the whole logical
+request — retries and backoff included — because that is what the caller waited
+for. A response served from cache opens none: it spent no time on the network.</p>
+<p>Requires an active transaction (<code>tracesSampleRate</code> &gt; 0 in <code>SentrySetup</code>);
+without one, nothing is traced.</p>
+<h3 id="-no-dio-import-required">📦 No dio import required</h3>
+<p>apix re-exports the dio types its own API hands back, so consumer code — and,
+more to the point, consumer <em>tests</em> — need not depend on <code>package:dio</code>
+directly. That matters beyond convenience: a direct import makes apix's
+declared dio version range a constraint on your code too.</p>
+<pre class="language-dart"><code class="language-dart">import 'package:apix/apix.dart';
+
+// Binary downloads (statements, receipts)
+final pdf = await client.get&lt;List&lt;int&gt;&gt;(
+  '/statements/2026-08.pdf',
+  options: Options(responseType: ResponseType.bytes),
+);
+
+// A custom interceptor — `create(interceptors:)` takes a List&lt;Interceptor&gt;
+class TenantInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers['X-Tenant'] = currentTenant;
+    handler.next(options);
+  }
+}
+
+// Uploads
+final form = FormData.fromMap({'file': await MultipartFile.fromFile(path)});
+</code></pre>
+<p>Covered: <code>Response</code>, <code>Options</code>, <code>CancelToken</code>, <code>ResponseType</code>,
+<code>RequestOptions</code>, <code>Interceptor</code> and its three handlers, <code>DioException</code>,
+<code>DioExceptionType</code>, <code>FormData</code>, <code>MultipartFile</code>, <code>Headers</code>.</p>
+<h4 id="testing-without-io">Testing without I/O</h4>
+<p>Adapter stubbing lives in a separate entry point, kept out of production
+autocomplete:</p>
+<pre class="language-dart"><code class="language-dart">import 'package:apix/apix.dart';
+import 'package:apix/testing.dart';
+
+class FakeAdapter implements HttpClientAdapter {
+  @override
+  Future&lt;ResponseBody&gt; fetch(
+    RequestOptions options,
+    Stream&lt;List&lt;int&gt;&gt;? requestStream,
+    Future&lt;dynamic&gt;? cancelFuture,
+  ) async =&gt;
+      ResponseBody.fromString(
+        '{"code":"RATE_LIMITED","message":"Slow down"}',
+        429,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+          'retry-after': ['30'],
+        },
+      );
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.test',
+  httpClientAdapter: FakeAdapter(),
+);
+</code></pre>
 <h3 id="-logging">📊 Logging</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
@@ -429,6 +553,7 @@ await SentrySetup.init(
   ),
 );
 </code></pre>
+<p><strong>What <code>onError</code> receives</strong>: the <strong>typed <code>ApiException</code></strong> — <code>ServerException</code>, <code>NotFoundException</code>, <code>ConnectionException</code>, ... — not the underlying <code>DioException</code>. Trackers group issues by the exception's runtime type, so a single <code>DioException</code> for everything would file every 500, 404 and timeout under one issue. The original is still reachable through <code>(exception as ApiException).originalError</code>.</p>
 <p><strong>Network-noise filter</strong>: <code>SentrySetupOptions.filterNetworkNoise</code> (default <code>true</code>) drops transport-level noise before it reaches Sentry — <code>SocketException</code>, TLS handshake failures, and apix's own <code>NetworkException</code> subtypes (<code>TimeoutException</code>, <code>ConnectionException</code>). Every other <code>ApiException</code> — including <code>ClientException</code> and <code>ServerException</code> — is <strong>always reported</strong>: apix classifies its own errors by type hierarchy, never by type name, so a 5xx is never mistaken for a socket error that happens to share a class name.</p>
 <table>
 <thead>
@@ -456,6 +581,37 @@ await SentrySetup.init(
 </tr>
 </tbody>
 </table>
+<p><strong>3. Upload debug symbols — or your release stack traces are unreadable.</strong></p>
+<p><code>sentry_flutter</code> reports the error; it does <strong>not</strong> upload the symbols needed
+to make sense of it. Without this step everything looks fine — events arrive,
+nothing fails — but a release stack trace reads:</p>
+<pre class="language-dart"><code>QKa: Provider&lt;Gx&gt; not found for Ez
+</code></pre>
+<p>instead of <code>ProfileScreen: Provider&lt;ProfileBloc&gt; not found for _ProfileScreenView</code>.
+Debug builds are unaffected, so the gap only shows up in production.</p>
+<pre class="language-yaml"><code class="language-yaml"># pubspec.yaml
+dev_dependencies:
+  sentry_dart_plugin: ^3.0.0
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: false
+  project: your-project
+  org: your-org
+</code></pre>
+<p>Credentials go in a <strong>gitignored</strong> <code>sentry.properties</code> at the project root —
+flat keys, not the <code>defaults.*</code> form the <code>sentry-cli</code> binary uses:</p>
+<pre class="language-properties"><code class="language-properties">org=your-org
+project=your-project
+auth_token=sntrys_...
+</code></pre>
+<p>Then run it after <strong>every release build</strong>, or the symbols on Sentry drift out
+of step with the binary your users are running:</p>
+<pre class="language-bash"><code class="language-bash">flutter build apk --release
+dart run sentry_dart_plugin
+</code></pre>
+<p>The token needs the <em>Project Read &amp; Write</em> and <em>Release Admin</em> scopes, plus
+<em>Organization Read</em>.</p>
 <hr>
 <h2 id="error-handling">Error Handling</h2>
 <h3 id="automatic-error-transformation">Automatic Error Transformation</h3>
@@ -532,8 +688,10 @@ await SentrySetup.init(
 │   │   ├── UnauthorizedException (401)
 │   │   │   └── AuthException (refresh failure)
 │   │   ├── ForbiddenException (403)
-│   │   └── NotFoundException (404)
-│   └── ServerException (5xx)
+│   │   ├── NotFoundException (404)
+│   │   └── TooManyRequestsException (429, carries `retryAfter`)
+│   ├── ServerException (5xx)
+│   └── HttpTrackingException (a captured status, see Sentry section)
 ├── ParsingException (decode / parse failure)
 ├── TokenProviderException (TokenProvider failure)
 └── UnexpectedContentTypeException (strictContentType only)
@@ -551,6 +709,42 @@ subclass:</p>
   // any 5xx — retryable, worth reporting
 }
 </code></pre>
+<h3 id="branching-on-the-application-error-code">Branching on the application error code</h3>
+<p>An HTTP status drifts. The same business case can move from <code>400</code> to <code>409</code> to
+<code>422</code> across server revisions without changing meaning, and a call site keyed on
+the status changes behaviour the day it does. When your backend publishes a
+stable code, branch on that instead:</p>
+<pre class="language-dart"><code class="language-dart">try {
+  await client.post&lt;void&gt;('/transfers', data: payload);
+} on ApiException catch (e) {
+  switch (e.code) {
+    case 'OPERATION_NOT_RETRYABLE':
+      showFinalFailure();
+    case 'INSUFFICIENT_FUNDS':
+      showTopUpPrompt();
+    default:
+      showGenericError();
+  }
+}
+</code></pre>
+<p><code>code</code> is read from the response body — flat (<code>{"code": ...}</code>) or nested
+(<code>{"error": {"code": ...}}</code>) — under the key named by <code>errorCodeKey</code>
+(default <code>'code'</code>). It is always a <code>String</code>, even when the server sends a
+number, so a <code>switch</code> never has to care which. It is null on non-HTTP failures,
+which have no body to read.</p>
+<p>Keep status branching for the cross-cutting cases — <code>401</code> refresh, <code>403</code>, a
+generic <code>5xx</code> — or when no code is guaranteed.</p>
+<h3 id="rate-limits">Rate limits</h3>
+<pre class="language-dart"><code class="language-dart">on TooManyRequestsException catch (e) {
+  final wait = e.retryAfter;
+  showMessage(wait == null
+      ? 'Trop de tentatives. Réessayez plus tard.'
+      : 'Trop de tentatives. Réessayez dans ${wait.inSeconds} s.');
+}
+</code></pre>
+<p><code>retryAfter</code> is the parsed <code>Retry-After</code> header (delta-seconds or HTTP-date), or
+null when the server sent none — treat null as <em>unknown delay</em>, never as <em>retry
+now</em>.</p>
 <p><code>AuthException</code> exposes <code>originalError</code> so the underlying cause (e.g. <code>TokenProviderException</code> or a custom error from a legacy <code>onRefresh</code>) is recoverable.</p>
 <h3 id="classic-try-catch">Classic Try-catch</h3>
 <p>ApiClient methods throw typed <code>ApiException</code> directly — no need to unwrap <code>DioException</code>:</p>
@@ -771,6 +965,11 @@ with <code>actualContentType: null</code>.</p>
 <td>Envelope key for <code>*Data</code> methods (<code>'data'</code>)</td>
 </tr>
 <tr>
+<td><code>errorCodeKey</code></td>
+<td><code>String</code></td>
+<td>Body key holding the application error code (<code>'code'</code>)</td>
+</tr>
+<tr>
 <td><code>strictContentType</code></td>
 <td><code>bool</code></td>
 <td>Enforce <code>application/json</code> on <code>*AndDecode</code> (false)</td>
@@ -791,9 +990,19 @@ with <code>actualContentType: null</code>.</p>
 <td>Retry configuration</td>
 </tr>
 <tr>
+<td><code>onRetry</code></td>
+<td><code>void Function(RetryAttempt)?</code></td>
+<td>Called before each retry waits</td>
+</tr>
+<tr>
 <td><code>cacheConfig</code></td>
 <td><code>CacheConfig?</code></td>
 <td>Cache configuration</td>
+</tr>
+<tr>
+<td><code>deduplicationConfig</code></td>
+<td><code>DeduplicationConfig?</code></td>
+<td>Standalone deduplication, no cache required</td>
 </tr>
 <tr>
 <td><code>loggerConfig</code></td>
@@ -809,6 +1018,11 @@ with <code>actualContentType: null</code>.</p>
 <td><code>metricsConfig</code></td>
 <td><code>MetricsConfig?</code></td>
 <td>Metrics configuration</td>
+</tr>
+<tr>
+<td><code>tracingConfig</code></td>
+<td><code>TracingConfig?</code></td>
+<td>One performance span per request</td>
 </tr>
 <tr>
 <td><code>interceptors</code></td>
@@ -882,6 +1096,12 @@ with <code>actualContentType: null</code>.</p>
 <td>Key for envelope unwrapping in <code>*Data</code> methods</td>
 </tr>
 <tr>
+<td><code>errorCodeKey</code></td>
+<td><code>String</code></td>
+<td><code>'code'</code></td>
+<td>Body key read into <code>ApiException.code</code></td>
+</tr>
+<tr>
 <td><code>strictContentType</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
@@ -947,7 +1167,9 @@ with <code>actualContentType: null</code>.</p>
 <p>A complete Flutter app demonstrating all ApiX features is available on GitHub:</p>
 <p>👉 <strong><a href="https://github.com/Germinator97/apix_example_app">apix_example_app</a></strong></p>
 <p align="center">
-<img src="assets/screenshots/home.png" alt="ApiX Example App" width="300">
+<img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
+&nbsp;&nbsp;
+<img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
 </p>
 <p>Features demonstrated:</p>
 <ul>
@@ -995,6 +1217,13 @@ with <code>actualContentType: null</code>.</p>
 <dd>
 </dd>
 
+          <dt id="testing">
+  <span class="name"><a href="testing/">testing</a></span> 
+
+</dt>
+<dd>Test-only entry point for apix consumers.
+</dd>
+
         </dl>
       </section>
   </div> <!-- /.main-content -->
@@ -1013,6 +1242,7 @@ with <code>actualContentType: null</code>.</p>
     <ol>
       <li class="section-title">Libraries</li>
       <li><a href="apix/">apix</a></li>
+      <li><a href="testing/">testing</a></li>
 </ol>
 
   </div>
@@ -1022,7 +1252,7 @@ with <code>actualContentType: null</code>.</p>
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>
