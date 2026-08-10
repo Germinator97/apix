@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^3.0.0
+  apix: ^4.0.0
 ```
 
 ```bash
@@ -59,7 +59,7 @@ flutter pub get
 
 ## Full Configuration
 
-ApiX supports declarative configuration with 6 optional parameters:
+ApiX supports declarative configuration with 8 optional config blocks:
 
 ```dart
 final tokenProvider = SecureTokenProvider();
@@ -130,6 +130,13 @@ final client = ApiClientFactory.create(
       debugPrint('${metrics.method} ${metrics.path} - ${metrics.durationMs}ms');
     },
   ),
+
+  // 🔗 Collapse identical concurrent requests — independent of the cache,
+  // so you can have this without storing anything.
+  deduplicationConfig: const DeduplicationConfig(),
+
+  // ⏱️ One performance span per request, under the current Sentry transaction
+  tracingConfig: const TracingConfig(),
 );
 ```
 
@@ -382,6 +389,74 @@ for. A response served from cache opens none: it spent no time on the network.
 
 Requires an active transaction (`tracesSampleRate` > 0 in `SentrySetup`);
 without one, nothing is traced.
+
+### 📦 No dio import required
+
+apix re-exports the dio types its own API hands back, so consumer code — and,
+more to the point, consumer *tests* — need not depend on `package:dio`
+directly. That matters beyond convenience: a direct import makes apix's
+declared dio version range a constraint on your code too.
+
+```dart
+import 'package:apix/apix.dart';
+
+// Binary downloads (statements, receipts)
+final pdf = await client.get<List<int>>(
+  '/statements/2026-08.pdf',
+  options: Options(responseType: ResponseType.bytes),
+);
+
+// A custom interceptor — `create(interceptors:)` takes a List<Interceptor>
+class TenantInterceptor extends Interceptor {
+  @override
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.headers['X-Tenant'] = currentTenant;
+    handler.next(options);
+  }
+}
+
+// Uploads
+final form = FormData.fromMap({'file': await MultipartFile.fromFile(path)});
+```
+
+Covered: `Response`, `Options`, `CancelToken`, `ResponseType`,
+`RequestOptions`, `Interceptor` and its three handlers, `DioException`,
+`DioExceptionType`, `FormData`, `MultipartFile`, `Headers`.
+
+#### Testing without I/O
+
+Adapter stubbing lives in a separate entry point, kept out of production
+autocomplete:
+
+```dart
+import 'package:apix/apix.dart';
+import 'package:apix/testing.dart';
+
+class FakeAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<List<int>>? requestStream,
+    Future<dynamic>? cancelFuture,
+  ) async =>
+      ResponseBody.fromString(
+        '{"code":"RATE_LIMITED","message":"Slow down"}',
+        429,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+          'retry-after': ['30'],
+        },
+      );
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.test',
+  httpClientAdapter: FakeAdapter(),
+);
+```
 
 ### 📊 Logging
 
