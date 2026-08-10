@@ -110,6 +110,7 @@ int get hashCode =&gt;
     multiplier.hashCode ^
     maxDelayMs.hashCode ^
     respectRetryAfter.hashCode ^
+    jitter.hashCode ^
     retryStatusCodes.hashCode ^
     &#47;&#47; Order-independent so two equal sets share a hash code.
     retryableMethods.fold&lt;int&gt;(0, (h, m) =&gt; h ^ m.hashCode);</code></pre>
@@ -142,7 +143,7 @@ int get hashCode =&gt;
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

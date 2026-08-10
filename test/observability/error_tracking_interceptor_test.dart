@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:apix/apix.dart';
 
@@ -60,6 +59,19 @@ void main() {
             'HttpTrackingException: GET https://api.com/users [500] Internal Server Error'),
       );
     });
+
+    test('belongs to the documented exception hierarchy', () {
+      const exception = HttpTrackingException(
+        statusCode: 503,
+        message: 'Service Unavailable',
+        url: 'https://api.com/users',
+        method: 'GET',
+      );
+
+      expect(exception, isA<HttpException>());
+      expect(exception, isA<ApiException>());
+      expect(exception.statusCode, equals(503));
+    });
   });
 
   group('ErrorTrackingInterceptor', () {
@@ -87,6 +99,91 @@ void main() {
           onBreadcrumb: (Map<String, dynamic> data) => breadcrumbs.add(data),
         ),
       );
+    });
+
+    // The defect this group pins down: `onError` has two call sites, and they
+    // used to hand the callback two unrelated types. A handler written from the
+    // documentation matched one and fell through the other in silence — no
+    // throw, no log, just a branch that never fired. Both directions are
+    // asserted here because fixing only the type would still leave the
+    // onResponse path without a stack trace.
+    group('onError receives one type on both paths', () {
+      /// The handler shape the documentation tells consumers to write.
+      String? screenFor(Object exception) => switch (exception) {
+            HttpException(statusCode: 503) => 'service-unavailable',
+            HttpException(statusCode: final int s) when s >= 500 =>
+              'server-error',
+            _ => null,
+          };
+
+      test('via onError — a DioException reported by dio', () {
+        final options = RequestOptions(path: '/users', method: 'GET');
+        interceptor.onError(
+          DioException(
+            type: DioExceptionType.badResponse,
+            requestOptions: options,
+            response: Response<dynamic>(
+              requestOptions: options,
+              statusCode: 503,
+              data: {'message': 'Down for maintenance'},
+            ),
+          ),
+          _MockErrorHandler(),
+        );
+
+        expect(capturedErrors, hasLength(1));
+        expect(capturedErrors[0].exception, isA<ApiException>());
+        expect(
+            screenFor(capturedErrors[0].exception),
+            equals(
+              'service-unavailable',
+            ));
+      });
+
+      test('via onResponse — a status the consumer asked to capture', () {
+        final options = RequestOptions(path: '/users', method: 'GET');
+        interceptor.onResponse(
+          Response<dynamic>(
+            requestOptions: options,
+            statusCode: 503,
+            statusMessage: 'Service Unavailable',
+          ),
+          _MockResponseHandler(),
+        );
+
+        expect(capturedErrors, hasLength(1));
+        expect(
+          capturedErrors[0].exception,
+          isA<ApiException>(),
+          reason: 'ErrorTrackingConfig.onError documents a typed ApiException; '
+              'this path used to hand over a bare Exception instead',
+        );
+        expect(
+          screenFor(capturedErrors[0].exception),
+          equals('service-unavailable'),
+          reason: 'the same handler must fire on both paths — this is the '
+              'branch that used to die silently',
+        );
+      });
+
+      test('the onResponse path carries a stack trace', () {
+        final options = RequestOptions(path: '/users', method: 'GET');
+        interceptor.onResponse(
+          Response<dynamic>(
+            requestOptions: options,
+            statusCode: 500,
+            statusMessage: 'Internal Server Error',
+          ),
+          _MockResponseHandler(),
+        );
+
+        expect(
+          capturedErrors[0].stackTrace,
+          isNotNull,
+          reason: 'without one, these events land in the tracker with no stack '
+              'while the onError path always had one',
+        );
+      });
     });
 
     test('adds request breadcrumb', () {

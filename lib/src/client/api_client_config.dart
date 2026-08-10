@@ -52,6 +52,17 @@ class ApiClientConfig {
   /// Defaults to `'data'`.
   final String dataKey;
 
+  /// The key used to extract the application-level error code from error
+  /// response bodies.
+  ///
+  /// With the envelope `{ "code": "...", "message": "...", "data": null }`,
+  /// the default reads `code` and exposes it as `ApiException.code`, so call
+  /// sites can branch on a stable business code instead of an HTTP status that
+  /// may drift between server revisions.
+  ///
+  /// Defaults to `'code'`.
+  final String errorCodeKey;
+
   /// When `true`, typed-decode methods (`*AndDecode`, `*AndDecodeData`,
   /// `*ListAndDecode...`) verify that the response's `Content-Type` header
   /// starts with `application/json` and throw
@@ -85,6 +96,7 @@ class ApiClientConfig {
     this.defaultContentType = 'application/json',
     this.interceptors,
     this.dataKey = 'data',
+    this.errorCodeKey = 'code',
     this.strictContentType = false,
     this.responseValidator,
   });
@@ -99,6 +111,7 @@ class ApiClientConfig {
     String? defaultContentType,
     List<Interceptor>? interceptors,
     String? dataKey,
+    String? errorCodeKey,
     bool? strictContentType,
     ResponseValidator? responseValidator,
   }) {
@@ -111,6 +124,7 @@ class ApiClientConfig {
       defaultContentType: defaultContentType ?? this.defaultContentType,
       interceptors: interceptors ?? this.interceptors,
       dataKey: dataKey ?? this.dataKey,
+      errorCodeKey: errorCodeKey ?? this.errorCodeKey,
       strictContentType: strictContentType ?? this.strictContentType,
       responseValidator: responseValidator ?? this.responseValidator,
     );

@@ -122,7 +122,7 @@ void onResponse(
     }
 
     &#47;&#47; Cache successful responses
-    if (_shouldCacheResponse(response)) {
+    if (_shouldStore(strategy) &amp;&amp; _shouldCacheResponse(response)) {
       await _cacheResponse(cacheKey, response, strategy: strategy);
     }
 
@@ -159,7 +159,7 @@ void onResponse(
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

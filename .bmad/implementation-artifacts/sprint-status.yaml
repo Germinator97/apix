@@ -1,5 +1,5 @@
 # generated: 2026-03-16
-# last_updated: 2026-08-06
+# last_updated: 2026-08-07
 # project: apix
 # project_key: NOKEY
 # tracking_system: file-system
@@ -20,7 +20,7 @@
 #   - done: Story completed
 
 generated: 2026-03-16
-last_updated: 2026-08-06
+last_updated: 2026-08-07
 project: apix
 project_key: NOKEY
 tracking_system: file-system
@@ -108,6 +108,12 @@ development_status:
   11-5-unexpected-content-type-exception: done
   11-6-response-validator-callback: done
 
+  # Epic 13: Cache & observability contracts (v3.0.0) — SHIPPED 2026-08-07
+  # Driven by a consumer-app report on the cache, not by the story workflow.
+  # Recorded as delivered work rather than back-filled stories; see
+  # `shipped_releases` below for the full list and what it cost.
+  epic-13: done
+
   # Epic 12: Production Hardening (v2.4.0 — see note below)
   epic-12: backlog
   12-1-idempotency-key-helper: ready-for-dev
@@ -144,3 +150,92 @@ unplanned_releases:
       - Dio Options/CancelToken/Response re-exported from the barrel (5fb39c0)
       - dio 5.10.0 compatibility + CI matrix over the declared range (be9c6a9)
       - RELEASING.md pre-publish checklist (6d79415)
+
+# ==============================================================
+# 3.0.0 — SHIPPED 2026-08-07 (tag v3.0.0, published to pub.dev)
+# ==============================================================
+# Started from a consumer note listing four gaps in the cache. Three held,
+# one was factually wrong (the provenance marker existed but was
+# undiscoverable). Digging surfaced five more defects, none of which raised
+# an error, failed a test, or logged anything.
+shipped_releases:
+  3.0.0:
+    date: 2026-08-07
+    tag: v3.0.0
+    archive: 190 KB
+    trigger: consumer report — 03_DOCUMENTATION/ApiX/note-apix-cache.md
+
+    breaking:
+      - cacheFirst serves stale data while revalidating (was blocking on expiry)
+      - ErrorTrackingConfig.onError receives the typed ApiException, not DioException
+      - CacheRequestExtension.isFromCache removed -> response.isFromCache
+      - CacheStorage.get must no longer filter on expiry (custom backends)
+
+    added:
+      - response.isFromCache / response.isStale (+ fromCacheKey, fromCacheStaleKey)
+      - FileCacheStorage — persistent, no new dependency, bounded by default
+
+    fixed:
+      # All eight were silent: no exception, no log, no failing test.
+      - ClientException / ServerException were never constructed — both catch
+        clauses were dead code at every call site
+      - the Sentry noise filter discarded every 5xx apix reported (matched
+        bare class names, could not tell apix's HttpException from dart:io's)
+      - CacheException was not an ApiException, escaping the 2.0 contract
+      - the TTL was only as strong as the CacheStorage implementation
+      - cacheOnly served expired entries
+      - eviction preferred stale entries over fresh ones
+      - error tracking grouped every 500, 404 and timeout under one issue
+
+    also:
+      - >-
+        example app — FileCacheStorage in use, stale badge, retry probes,
+        tracking probes, light-only theme with a WCAG contrast test,
+        white splash, minSdk 24, pinned NDK/compileSdk
+      - CI added on apix_example_app (format/analyze/test/APK/lockfile) and
+        extended to example/ on the package
+      - Sentry debug-symbol upload documented and wired
+
+# ==============================================================
+# NEXT — what 3.0.0 leaves open
+# ==============================================================
+open_after_3_0_0:
+  # Ordered by how concrete the need now is, not by original priority.
+  - id: 12-2-cache-size-limit-and-eviction
+    why: |
+      FileCacheStorage bounds by ENTRY COUNT only (maxEntries: 200). One entry
+      holds one response body, so a handful of large payloads still adds up on
+      disk. maxBytes + onEviction is the real answer, and 3.0.0 shipping a
+      persistent cache is what makes it concrete rather than theoretical.
+    status: ready-for-dev
+
+  - id: 12-1-idempotency-key-helper
+    why: |
+      Rewritten during 3.0.0 — its acceptance criteria assumed a POST gets
+      replayed, which stopped being true in 2.3.0. Decision recorded in the
+      story: idempotencyKey must NOT imply forceRetry(). Read it before
+      starting; the pre-2.3.0 version would ship a helper that replays nothing.
+    status: ready-for-dev
+
+  - id: dartdoc-regeneration
+    why: |
+      doc/api/ is committed and regenerated at release time only. Any change to
+      a public `///` comment leaves it stale until the next `dart doc .`.
+    status: recurring — step 2 of RELEASING.md
+
+  - id: example-app-release-symbols
+    why: |
+      sentry_dart_plugin is wired in apix_example_app but never exercised: the
+      app is only ever built in debug and is never distributed, so the upload
+      path is configuration nobody runs. Kept as copyable reference, flagged as
+      such in pubspec.yaml and README. Revisit if the app is ever released.
+    status: known-dead-config
+
+  - id: web-support
+    why: |
+      apix is NOT web-compatible and does not say so. retry_interceptor.dart
+      imports dart:io (HttpDate) and is exported from the barrel;
+      FileCacheStorage adds dart:io as well. Pre-existing, not a 3.0.0
+      regression — but undocumented. Either state the limitation in the README
+      or start a conditional-import chantier, beginning with retry_interceptor.
+    status: undecided — needs a product call

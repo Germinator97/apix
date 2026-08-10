@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="testing library API docs, for the Dart programming language.">
+  <title>testing library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">apix</a></li>
+    <li class="self-crumb">testing.dart</li>
+  </ol>
+  <div class="self-name">testing</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar=""
+    data-below-sidebar="testing&#47;testing-library-sidebar.html">
+  
+    <div>
+      
+
+      <h1>
+        <span class="kind-library">testing</span>
+        library 
+ 
+
+      </h1>
+    </div>
+
+    
+<section class="desc markdown">
+  <p>Test-only entry point for apix consumers.</p>
+<p>Everything needed to exercise network behaviour <strong>without I/O</strong>: stub an
+adapter, hand back a scripted body, assert what the client did with it.</p>
+<p>These types are deliberately not in <code>package:apix/apix.dart</code> — they have no
+business in production autocomplete. Import them only from <code>test/</code>:</p>
+<pre class="language-dart"><code class="language-dart">import 'package:apix/apix.dart';
+import 'package:apix/testing.dart';
+
+class FakeAdapter implements HttpClientAdapter {
+  @override
+  Future&lt;ResponseBody&gt; fetch(
+    RequestOptions options,
+    Stream&lt;List&lt;int&gt;&gt;? requestStream,
+    Future&lt;dynamic&gt;? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      '{"code":"RATE_LIMITED","message":"Slow down"}',
+      429,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+        'retry-after': ['30'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.test',
+  httpClientAdapter: FakeAdapter(),
+);
+</code></pre>
+<p>Without this entry point every consumer's network test had to
+<code>import 'package:dio/dio.dart'</code> directly, which made apix's declared dio
+version range a constraint on their test suite too — the one place a range
+mismatch is most likely to surface first.</p>
+</section>
+
+
+    <section class="summary offset-anchor" id="classes">
+      <h2>Classes</h2>
+      <dl>
+          <dt id="BaseOptions">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a></span> 
+
+</dt>
+<dd>
+  A set of base settings for each <code>Dio()</code>.
+<a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a> will be merged into one <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a> before
+sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options/compose.html">Options.compose</a>.
+</dd>
+
+          <dt id="Dio">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a></span> 
+
+</dt>
+<dd>
+  Dio enables you to make HTTP requests easily.
+</dd>
+
+          <dt id="Headers">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Headers-class.html">Headers</a></span> 
+
+</dt>
+<dd>
+  The headers class for requests and responses.
+</dd>
+
+          <dt id="HttpClientAdapter">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/HttpClientAdapter-class.html">HttpClientAdapter</a></span> 
+
+</dt>
+<dd>
+  <code>HttpAdapter</code> is a bridge between <a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a> and <a href="https://api.flutter.dev/flutter/dart-io/HttpClient-class.html">HttpClient</a>.
+</dd>
+
+          <dt id="RequestOptions">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> 
+
+</dt>
+<dd>
+  The internal request option class that is the eventual result after
+<a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a> are composed.
+</dd>
+
+          <dt id="ResponseBody">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseBody-class.html">ResponseBody</a></span> 
+
+</dt>
+<dd>
+  The response wrapper class for adapters.
+</dd>
+
+      </dl>
+    </section>
+
+    <section class="summary offset-anchor" id="enums">
+      <h2>Enums</h2>
+      <dl>
+          <dt id="ResponseType">
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseType.html">ResponseType</a></span> 
+
+</dt>
+<dd>
+  Indicates which transformation should be applied to the response data.
+</dd>
+
+      </dl>
+    </section>
+
+
+
+
+
+
+
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">apix</a></li>
+    <li class="self-crumb">testing.dart</li>
+</ol>
+
+    <h5><span class="package-name">apix</span> <span class="package-kind">package</span></h5>
+    <ol>
+      <li class="section-title">Libraries</li>
+      <li><a href="../apix/">apix</a></li>
+      <li><a href="../testing/">testing</a></li>
+</ol>
+
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+    <h5>testing library</h5>
+  </div><!--/sidebar-offcanvas-right-->
+</main>
+<footer>
+  <span class="no-break">
+    apix
+      4.0.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

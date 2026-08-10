@@ -69,26 +69,17 @@
 (<code>"Wed, 21 Oct 2026 07:28:00 GMT"</code>). Returns <code>null</code> if the value can't
 be parsed. Negative or past values are clamped to <a href="https://api.flutter.dev/flutter/dart-core/Duration/zero-constant.html">Duration.zero</a>.</p>
 <p><code>now</code> is injectable for deterministic testing of HTTP-date values.</p>
+<p>Delegates to <code>parseRetryAfterHeader</code>: the error mapper needs the same
+parsing to expose <code>TooManyRequestsException.retryAfter</code>, and two copies
+would eventually disagree about what the server asked for.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">static Duration? parseRetryAfter(String value, {DateTime? now}) {
-  final trimmed = value.trim();
-  final seconds = int.tryParse(trimmed);
-  if (seconds != null) {
-    return Duration(seconds: seconds &lt; 0 ? 0 : seconds);
-  }
-  try {
-    final target = HttpDate.parse(trimmed);
-    final delta = target.difference(now ?? DateTime.now());
-    return delta.isNegative ? Duration.zero : delta;
-  } catch (_) {
-    return null;
-  }
-}</code></pre>
+  <pre class="language-dart"><code class="language-dart">static Duration? parseRetryAfter(String value, {DateTime? now}) =&gt;
+    parseRetryAfterHeader(value, now: now);</code></pre>
 </section>
 
 
@@ -116,7 +107,7 @@ be parsed. Negative or past values are clamped to <a href="https://api.flutter.d
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

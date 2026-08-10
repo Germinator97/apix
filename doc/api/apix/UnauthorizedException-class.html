@@ -99,7 +99,7 @@
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="UnauthorizedException.new" class="callable">
-          <span class="name"><a href="../apix/UnauthorizedException/UnauthorizedException.html">UnauthorizedException.new</a></span><span class="signature">({<span class="parameter" id="-param-message"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span> = <span class="default-value">&#39;Unauthorized&#39;</span>, </span><span class="parameter" id="-param-responseBody"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseBody</span>, </span><span class="parameter" id="-param-originalError"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">originalError</span>, </span><span class="parameter" id="-param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span></span>})</span>
+          <span class="name"><a href="../apix/UnauthorizedException/UnauthorizedException.html">UnauthorizedException.new</a></span><span class="signature">({<span class="parameter" id="-param-message"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">message</span> = <span class="default-value">&#39;Unauthorized&#39;</span>, </span><span class="parameter" id="-param-responseBody"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseBody</span>, </span><span class="parameter" id="-param-code"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">code</span>, </span><span class="parameter" id="-param-originalError"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">originalError</span>, </span><span class="parameter" id="-param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span></span>})</span>
         </dt>
         <dd>
           Creates an <a href="../apix/UnauthorizedException-class.html">UnauthorizedException</a> with the given <code>message</code>.
@@ -113,6 +113,19 @@
       id="instance-properties">
     <h2>Properties</h2>
     <dl class="properties">
+        <dt id="code" class="property inherited">
+  <span class="name"><a href="../apix/ApiException/code.html">code</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+  
+
+</dt>
+<dd class="inherited">
+  Application-level error code read from the response body, if the backend
+sent one.
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
+
+</dd>
+
         <dt id="hashCode" class="property inherited">
   <span class="name"><a href="../apix/ApiException/hashCode.html">hashCode</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
@@ -282,7 +295,7 @@
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      4.0.0
   </span>
   
 </footer>

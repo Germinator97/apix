@@ -1,7 +1,8 @@
-import 'dart:io' show HttpDate;
+import 'dart:math' show Random;
 
 import 'package:dio/dio.dart';
 
+import '../http/retry_after.dart';
 import 'retry_config.dart';
 
 /// Key used to mark a request as non-retryable.
@@ -35,10 +36,26 @@ class RetryInterceptor extends Interceptor {
   /// The Dio instance for retrying requests.
   final Dio dio;
 
+  /// Called just before each retry is scheduled.
+  ///
+  /// Without it a retry storm is invisible: only the final failure surfaces,
+  /// never the attempts that preceded it nor what they cost in network. Route
+  /// it to a breadcrumb and the report gains what it was missing.
+  ///
+  /// Fires once per retry — not for the initial request — with the 0-indexed
+  /// [RetryAttempt.attempt], the [RetryAttempt.delay] about to be waited, and
+  /// the [RetryAttempt.cause] that triggered it.
+  final void Function(RetryAttempt attempt)? onRetry;
+
+  /// Source of randomness for jitter; injectable so tests can pin the draw.
+  final Random? random;
+
   /// Creates a [RetryInterceptor] with the given [config] and [dio].
   RetryInterceptor({
     required this.config,
     required this.dio,
+    this.onRetry,
+    this.random,
   });
 
   @override
@@ -86,6 +103,22 @@ class RetryInterceptor extends Interceptor {
 
       // Calculate delay and wait
       final delay = _resolveDelay(err, currentAttempt);
+
+      // Announce the retry *before* waiting, so a storm is visible while it is
+      // happening rather than only once it has finished. A throwing callback
+      // must not cancel the retry it was only meant to observe.
+      if (onRetry != null) {
+        try {
+          onRetry!(RetryAttempt(
+            attempt: currentAttempt,
+            delay: delay,
+            cause: err,
+          ));
+        } catch (_) {
+          // Observability must never break the request path.
+        }
+      }
+
       await Future<void>.delayed(delay);
 
       // Increment attempt count for the retry
@@ -109,7 +142,10 @@ class RetryInterceptor extends Interceptor {
   /// When [RetryConfig.respectRetryAfter] is `true` and the response carries
   /// a `Retry-After` header that we can parse, the parsed value is used
   /// (clamped to `[0, RetryConfig.maxDelayMs]`). Otherwise we fall back to
-  /// [RetryConfig.getDelay] (exponential backoff).
+  /// [RetryConfig.getDelay] (exponential backoff, spread by jitter).
+  ///
+  /// A server-named delay is used as-is, never jittered: when the server says
+  /// when to come back, obeying it exactly matters more than spreading load.
   Duration _resolveDelay(DioException err, int currentAttempt) {
     if (config.respectRetryAfter) {
       final header = err.response?.headers.value('retry-after');
@@ -121,7 +157,7 @@ class RetryInterceptor extends Interceptor {
         }
       }
     }
-    return config.getDelay(currentAttempt);
+    return config.getDelay(currentAttempt, random: random);
   }
 
   Duration? _parseRetryAfter(String value) =>
@@ -134,20 +170,12 @@ class RetryInterceptor extends Interceptor {
   /// be parsed. Negative or past values are clamped to [Duration.zero].
   ///
   /// [now] is injectable for deterministic testing of HTTP-date values.
-  static Duration? parseRetryAfter(String value, {DateTime? now}) {
-    final trimmed = value.trim();
-    final seconds = int.tryParse(trimmed);
-    if (seconds != null) {
-      return Duration(seconds: seconds < 0 ? 0 : seconds);
-    }
-    try {
-      final target = HttpDate.parse(trimmed);
-      final delta = target.difference(now ?? DateTime.now());
-      return delta.isNegative ? Duration.zero : delta;
-    } catch (_) {
-      return null;
-    }
-  }
+  ///
+  /// Delegates to [parseRetryAfterHeader]: the error mapper needs the same
+  /// parsing to expose `TooManyRequestsException.retryAfter`, and two copies
+  /// would eventually disagree about what the server asked for.
+  static Duration? parseRetryAfter(String value, {DateTime? now}) =>
+      parseRetryAfterHeader(value, now: now);
 
   /// Returns true if the request has retry disabled.
   bool _isNoRetry(RequestOptions options) {
@@ -194,4 +222,30 @@ extension NoRetryExtension on RequestOptions {
 
   /// Returns true if retry is forced past the method guard for this request.
   bool get isForceRetry => extra[forceRetryKey] == true;
+}
+
+/// A retry about to be scheduled, handed to `RetryInterceptor.onRetry`.
+class RetryAttempt {
+  /// 0-indexed retry number: `0` is the first retry, i.e. the second request.
+  final int attempt;
+
+  /// How long the interceptor is about to wait before replaying the request.
+  final Duration delay;
+
+  /// The failure that triggered this retry.
+  final DioException cause;
+
+  /// Creates a [RetryAttempt].
+  const RetryAttempt({
+    required this.attempt,
+    required this.delay,
+    required this.cause,
+  });
+
+  /// Status code that triggered the retry, if a response was received.
+  int? get statusCode => cause.response?.statusCode;
+
+  @override
+  String toString() =>
+      'RetryAttempt(attempt: $attempt, delay: $delay, status: $statusCode)';
 }
