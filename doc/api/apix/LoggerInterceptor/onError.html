@@ -81,6 +81,14 @@ void onError(
   DioException err,
   ErrorInterceptorHandler handler,
 ) {
+  &#47;&#47; Deduplication sends the same request through the error chain twice.
+  &#47;&#47; Claim it once so a single logical failure is not logged, measured and
+  &#47;&#47; reported twice.
+  if (!ObservationMarker.claim(err.requestOptions, Observers.logger)) {
+    handler.next(err);
+    return;
+  }
+
   if (config.logErrors &amp;&amp; config.shouldLog(LogLevel.error)) {
     _logError(err);
   }
@@ -114,7 +122,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      4.0.1
+      4.1.0
   </span>
   
 </footer>
