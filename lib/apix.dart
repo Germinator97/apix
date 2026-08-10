@@ -45,6 +45,7 @@ export 'src/cache/cache_interceptor.dart';
 export 'src/cache/cache_storage.dart';
 export 'src/cache/deduplication_config.dart';
 export 'src/cache/deduplication_interceptor.dart';
+export 'src/cache/encrypted_cache_storage.dart';
 export 'src/cache/file_cache_storage.dart';
 export 'src/cache/request_deduplicator.dart';
 
