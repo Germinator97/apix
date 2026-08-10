@@ -1,3 +1,111 @@
+## 4.0.0
+
+This release answers an integration report from a consumer, filed after moving a
+wallet app onto 3.0.0. Eight gaps, none of which broke a build — three of them
+were only findable by reading apix's source, which is why they survived the
+last release.
+
+The theme is the same throughout: apix knew something the consumer could not
+reach. An error code it read past, a `Retry-After` it parsed and dropped, a
+duration it measured and never reported.
+
+### Migration at a glance
+
+| If you… | Then… |
+|---|---|
+| catch `on ClientException` for a 429 | still works — `TooManyRequestsException` is a subtype. Read `retryAfter` to say *how long* to wait |
+| assert an exact retry delay in a test | add `jitter: 0` — delays are now spread ±20 % by default |
+| rely on `CacheStrategy.networkOnly` writing to your store | it no longer writes. If you were counting on that, use `networkFirst` |
+| wrote a no-op `CacheStorage` just to get deduplication | delete it — pass `deduplicationConfig` and no `cacheConfig` |
+| group Sentry issues by the type passed to `onError` | the `onResponse` path now sends `HttpTrackingException` **as an `HttpException`**. Existing issues may regroup |
+| `import 'package:dio/dio.dart'` for `ResponseType`, `Interceptor`, `FormData`… | import `package:apix/apix.dart` instead; adapters live in `package:apix/testing.dart` |
+| subclass `ApiException` with your own `code` field | **remove it** and pass `super.code` — a same-typed field now shadows the inherited one, and a differently-typed one (`int code`) will not compile |
+| use none of the above | nothing to do |
+
+### ⚠️ Breaking behavior
+
+* **Retry delays are no longer deterministic.** `RetryConfig.jitter` defaults to
+  `0.2`, spreading each computed backoff across ±20 % of itself.
+  - Opt-in was the safer-looking choice and the wrong one: a thundering herd
+    harms whoever did *not* read this changelog. After an outage, every client
+    that failed in the same second used to retry at the same instants.
+  - `jitter: 0.0` restores the previous sequence exactly. Any test asserting a
+    precise delay needs it.
+  - A server-named `Retry-After` is never jittered.
+
+* **`CacheStrategy.networkOnly` no longer writes to the store.** It always
+  documented "never read cache"; only the reading half was enforced, so every
+  response was still written. On a wallet that moved balances and transactions
+  through a store nobody ever read from.
+  - The guard was missing from **two** write sites — `onResponse` and the
+    deduplicated path — and a guard on the first alone still leaked on exactly
+    the path a consumer enabling deduplication would take.
+
+* **`ApiException` gained a `code` field**, which collides with any subclass
+  that already declared one. Same type (`String`): the subclass shadows the
+  inherited field and the analyzer warns. Different type (`int code`): it no
+  longer compiles. Drop the field and forward `super.code` instead — this was
+  found by rebuilding apix's own example app against 4.0.0, not by reading.
+
+* **`HttpTrackingException` now extends `HttpException`.** The type handed to
+  `ErrorTrackingConfig.onError` changes on the `onResponse` path, so trackers
+  that group by runtime type may regroup existing issues.
+
+### Added
+
+* **`ApiException.code`** — the application error code, read from the response
+  body under `errorCodeKey` (default `'code'`, configurable like `dataKey`).
+  Branch on a stable business code instead of an HTTP status that drifts from
+  `400` to `409` to `422` across server revisions. Always a `String`, even when
+  the server sends a number; null on failures that have no body.
+
+* **`TooManyRequestsException`** — a 429 with its parsed `retryAfter`, so the
+  user can be told how long to wait instead of receiving the same generic
+  message as for a malformed request.
+
+* **`DeduplicationConfig` / `DeduplicationInterceptor`** — deduplication without
+  a cache. `RequestDeduplicator` was only ever instantiated by
+  `CacheInterceptor`, so getting one meant installing the other. When both are
+  configured, the cache's own deduplication is switched off rather than
+  collapsing each request twice.
+
+* **`EncryptedCacheStorage`** — a decorator that seals body and headers before
+  they reach any `CacheStorage`. You supply `encrypt`/`decrypt`, so apix takes
+  on neither a crypto dependency nor your key. Cache keys stay in clear text —
+  the invalidation API reads them — so keep identifiers out of URLs you cache.
+  An entry that cannot be decrypted reads as a miss and is purged.
+
+* **`TracingInterceptor` / `TracingConfig`** — one performance span per request,
+  as a child of the current Sentry transaction. apix already measured duration,
+  size and status; nothing ever opened a span, so durations could only land in a
+  breadcrumb: visible after an incident, never aggregated.
+  - One span covers the whole logical request, retries included.
+  - A response served from cache opens none — it spent no time on the network.
+
+* **`RetryInterceptor.onRetry`** — fires before each retry waits, carrying the
+  attempt number, the delay and the cause. A retry storm used to be invisible:
+  only the final failure surfaced.
+
+* **`package:apix/testing.dart`** — `HttpClientAdapter`, `ResponseBody` and
+  friends, so stubbing an adapter no longer forces a direct dio import (and with
+  it, apix's dio version range) onto your test suite.
+
+### Changed
+
+* The dio barrel now also re-exports `ResponseType`, `RequestOptions`,
+  `Interceptor` and its handlers, `DioException`, `DioExceptionType`,
+  `FormData`, `MultipartFile` and `Headers` — derived from where apix's own API
+  hands a dio type to a consumer. `create(interceptors:)` took a
+  `List<Interceptor>` that could not be written without importing dio; binary
+  downloads had no way to name `ResponseType`.
+
+* `Retry-After` parsing moved to a shared helper used by both the retry
+  interceptor and the error mapper, so what the caller is told to wait and what
+  the interceptor actually waits cannot drift apart.
+
+* The `onResponse` error-tracking path now attaches a stack trace. It had none,
+  while the `onError` path always did.
+
 ## 3.0.0
 
 This release is about the cache. Two of its promises were not kept: `cacheFirst`
