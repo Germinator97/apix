@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'observer_guard.dart';
 
 /// Request metrics data.
 class RequestMetrics {
@@ -304,7 +305,7 @@ class MetricsInterceptor extends Interceptor {
         );
 
         if (metrics != null) {
-          config.onMetrics?.call(metrics);
+          guardObserver(() => config.onMetrics?.call(metrics));
         }
 
         _emitBreadcrumb(
@@ -343,7 +344,7 @@ class MetricsInterceptor extends Interceptor {
         );
 
         if (metrics != null) {
-          config.onMetrics?.call(metrics);
+          guardObserver(() => config.onMetrics?.call(metrics));
         }
 
         _emitBreadcrumb(
@@ -412,13 +413,13 @@ class MetricsInterceptor extends Interceptor {
   }) {
     if (config.onBreadcrumb == null) return;
 
-    config.onBreadcrumb!(RequestBreadcrumb(
-      type: type,
-      message: message,
-      category: 'http',
-      timestamp: DateTime.now(),
-      data: data,
-    ));
+    guardObserver(() => config.onBreadcrumb!(RequestBreadcrumb(
+          type: type,
+          message: message,
+          category: 'http',
+          timestamp: DateTime.now(),
+          data: data,
+        )));
   }
 
   String _generateRequestId() {
