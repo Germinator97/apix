@@ -123,6 +123,22 @@ void main() {
         expect(await delegate.get('GET:/balance'), isNull);
       });
 
+      // The documented side effect, pinned: a predicate that deletes is
+      // surprising enough that it must not become true by accident, nor stop
+      // being true without someone noticing.
+      test('has() also purges what it finds unreadable', () async {
+        await delegate.set('GET:/balance', _entry(data: 'garbage'));
+
+        await storage.has('GET:/balance');
+
+        expect(
+          await delegate.get('GET:/balance'),
+          isNull,
+          reason: 'left in place, an unreadable entry fails forever — the next '
+              'write cannot replace what get() never admits exists',
+        );
+      });
+
       test('has() reports an undecryptable entry as absent', () async {
         await delegate.set('GET:/balance', _entry(data: 'garbage'));
 
