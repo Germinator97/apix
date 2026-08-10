@@ -4,6 +4,7 @@ import '../errors/api_exception.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../errors/http_exception.dart';
 import 'observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// Signature for capturing exceptions to an error tracking service.
 typedef CaptureException = Future<void> Function(
@@ -195,6 +196,14 @@ class ErrorTrackingInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.errorTracking)) {
+      handler.next(err);
+      return;
+    }
+
     if (config.enabled && config.onError != null) {
       final statusCode = err.response?.statusCode;
 

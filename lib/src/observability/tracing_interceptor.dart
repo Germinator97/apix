@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// A performance span opened for a single request.
 ///
@@ -119,6 +120,14 @@ class TracingInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.tracing)) {
+      handler.next(err);
+      return;
+    }
+
     _finish(err.requestOptions, err.response?.statusCode);
     handler.next(err);
   }

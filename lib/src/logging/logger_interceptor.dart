@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'logger_config.dart';
 import '../observability/observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// Interceptor that logs HTTP requests and responses.
 ///
@@ -51,6 +52,14 @@ class LoggerInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.logger)) {
+      handler.next(err);
+      return;
+    }
+
     if (config.logErrors && config.shouldLog(LogLevel.error)) {
       _logError(err);
     }

@@ -64,13 +64,20 @@ class DeduplicationInterceptor extends Interceptor {
       final response = await _deduplicator.deduplicate(
         options,
         () => _dio!.fetch<dynamic>(options.copyWith(
-          extra: {...options.extra, _skipKey: true},
+          extra: {
+            ...options.extra,
+            _skipKey: true,
+          },
         )),
       );
       handler.resolve(response);
     } on DioException catch (e) {
       // Every waiter on a collapsed request gets the same failure — which is
       // the point: they would each have got it separately anyway.
+      //
+      // The inner request already travelled the whole chain, so it has been
+      // logged, measured and captured. Rejecting here runs the following
+      // onError handlers a second time; the mark stops them doubling up.
       handler.reject(e);
     } catch (e) {
       // A non-Dio failure would otherwise escape as an unhandled async error

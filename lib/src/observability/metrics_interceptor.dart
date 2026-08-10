@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// Request metrics data.
 class RequestMetrics {
@@ -330,6 +331,14 @@ class MetricsInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.metrics)) {
+      handler.next(err);
+      return;
+    }
+
     if (config.enabled) {
       final requestId = err.requestOptions.extra['_metrics_request_id'];
       if (requestId != null) {
