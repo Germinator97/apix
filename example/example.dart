@@ -137,6 +137,10 @@ void main() async {
     ),
     // (v4.0.0+) Fires before each retry waits. Without it a retry storm is
     // invisible — only the final failure ever surfaces.
+    //
+    // (v4.1.0+) Like every observation callback here, this one cannot break
+    // the request: if it throws, apix swallows it and the request carries on.
+    // Same for logHandler, onMetrics, onBreadcrumb, onError and startSpan.
     onRetry: (attempt) => debugPrint(
       'retry #${attempt.attempt} in ${attempt.delay.inMilliseconds}ms '
       '(status ${attempt.statusCode})',

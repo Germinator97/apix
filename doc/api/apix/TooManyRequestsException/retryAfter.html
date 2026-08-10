@@ -66,6 +66,11 @@
 <p>Null when the response carried no <code>Retry-After</code> header, or one that could
 not be parsed — the header is optional, so treat null as "unknown delay",
 never as "retry now".</p>
+<p>Independent of <code>RetryConfig.respectRetryAfter</code>: that flag decides whether
+the <em>interceptor</em> waits this long, not whether the server sent a value.
+The header is a fact about the response, so it is reported either way —
+which is what lets you tell the user how long to wait even when automatic
+retry is switched off.</p>
 </section>
 
       
@@ -100,7 +105,7 @@ never as "retry now".</p>
 <footer>
   <span class="no-break">
     apix
-      4.0.1
+      4.1.0
   </span>
   
 </footer>
