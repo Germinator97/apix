@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'logger_config.dart';
+import '../observability/observer_guard.dart';
 
 /// Interceptor that logs HTTP requests and responses.
 ///
@@ -130,12 +131,19 @@ class LoggerInterceptor extends Interceptor {
     }
   }
 
+  /// Hands [entry] to the consumer's sink, or prints it.
+  ///
+  /// Guarded: a log sink that throws — a closed file, a full disk, a remote
+  /// logger that is down — used to fail the request being logged, turning an
+  /// observation problem into an outage.
   void _emit(LogEntry entry) {
-    if (config.logHandler != null) {
-      config.logHandler!(entry);
-    } else {
-      _defaultPrint(entry);
-    }
+    guardObserver(() {
+      if (config.logHandler != null) {
+        config.logHandler!(entry);
+      } else {
+        _defaultPrint(entry);
+      }
+    });
   }
 
   void _defaultPrint(LogEntry entry) {
