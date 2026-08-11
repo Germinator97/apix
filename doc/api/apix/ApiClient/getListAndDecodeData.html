@@ -68,12 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and deserializes <code>response.data[dataKey]</code> as a list
-of JSON objects.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">// Response: { "data": [{ "id": 1 }, { "id": 2 }] }
-final users = await client.getListAndDecodeData('/users', User.fromJson);
-</code></pre>
+  <p>Deserialises <code>body[dataKey]</code> as a list of JSON objects.</p>
 </section>
 
 
@@ -86,20 +81,16 @@ final users = await client.getListAndDecodeData('/users', User.fromJson);
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;List&lt;T&gt;&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
-  );
-  return _parseOrThrow(
-    response,
-    () =&gt; (_extractData(response.data) as List&lt;dynamic&gt;)
-        .cast&lt;Map&lt;String, dynamic&gt;&gt;()
-        .map((json) =&gt; fromJson(json))
-        .toList(),
     assertJson: true,
+    decode: (response) =&gt;
+        _asObjectList(_extractData(response.data), fromJson),
   );
 }</code></pre>
 </section>

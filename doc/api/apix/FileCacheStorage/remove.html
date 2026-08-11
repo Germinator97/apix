@@ -78,6 +78,7 @@
   <pre class="language-dart"><code class="language-dart">@override
 Future&lt;void&gt; remove(String key) async {
   await _discard(_fileFor(key));
+  _knownCount = null;
 }</code></pre>
 </section>
 

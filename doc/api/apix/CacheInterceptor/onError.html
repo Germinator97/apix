@@ -85,6 +85,15 @@ void onError(
     final options = err.requestOptions;
     final strategy = _getStrategy(options);
 
+    &#47;&#47; A body the consumer&#39;s `responseValidator` refused is a business
+    &#47;&#47; failure, not a transport one. Answering it from storage would swap the
+    &#47;&#47; failure the caller must see for a stale success.
+    if (options.extra[ResponseValidatorInterceptor.validationFailedKey] ==
+        true) {
+      handler.next(err);
+      return;
+    }
+
     &#47;&#47; Only handle networkFirst and httpCacheAware fallback
     if (strategy != CacheStrategy.networkFirst &amp;&amp;
         strategy != CacheStrategy.httpCacheAware) {
@@ -100,6 +109,25 @@ void onError(
 
     final cacheKey =
         options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
+
+    &#47;&#47; A 304 is not a failure, it is the successful outcome of a conditional
+    &#47;&#47; request — but dio&#39;s default `validateStatus` accepts only 2xx, so it
+    &#47;&#47; arrives here as an error. Handling it in `onResponse` alone meant the
+    &#47;&#47; branch never ran: the 304 fell through to the generic fallback below,
+    &#47;&#47; which served the entry flagged `isStale` (it had to be expired to be
+    &#47;&#47; revalidated at all) and left its TTL untouched. So a *successful*
+    &#47;&#47; revalidation reported stale data and re-hit the network on every later
+    &#47;&#47; request — `httpCacheAware` degenerated into &quot;always revalidate&quot;, the
+    &#47;&#47; opposite of what it documents.
+    if (strategy == CacheStrategy.httpCacheAware &amp;&amp;
+        err.response?.statusCode == 304) {
+      final revalidated =
+          await _serveRevalidated(options, cacheKey, err.response!);
+      if (revalidated != null) {
+        handler.resolve(revalidated);
+        return;
+      }
+    }
 
     &#47;&#47; Try to return cached response on network failure. An expired entry is
     &#47;&#47; served on purpose here — stale data beats no data when the network is

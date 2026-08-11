@@ -111,7 +111,12 @@ int get hashCode =&gt;
     maxDelayMs.hashCode ^
     respectRetryAfter.hashCode ^
     jitter.hashCode ^
-    retryStatusCodes.hashCode ^
+    &#47;&#47; Hashed by content, and order-dependently, because `==` compares these
+    &#47;&#47; element by element. `retryStatusCodes.hashCode` is the *identity* hash
+    &#47;&#47; of the list, so two configs that compared equal had different hash
+    &#47;&#47; codes — `{a, b}` kept both, and a `Map&lt;RetryConfig, …&gt;` lost lookups.
+    &#47;&#47; The trap was seen for the set just below and missed for the list.
+    retryStatusCodes.fold&lt;int&gt;(17, (h, code) =&gt; h * 31 + code.hashCode) ^
     &#47;&#47; Order-independent so two equal sets share a hash code.
     retryableMethods.fold&lt;int&gt;(0, (h, m) =&gt; h ^ m.hashCode);</code></pre>
 </section>

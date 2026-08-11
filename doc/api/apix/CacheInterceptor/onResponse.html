@@ -100,13 +100,17 @@ void onResponse(
         options.extra[&#39;_cacheKey&#39;] as String? ?? _generateCacheKey(options);
     final strategy = _getStrategy(options);
 
-    &#47;&#47; Handle 304 Not Modified for httpCacheAware
+    &#47;&#47; Handle 304 Not Modified for httpCacheAware.
+    &#47;&#47;
+    &#47;&#47; Only reachable when the caller widened `validateStatus` to accept a
+    &#47;&#47; 304; with dio&#39;s default it arrives as an error, and `onError` handles
+    &#47;&#47; it. Both routes go through the same helper so they cannot drift.
     if (strategy == CacheStrategy.httpCacheAware &amp;&amp;
         response.statusCode == 304) {
-      final cached = await config.storage.get(cacheKey);
-      if (cached != null) {
-        final cachedResponse = _buildResponseFromCache(options, cached);
-        handler.resolve(cachedResponse);
+      final revalidated =
+          await _serveRevalidated(options, cacheKey, response);
+      if (revalidated != null) {
+        handler.resolve(revalidated);
         return;
       }
     }

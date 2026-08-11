@@ -81,34 +81,84 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) async {
-  &#47;&#47; Already FormData - just ensure content type
-  if (options.data is FormData) {
-    options.contentType ??= &#39;multipart&#47;form-data&#39;;
-    handler.next(options);
-    return;
-  }
-
-  &#47;&#47; Check for files in Map data
-  if (options.data is Map&lt;String, dynamic&gt;) {
-    final data = options.data as Map&lt;String, dynamic&gt;;
-
-    if (_containsFiles(data)) {
-      final formData = await _toFormData(data);
-      options.data = formData;
+  try {
+    &#47;&#47; A replay of a request we built: rebuild the body from the caller&#39;s
+    &#47;&#47; map, so this attempt gets a FormData nobody has consumed.
+    final source = options.extra[multipartSourceKey];
+    if (source is Map&lt;String, dynamic&gt;) {
+      options.data = await _toFormData(source);
       options.contentType = &#39;multipart&#47;form-data&#39;;
       handler.next(options);
       return;
     }
-  }
 
-  &#47;&#47; Apply default content type for non-null data (if not already set)
-  if (options.contentType == null &amp;&amp;
-      options.data != null &amp;&amp;
-      defaultContentType != null) {
-    options.contentType = defaultContentType;
-  }
+    if (options.data is FormData) {
+      final form = options.data as FormData;
 
-  handler.next(options);
+      &#47;&#47; Finalized means this body has already been streamed once, so this is
+      &#47;&#47; a replay of a FormData apix did not build and cannot rebuild.
+      &#47;&#47; Failing here names the cause; letting it through raised a StateError
+      &#47;&#47; that reached the caller as `ApiException: Unknown error`, having
+      &#47;&#47; replaced the status that triggered the replay in the first place.
+      if (form.isFinalized) {
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            error: const MultipartReplayException(),
+            type: DioExceptionType.unknown,
+          ),
+        );
+        return;
+      }
+
+      options.contentType ??= &#39;multipart&#47;form-data&#39;;
+      handler.next(options);
+      return;
+    }
+
+    &#47;&#47; Check for files in Map data
+    if (options.data is Map&lt;String, dynamic&gt;) {
+      final data = options.data as Map&lt;String, dynamic&gt;;
+
+      if (_containsFiles(data)) {
+        &#47;&#47; Remember the map only when everything in it can be rebuilt. A
+        &#47;&#47; caller-supplied MultipartFile cannot be, so storing the map would
+        &#47;&#47; promise a replay that would fail on the second attempt instead of
+        &#47;&#47; reporting it on the first.
+        if (!_containsMultipartFile(data)) {
+          options.extra[multipartSourceKey] = data;
+        }
+        options.data = await _toFormData(data);
+        options.contentType = &#39;multipart&#47;form-data&#39;;
+        handler.next(options);
+        return;
+      }
+    }
+
+    &#47;&#47; Apply default content type for non-null data (if not already set)
+    if (options.contentType == null &amp;&amp;
+        options.data != null &amp;&amp;
+        defaultContentType != null) {
+      options.contentType = defaultContentType;
+    }
+
+    handler.next(options);
+  } catch (e, st) {
+    &#47;&#47; Reading a file can fail between two attempts — it may have been moved
+    &#47;&#47; or deleted since the first one. Surfacing that as a typed failure beats
+    &#47;&#47; an unhandled async error with no request attached to it.
+    handler.reject(
+      DioException(
+        requestOptions: options,
+        error: MultipartReplayException(
+          message: &#39;Failed to build the multipart body: $e&#39;,
+          originalError: e,
+          stackTrace: st,
+        ),
+        type: DioExceptionType.unknown,
+      ),
+    );
+  }
 }</code></pre>
 </section>
 

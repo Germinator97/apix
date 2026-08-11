@@ -64,6 +64,7 @@
     
 <section class="desc markdown">
   <p>Generates a unique key for the request based on method, URL, and body.</p>
+<p>Scoped by <a href="../../apix/RequestDeduplicator/varyHeaders.html">varyHeaders</a> when any are configured — see the constructor.</p>
 </section>
 
 
@@ -81,6 +82,9 @@
     final bodyHash = _hashBody(options.data);
     buffer.write(&#39;:$bodyHash&#39;);
   }
+
+  final vary = varyFingerprint(options, varyHeaders);
+  if (vary != null) buffer.write(&#39;|v:$vary&#39;);
 
   return buffer.toString();
 }</code></pre>

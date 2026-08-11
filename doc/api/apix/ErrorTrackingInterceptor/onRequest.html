@@ -81,6 +81,7 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) {
+  ObservationMarker.beginAttempt(options);
   if (config.enabled &amp;&amp; config.onBreadcrumb != null) {
     _addRequestBreadcrumb(options);
   }

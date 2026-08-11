@@ -514,6 +514,15 @@ secure key-value storage operations.
   Breadcrumb types.
 </dd>
 
+          <dt id="CacheBodyEncoding">
+  <span class="name "><a href="../apix/CacheBodyEncoding.html">CacheBodyEncoding</a></span> 
+
+</dt>
+<dd>
+  How a response body was turned into the <a href="../apix/CacheEntry/data.html">CacheEntry.data</a> string, and
+therefore how it must be turned back.
+</dd>
+
           <dt id="CacheStrategy">
   <span class="name "><a href="../apix/CacheStrategy.html">CacheStrategy</a></span> 
 
@@ -638,6 +647,18 @@ has happened during requests.
 <dd>
   Key used to force retry of a request whose method is not in
 <a href="../apix/RetryConfig/retryableMethods.html">RetryConfig.retryableMethods</a> (e.g. an idempotency-key-protected POST).
+  
+
+</dd>
+
+          <dt id="forceRevalidateKey" class="constant">
+    <span class="name "><a href="../apix/forceRevalidateKey-constant.html">forceRevalidateKey</a></span>
+  <span class="signature">&#8594; const <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  Key set on <code>RequestOptions.extra</code> to force a conditional revalidation.
   
 
 </dd>
@@ -918,6 +939,15 @@ have the request fail with that exception.
 </dt>
 <dd>
   Exception representing an HTTP error captured by error tracking.
+</dd>
+
+          <dt id="MultipartReplayException">
+  <span class="name "><a href="../apix/MultipartReplayException-class.html">MultipartReplayException</a></span> 
+
+</dt>
+<dd>
+  Thrown when a multipart request has to be sent a second time and apix
+cannot rebuild its body.
 </dd>
 
           <dt id="NetworkException">

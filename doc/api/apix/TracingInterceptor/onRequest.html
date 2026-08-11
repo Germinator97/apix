@@ -78,6 +78,7 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
 void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+  ObservationMarker.beginAttempt(options);
   &#47;&#47; A retried request re-enters the chain carrying the same `extra` map, so
   &#47;&#47; an unconditional start would open one span per attempt while only the
   &#47;&#47; last one ever reached onError — the earlier ones leaking, silently. One

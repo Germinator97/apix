@@ -85,8 +85,6 @@
     return;
   }
 
-  _isInitialized = true;
-
   await SentryFlutter.init(
     (sentryOptions) {
       sentryOptions.dsn = options.dsn;
@@ -98,13 +96,23 @@
       &#47;&#47; Disable tracing in debug mode
       sentryOptions.tracesSampleRate =
           kDebugMode ? 0.0 : options.tracesSampleRate;
-      &#47;&#47; Note: profilesSampleRate is experimental and may be removed
-      &#47;&#47; sentryOptions.profilesSampleRate =
-      &#47;&#47;     kDebugMode ? 0.0 : options.profilesSampleRate;
 
-      &#47;&#47; Note: Replay options available in newer versions
-      &#47;&#47; sentryOptions.replay.onErrorSampleRate = options.replayOnErrorSampleRate;
-      &#47;&#47; sentryOptions.replay.sessionSampleRate = options.replaySessionSampleRate;
+      &#47;&#47; Profiling and replay are now actually wired.
+      &#47;&#47;
+      &#47;&#47; These three were accepted by `SentrySetupOptions`, documented, and
+      &#47;&#47; set by both of its factories — while the lines that applied them sat
+      &#47;&#47; commented out behind &quot;available in newer versions&quot;. That note was
+      &#47;&#47; stale: the pubspec requires sentry_flutter &gt;=9.0.0, which exposes
+      &#47;&#47; `profilesSampleRate` and `replay.*`. So
+      &#47;&#47; `SentrySetupOptions.production()` configured three things that did
+      &#47;&#47; nothing, and nothing anywhere said so — the worst kind of option,
+      &#47;&#47; one that looks set.
+      sentryOptions.profilesSampleRate =
+          kDebugMode ? 0.0 : options.profilesSampleRate;
+      sentryOptions.replay.onErrorSampleRate =
+          kDebugMode ? 0.0 : options.replayOnErrorSampleRate;
+      sentryOptions.replay.sessionSampleRate =
+          kDebugMode ? 0.0 : options.replaySessionSampleRate;
 
       sentryOptions.debug = kDebugMode;
       sentryOptions.captureFailedRequests = options.captureFailedRequests;
@@ -124,6 +132,7 @@
       sentryOptions.beforeSendTransaction =
           (transaction, hint) =&gt; _beforeSendTransaction(
                 transaction,
+                hint,
                 options,
               );
 
@@ -140,6 +149,12 @@
     },
     appRunner: appRunner,
   );
+
+  &#47;&#47; Marked initialized only once init has actually returned. Setting it
+  &#47;&#47; beforehand meant a failed init left the flag standing, so a later,
+  &#47;&#47; legitimate retry silently skipped initialization and ran the app with no
+  &#47;&#47; Sentry at all — reporting nothing, and looking exactly like a quiet day.
+  _isInitialized = true;
 }</code></pre>
 </section>
 

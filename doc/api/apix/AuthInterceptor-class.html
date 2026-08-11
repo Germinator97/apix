@@ -197,7 +197,8 @@ dio.interceptors.add(authInterceptor);
 
 </dt>
 <dd>
-  Called when an exception was occurred during the request.
+  Handles a failure, refreshing the token and replaying the request when the
+status calls for it.
   <div class="features"><span class="feature">override</span></div>
 
 </dd>

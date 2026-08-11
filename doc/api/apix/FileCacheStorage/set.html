@@ -88,11 +88,19 @@ Future&lt;void&gt; set(String key, CacheEntry entry) async {
   final payload = jsonEncode({&#39;key&#39;: key, &#39;entry&#39;: entry.toJson()});
 
   &#47;&#47; Write then rename, so a concurrent reader sees either the old entry or
-  &#47;&#47; the new one — never a truncated file.
-  final temp = File(&#39;${file.path}.tmp&#39;);
+  &#47;&#47; the new one — never a truncated file. The counter keeps two concurrent
+  &#47;&#47; writes to the same key off each other&#39;s temporary file.
+  final digest = file.uri.pathSegments.last.replaceAll(&#39;.json&#39;, &#39;&#39;);
+  final temp = File(
+    &#39;${directory.path}${Platform.pathSeparator}$digest.${_writeCounter++}.tmp&#39;,
+  );
   await temp.writeAsString(payload, flush: true);
   await temp.rename(file.path);
 
+  &#47;&#47; Counted optimistically: overwriting an existing key inflates this, which
+  &#47;&#47; only costs an extra scan. Under-counting would be the dangerous
+  &#47;&#47; direction, since it would skip an eviction that was due.
+  if (_knownCount != null) _knownCount = _knownCount! + 1;
   await _evictIfNeeded();
 }</code></pre>
 </section>

@@ -68,8 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and parses <code>response.data[dataKey]</code> as a list,
-returning an empty list if the extracted data is null.</p>
+  <p>Parses <code>body[dataKey]</code> as a list, empty when it is absent.</p>
 </section>
 
 
@@ -82,18 +81,17 @@ returning an empty list if the extracted data is null.</p>
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;List&lt;T&gt;&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
+    assertJson: false,
+    decode: (response) =&gt;
+        _asListOrNull(_extractData(response.data), parser) ?? &lt;T&gt;[],
   );
-  return _parseOrThrow(response, () {
-    final data = _extractData(response.data);
-    if (data == null) return &lt;T&gt;[];
-    return (data as List&lt;dynamic&gt;).map((item) =&gt; parser(item)).toList();
-  });
 }</code></pre>
 </section>
 

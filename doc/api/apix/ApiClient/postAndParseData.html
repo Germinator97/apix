@@ -56,8 +56,8 @@
       
 <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span>
 <span class="name ">postAndParseData</span>&lt;<wbr><span class="type-parameter">T</span>&gt;(<wbr><ol class="parameter-list"> <li><span class="parameter" id="postAndParseData-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span></li>
-<li><span class="parameter" id="postAndParseData-param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span>, </span></li>
-<li><span class="parameter" id="postAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-responseData"><span class="type-annotation">dynamic</span> <span class="parameter-name">responseData</span></span></li>
+<li><span class="parameter" id="postAndParseData-param-data"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a>?</span> <span class="parameter-name">data</span>, </span></li>
+<li><span class="parameter" id="postAndParseData-param-parser"><span class="type-annotation">T</span> <span class="parameter-name">parser</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-data"><span class="type-annotation">dynamic</span> <span class="parameter-name">data</span></span></li>
 </ol>), {</span></li>
 <li><span class="parameter" id="postAndParseData-param-queryParameters"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">queryParameters</span>, </span></li>
 <li><span class="parameter" id="postAndParseData-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a>?</span> <span class="parameter-name">options</span>, </span></li>
@@ -69,7 +69,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a POST request and parses <code>response.data[dataKey]</code> using <code>parser</code>.</p>
+  <p>Parses <code>body[dataKey]</code> with <code>parser</code>.</p>
 </section>
 
 
@@ -78,22 +78,21 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">Future&lt;T&gt; postAndParseData&lt;T&gt;(
   String path,
-  dynamic data,
-  T Function(dynamic responseData) parser, {
+  Object? data,
+  T Function(dynamic data) parser, {
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await post&lt;dynamic&gt;(
+}) {
+  return _typed&lt;T&gt;(
+    &#39;POST&#39;,
     path,
     data: data,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
-  );
-  return _parseOrThrow(
-    response,
-    () =&gt; parser(_extractData(response.data)),
+    assertJson: false,
+    decode: (response) =&gt; parser(_extractData(response.data)),
   );
 }</code></pre>
 </section>

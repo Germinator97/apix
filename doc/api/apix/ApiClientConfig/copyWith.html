@@ -74,6 +74,11 @@
     
 <section class="desc markdown">
   <p>Creates a copy of this config with the given fields replaced.</p>
+<p><strong>A <code>null</code> argument means "keep the current value", never "clear it".</strong>
+Passing <code>null</code> explicitly cannot remove a callback or an optional field —
+build a fresh config for that. The usual Dart limitation, stated because
+the alternative is discovering it from a callback that kept firing after
+you thought you had removed it.</p>
 </section>
 
 

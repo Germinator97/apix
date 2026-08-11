@@ -68,11 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and deserializes a JSON object response.</p>
-<p>Formats <code>response.data</code> as <code>Map&lt;String, dynamic&gt;</code>.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">final user = await client.getAndDecode('/users/1', User.fromJson);
-</code></pre>
+  <p>Deserialises the whole body as a JSON object.</p>
 </section>
 
 
@@ -85,17 +81,15 @@
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;T&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
-  );
-  return _parseOrThrow(
-    response,
-    () =&gt; fromJson(_requireData(response)),
     assertJson: true,
+    decode: (response) =&gt; fromJson(_requireData(response)),
   );
 }</code></pre>
 </section>
