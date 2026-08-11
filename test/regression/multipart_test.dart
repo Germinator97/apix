@@ -93,6 +93,128 @@ void main() {
       expect(fileKeysOf(form), ['file']);
     });
 
+    test('B4 — a Map upload survives a token refresh and its replay', () async {
+      final adapter = ScriptedAdapter((options, i) {
+        if (options.path.contains('refresh')) {
+          return jsonResponse({'access_token': 'fresh'}, 200);
+        }
+        // First attempt: the token is stale. Second: it must succeed, which it
+        // can only do if the replay carried a body of its own.
+        return i == 0
+            ? jsonResponse({'message': 'expired'}, 401)
+            : jsonResponse({'uploaded': true}, 200);
+      });
+      final provider = StubTokenProvider(accessToken: 'stale');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(
+          tokenProvider: provider,
+          refreshEndpoint: '/auth/refresh',
+          onTokenRefreshed: (response) async {
+            await provider.saveTokens('fresh', 'ref-B');
+          },
+        ),
+      );
+
+      final response = await client.post<dynamic>(
+        '/upload',
+        data: {'file': avatar, 'caption': 'holiday'},
+      );
+
+      expect(bodyOf(response)['uploaded'], isTrue,
+          reason: 'the replayed upload must reach the server, not die on a '
+              'FormData that the first attempt already consumed');
+
+      final replayed = adapter.seen.last.data as FormData;
+      expect(replayed.files, hasLength(1),
+          reason: 'the replay must still carry the file');
+      expect(fieldsOf(replayed), containsPair('caption', 'holiday'));
+    });
+
+    test('B4 — a Map upload survives a retry, keeping the server status',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => i == 0
+            ? jsonResponse({'message': 'boom'}, 500)
+            : jsonResponse({'uploaded': true}, 200),
+      );
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        retryConfig: const RetryConfig(maxAttempts: 2, baseDelayMs: 1),
+      );
+
+      final response = await client.put<dynamic>(
+        '/upload',
+        data: {'file': avatar},
+      );
+
+      expect(bodyOf(response)['uploaded'], isTrue);
+      expect(adapter.callCount, 2);
+    });
+
+    test('B4 — an exhausted retry reports the server status, not Unknown error',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'message': 'boom'}, 500),
+      );
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        retryConfig: const RetryConfig(maxAttempts: 1, baseDelayMs: 1),
+      );
+
+      // The replay's StateError used to replace the 500, so `on
+      // ServerException` stopped matching what the server actually said.
+      await expectLater(
+        client.put<dynamic>('/upload', data: {'file': avatar}),
+        throwsA(
+            isA<ServerException>().having((e) => e.statusCode, 'status', 500)),
+      );
+    });
+
+    test(
+        'B4 — a caller-supplied FormData is refused by name, not by StateError',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'message': 'boom'}, 500),
+      );
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        retryConfig: const RetryConfig(maxAttempts: 1, baseDelayMs: 1),
+      );
+
+      await expectLater(
+        client.put<dynamic>(
+          '/upload',
+          data: FormData.fromMap({'note': 'hand-built'}),
+        ),
+        throwsA(isA<MultipartReplayException>()),
+      );
+    });
+
+    test('B4 — a first-pass FormData is sent normally', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'ok': 1}, 200));
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+      );
+
+      // The other direction: the refusal must not fire on a body that has
+      // never been sent. A guard that rejected every FormData would pass the
+      // test above while breaking every hand-built upload.
+      final response = await client.post<dynamic>(
+        '/upload',
+        data: FormData.fromMap({'note': 'hand-built'}),
+      );
+
+      expect(response.statusCode, 200);
+      expect(adapter.callCount, 1);
+    });
+
     test('deeply nested scalars survive alongside a deep file', () async {
       final form = await send({
         'meta': {
