@@ -1,15 +1,25 @@
 ## 4.1.0
 
+Two rounds of the same defect, reported by a consumer and then found by
+auditing for others like it: a `Future` completed with an error that nobody
+listens to is reported to the zone — a Sentry event nobody can act on.
+
 ### Fixed
 
+* **`RequestDeduplicator` no longer reports an unhandled error on every failed
+  request.** Its `Completer` exists for duplicates that usually never arrive,
+  so nothing listens to it — harmless on success, but `completeError` with no
+  listener reports to the zone. Invisible until a `CancelToken` made
+  cancellation routine. `DeduplicationInterceptor`, added in 4.0.0, shares that
+  deduplicator, so the defect had just become reachable without a cache.
+* **`ErrorTrackingConfig.onError` no longer leaks the same way.** Its `Future`
+  was neither awaited nor ignored, so a tracker failing asynchronously reported
+  an error nobody could receive — from inside the component whose job is
+  receiving errors.
 * **A failing observation callback no longer breaks the request.** A
   `logHandler`, `onMetrics`, `onBreadcrumb` or span starter that threw turned a
   `200` into an `ApiException` — an analytics backend having a bad minute
   failed the business request it was only observing.
-* **`ErrorTrackingConfig.onError` no longer leaks an unhandled error.** Its
-  `Future` was neither awaited nor ignored, so a tracker failing asynchronously
-  reported an error nobody could receive — from inside the component whose job
-  is receiving errors. Same shape as the 4.0.1 deduplicator fix.
 * **A deduplicated request is observed once.** Outer and inner requests share a
   `CancelToken`, so a cancellation put the outer one through the error chain
   twice: one network call, two log lines, two tracker events.
@@ -26,18 +36,6 @@
   what it cannot open), `AuthInterceptor` swallows a throwing `onAuthFailure`
   to avoid deadlocking the refresh queue, and `TooManyRequestsException
   .retryAfter` is populated regardless of `RetryConfig.respectRetryAfter`.
-
-## 4.0.1
-
-### Fixed
-
-* **`RequestDeduplicator` no longer reports an unhandled error on every failed
-  request** (reported by a consumer). Its `Completer` exists for duplicates
-  that usually never arrive, so nothing listens to it — harmless on success,
-  but `completeError` with no listener reports to the zone, which in production
-  means a Sentry event per failed request. Invisible until a `CancelToken` made
-  cancellation routine. `DeduplicationInterceptor`, new in 4.0.0, shares that
-  deduplicator, so the defect had just become reachable without a cache.
 
 ## 4.0.0
 
