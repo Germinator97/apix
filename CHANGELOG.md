@@ -42,6 +42,14 @@ folded in below.
 
 ### Fixed
 
+* **An empty collection sent as a bare `[]` no longer crashes the `…OrEmpty`
+  and `…OrNull` variants.** Backends routinely serialise an empty collection as
+  `[]` rather than `{"data": []}`, and the envelope unwrapper rejected it — so
+  the very methods that promise to tolerate "no data" broke on the commonest
+  spelling of it, under HTTP 200, on the user who simply had nothing yet. A
+  bare `List` or `null` at the root is now read as the payload. A `String` or a
+  number still fails: that is a shape nobody can guess at.
+
 * **A business failure dressed as `200 OK` is treated as a failure.**
   `ResponseValidatorInterceptor` ran *after* the cache and after every
   observer, which broke two things at once: the refused body had already been
