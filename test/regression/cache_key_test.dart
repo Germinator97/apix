@@ -21,6 +21,53 @@ void main() {
     );
   }
 
+  group('reaching the cache interceptor', () {
+    test('client.cacheInterceptor finds the one the factory built', () async {
+      final adapter = ScriptedAdapter((options, i) => jsonResponse({}, 200));
+      final client = clientWith(adapter);
+
+      expect(client.cacheInterceptor, isNotNull);
+      expect(
+        client.cacheInterceptor,
+        same(client.dio.interceptors.whereType<CacheInterceptor>().single),
+        reason: 'it must be the instance in the chain, not a new one',
+      );
+    });
+
+    test('it is null when no cache is installed', () {
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: ScriptedAdapter((o, i) => jsonResponse({}, 200)),
+      );
+
+      expect(client.cacheInterceptor, isNull);
+    });
+
+    test('it also finds one wired by hand', () {
+      final interceptor = CacheInterceptor(config: CacheConfig());
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: ScriptedAdapter((o, i) => jsonResponse({}, 200)),
+        interceptors: [interceptor],
+      );
+
+      // Found by type, so the accessor does not care how the cache got there.
+      expect(client.cacheInterceptor, same(interceptor));
+    });
+
+    test('the invalidation API works through it', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'i': i}, 200));
+      final client = clientWith(adapter);
+
+      await client.get<dynamic>('/users');
+      expect(await client.cacheInterceptor!.getCacheKeys(), hasLength(1));
+
+      await client.cacheInterceptor!.clearCache();
+      expect(await client.cacheInterceptor!.getCacheKeys(), isEmpty);
+    });
+  });
+
   group('cache key — query parameters', () {
     test('two pages requested through queryParameters do not collide',
         () async {
