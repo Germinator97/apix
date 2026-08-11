@@ -54,6 +54,38 @@ folded in below.
 
 ### Fixed
 
+* **`httpCacheAware` honours `no-cache` and `must-revalidate`.** Both were
+  parsed and then ignored, so a server marking a resource as must-revalidate
+  had it served from cache for `defaultTtl` regardless — apix deciding
+  freshness for the one strategy whose premise is that the server decides. They
+  now give the entry a zero lifetime: it stays stored with its `ETag`, and the
+  next request revalidates for the cost of a `304`.
+
+* **`RequestOptions.forceRevalidate()` exists.** The interceptor honoured this
+  flag from the start and nothing in the public API ever set it — only a test
+  did, by writing the private key by hand. Use it for pull-to-refresh.
+
+* **`RetryInterceptor` no longer swallows a failure of its own machinery.** Its
+  outer `catch` dropped the caught error and re-emitted the original, so a bug
+  in the retry path surfaced as the server's status and nothing else.
+
+* **A token read after a successful refresh raises
+  `TokenProviderException`.** `onRequest` wrapped keychain failures and the
+  post-refresh replay did not, so a caller catching that type missed the one
+  read where a broken keychain is most likely.
+
+* **A hanging `onAuthFailure` no longer freezes the refresh queue.** A throwing
+  callback was already handled; one that never returns blocks the notification
+  that runs before the queue is released, so every waiting request stopped
+  forever. It is now bounded by a five-second timeout.
+
+* **`FileCacheStorage` writes are cheaper and no longer race.** Two concurrent
+  writes to the same key shared one `<digest>.tmp` file, so one `rename` failed
+  on a file that was gone and the write was silently dropped by the storage
+  guard; temporary files are now unique per write, and leftovers are swept by
+  `clear()`. Eviction also stops listing the directory and reading every file
+  on **each** cached response, using a running count instead.
+
 * **Three Sentry options stop being inert.** `profilesSampleRate`,
   `replayOnErrorSampleRate` and `replaySessionSampleRate` were accepted,
   documented and set by both factories, while the lines applying them sat

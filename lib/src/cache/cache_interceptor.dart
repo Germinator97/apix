@@ -493,7 +493,7 @@ class CacheInterceptor extends Interceptor {
       // Check if cache is still fresh (no need to revalidate)
       if (cached.isValid) {
         // Check if we should revalidate based on no-cache
-        final shouldRevalidate = options.extra['_forceRevalidate'] == true;
+        final shouldRevalidate = options.extra[forceRevalidateKey] == true;
         if (!shouldRevalidate) {
           final response = _buildResponseFromCache(options, cached);
           handler.resolve(response);
@@ -700,9 +700,27 @@ class CacheInterceptor extends Interceptor {
   }
 
   /// How long an entry built from [response] should live.
+  ///
+  /// Under `httpCacheAware` this reads the server's own directives, all three
+  /// of which used to be parsed and then ignored except `max-age`:
+  ///
+  /// - `no-cache` and `must-revalidate` mean "you may keep this, but confirm it
+  ///   before using it again". That is a zero lifetime here: the entry stays on
+  ///   disk with its `ETag`, and the next request revalidates — cheaply, since
+  ///   a `304` costs no body and now correctly restarts the entry.
+  /// - `max-age` sets the lifetime.
+  ///
+  /// Ignoring the first two meant a server marking a resource as
+  /// must-revalidate had it served from cache for `defaultTtl` regardless —
+  /// apix deciding freshness for a strategy whose entire premise is that the
+  /// server decides.
   Duration _ttlFor(Response<dynamic> response, CacheStrategy? strategy) {
     if (strategy != CacheStrategy.httpCacheAware) return config.defaultTtl;
-    final maxAge = _parseCacheControl(response.headers).maxAge;
+    final cacheControl = _parseCacheControl(response.headers);
+    if (cacheControl.noCache || cacheControl.mustRevalidate) {
+      return Duration.zero;
+    }
+    final maxAge = cacheControl.maxAge;
     return maxAge == null ? config.defaultTtl : Duration(seconds: maxAge);
   }
 
@@ -845,6 +863,9 @@ const String fromCacheKey = 'fromCache';
 /// Key set on `Response.extra` when the cached body served had expired.
 const String fromCacheStaleKey = 'fromCacheStale';
 
+/// Key set on `RequestOptions.extra` to force a conditional revalidation.
+const String forceRevalidateKey = '_forceRevalidate';
+
 /// Extension for per-request cache control.
 extension CacheRequestExtension on RequestOptions {
   /// Sets a custom cache strategy for this request.
@@ -855,6 +876,21 @@ extension CacheRequestExtension on RequestOptions {
   /// Disables caching for this request.
   void noCache() {
     extra['cacheStrategy'] = CacheStrategy.networkOnly;
+  }
+
+  /// Under [CacheStrategy.httpCacheAware], revalidates with the server even
+  /// when the stored entry is still fresh.
+  ///
+  /// Sends the stored `ETag` as `If-None-Match`, so an unchanged resource costs
+  /// a `304` with no body and the entry's lifetime restarts. Use it for a
+  /// pull-to-refresh: the user asked for the current answer, and a cheap
+  /// confirmation is a better one than a full download.
+  ///
+  /// The interceptor honoured this flag from the start, but nothing in the
+  /// public API ever set it — only a test did, by writing the private key by
+  /// hand.
+  void forceRevalidate() {
+    extra[forceRevalidateKey] = true;
   }
 }
 

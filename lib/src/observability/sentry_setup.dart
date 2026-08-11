@@ -370,8 +370,16 @@ class SentrySetup {
       return true;
     }
 
+    // Both spellings are matched on purpose.
+    //
+    // For a Dart throwable, `SentryException.type` is `runtimeType.toString()`
+    // — a bare class name with no library prefix — which made the qualified
+    // form look like dead code. It is not guaranteed to be: an event can also
+    // arrive from a native integration or be constructed directly, and nothing
+    // in the SDK promises the bare form for those. A test pins the qualified
+    // case, and removing the clause is a behaviour change that buys nothing.
     for (final t in dartOnlyTypes) {
-      if (type == t || type.startsWith('dart:') && type.contains(t)) {
+      if (type == t || (type.startsWith('dart:') && type.contains(t))) {
         return true;
       }
     }

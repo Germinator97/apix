@@ -132,8 +132,29 @@ class RetryInterceptor extends Interceptor {
         // Let the error go through onError again for potential further retries
         handler.next(e);
       }
-    } catch (e) {
-      handler.next(err);
+    } catch (e, st) {
+      // Anything that escapes above is the retry machinery itself failing, not
+      // the request. This used to be `handler.next(err)` with `e` dropped on
+      // the floor — a silent catch inside the one component whose job is to
+      // recover from failure, so a bug here surfaced as the *original* status
+      // and nothing else.
+      //
+      // The original response is kept so status-based handling and the error
+      // mapper still see what the server said, while `e` travels as the cause
+      // instead of vanishing.
+      if (e is DioException) {
+        handler.next(e);
+        return;
+      }
+      handler.next(
+        DioException(
+          requestOptions: err.requestOptions,
+          response: err.response,
+          type: err.type,
+          error: e,
+          stackTrace: st,
+        ),
+      );
     }
   }
 
