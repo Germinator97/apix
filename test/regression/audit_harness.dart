@@ -6,7 +6,7 @@ import 'package:apix/testing.dart';
 
 /// Shared fixtures for the regression suite.
 ///
-/// Every test under `test/regression/` pins one defect found by the 5.0.0
+/// Every test under `test/regression/` pins one defect found by the 5.0
 /// audit. They are integration tests on purpose: each defect lived at a
 /// *junction* between two interceptors that were both correct on their own, so
 /// none of them is reachable from a unit test of either half.

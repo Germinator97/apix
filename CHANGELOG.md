@@ -1,237 +1,74 @@
-## Unreleased
+## 5.0.0
 
-Next release is a **major**: several defaults change because the safe value and
-the backward-compatible one turned out not to be the same.
+Audit of the whole package: 29 defects, 17 reproduced against the real client.
+None raised, logged or reddened a test — they lived at the junctions between
+interceptors. Nothing below needs a code change on your side; two entries change
+how much traffic and how many tracker events to expect.
 
-An audit of the whole package found 29 defects, 17 of them reproduced against
-the real client. None raised an exception, wrote a log or reddened a test —
-which is why they had survived every previous review. They cluster at the
-*junctions* between components (cache × auth, multipart × retry, validator ×
-observability): each interceptor was correct on its own, and nothing exercised
-their composition.
+### Breaking
 
-Entries land here as they are fixed. The fix is
-folded in below.
+* Cache entries are scoped to the caller — `CacheConfig.varyHeaders`, default
+  `['Authorization']`. Two accounts on one device used to share every entry.
+  A token refresh now invalidates the cache: vary on a stable identity header to
+  avoid it, or `const []` to opt out.
+* `LoggerConfig` no longer logs request and response bodies by default.
+* `SentrySetupOptions.sendDefaultPii` defaults to `false`.
+* Failures that reached no observer now do — expect a one-off rise in events.
 
 ### Added
 
-* **Every typed-method family is now available on every verb.** Twelve shapes
-  × five verbs, so `putAndDecodeData`, `patchListAndDecodeDataOrEmpty`,
-  `deleteAndParseDataOrNull` and the rest all exist. `GET` and `POST` had
-  twelve variants each, `PUT` and `PATCH` had two, `DELETE` none — because
-  filling the gaps meant copying five hundred lines of identical
-  request-then-parse plumbing, so nobody did, and the README's summary table
-  claimed "all verbs" regardless. They now share one core, so a verb cannot
-  fall behind again.
-
-* **`RequestOptions.forceRevalidate()`**, see below.
-
-### Changed — BREAKING
-
-* **Cache entries are now scoped to whoever fetched them.** `CacheConfig` gains
-  `varyHeaders`, defaulting to `['Authorization']`, and a digest of those
-  headers goes into the cache key.
-
-  Until now the key described only *what* was asked — method, URL, query — and
-  never *who* asked. Two accounts on one device therefore shared every entry:
-  log out, log back in as someone else, and `GET /me` returned the previous
-  account's body. `FileCacheStorage` persists, so the leak outlived the session
-  that created it, and the logout documented in the README only dropped the
-  tokens.
-
-  Only a truncated digest reaches the key, never the header value:
-  `EncryptedCacheStorage` deliberately leaves keys in clear text, so embedding
-  a bearer token would write it to disk in the one storage chosen for sensitive
-  data.
-
-  `DeduplicationConfig.varyHeaders` does the same for the narrower window where
-  two concurrent requests sit either side of an identity change.
-
-  **What changes for you:** a token refresh changes the fingerprint, so entries
-  cached under the previous access token stop being hit — a miss, never a wrong
-  answer, but expect more network calls. Vary on a stable identity header
-  (`['X-User-Id']`) to avoid it, or `varyHeaders: const []` to restore the old
-  key where responses genuinely do not depend on the caller.
-
-* **Safer defaults for logging and Sentry.**
-  `LoggerConfig.logRequestBody` and `logResponseBody` now default to `false`: a
-  plain `LoggerConfig()` used to print the body of every request and response,
-  the password in a `POST /login` included, and header redaction never covered
-  bodies. `SentrySetupOptions.sendDefaultPii` now defaults to `false`, matching
-  Sentry's own default, instead of shipping headers, cookies and IP addresses
-  unless told otherwise.
-
-  `maxBodyLength` is documented for what it actually bounds — the rendered
-  text — and explicitly not `LogEntry.body`, which a custom handler still
-  receives whole so it can log structured data.
+* Every typed-method family on every verb: 12 shapes x 5 verbs, so
+  `putAndDecodeData`, `deleteListAndParseDataOrEmpty` and the rest exist. GET
+  and POST had 12 each, PUT and PATCH 2, DELETE none.
+* `RequestOptions.forceRevalidate()`, `MultipartReplayException`,
+  `CacheBodyEncoding`.
 
 ### Fixed
 
-* **`httpCacheAware` honours `no-cache` and `must-revalidate`.** Both were
-  parsed and then ignored, so a server marking a resource as must-revalidate
-  had it served from cache for `defaultTtl` regardless — apix deciding
-  freshness for the one strategy whose premise is that the server decides. They
-  now give the entry a zero lifetime: it stays stored with its `ETag`, and the
-  next request revalidates for the cost of a `304`.
+**Cache**
 
-* **`RequestOptions.forceRevalidate()` exists.** The interceptor honoured this
-  flag from the start and nothing in the public API ever set it — only a test
-  did, by writing the private key by hand. Use it for pull-to-refresh.
+* Query parameters written into the path were dropped from the key, so
+  `/users?page=1` and `?page=2` shared one entry.
+* A cache hit changed the body's type: `text/plain` `12345` returned as an int,
+  a binary download as `List<dynamic>`.
+* A `304` served the body as stale and never restarted the TTL, so
+  `httpCacheAware` revalidated forever.
+* `no-cache` and `must-revalidate` were parsed and ignored.
+* `invalidateUrl('/users')` also removed `/users-archived` and `/users/123`.
+* Concurrent `FileCacheStorage` writes to one key raced on a shared temp file;
+  eviction scanned the whole directory on every write.
 
-* **`RetryInterceptor` no longer swallows a failure of its own machinery.** Its
-  outer `catch` dropped the caught error and re-emitted the original, so a bug
-  in the retry path surfaced as the server's status and nothing else.
+**Multipart**
 
-* **A token read after a successful refresh raises
-  `TokenProviderException`.** `onRequest` wrapped keychain failures and the
-  post-refresh replay did not, so a caller catching that type missed the one
-  read where a broken keychain is most likely.
+* Nested fields and files were dropped — `{'a': {'b': {'file': File}}}` sent an
+  empty body and returned `200`.
+* An upload failed outright after a token refresh or a retry (`FormData` is
+  single-use), and its `StateError` replaced the server's status.
 
-* **A hanging `onAuthFailure` no longer freezes the refresh queue.** A throwing
-  callback was already handled; one that never returns blocks the notification
-  that runs before the queue is released, so every waiting request stopped
-  forever. It is now bounded by a five-second timeout.
+**Observability**
 
-* **`FileCacheStorage` writes are cheaper and no longer race.** Two concurrent
-  writes to the same key shared one `<digest>.tmp` file, so one `rename` failed
-  on a file that was gone and the write was silently dropped by the storage
-  guard; temporary files are now unique per write, and leftovers are swept by
-  `clear()`. Eviction also stops listing the directory and reading every file
-  on **each** cached response, using a running count instead.
+* A refresh failure reached no log and no tracker, and leaked its in-flight
+  metric; only the internal refresh call was reported.
+* A `responseValidator` rejection was recorded as a success, cached, then served
+  unvalidated on the next hit.
+* `ErrorMapperInterceptor` rewrote an already-typed exception unless it arrived
+  with type `unknown`.
+* A reused `RequestOptions` was observed only on its first execution.
+* `profilesSampleRate` and both replay sample rates were accepted and ignored;
+  `customBeforeSendTransaction` got an empty `Hint`; a failed `SentrySetup.init`
+  blocked every later attempt.
 
-* **Three Sentry options stop being inert.** `profilesSampleRate`,
-  `replayOnErrorSampleRate` and `replaySessionSampleRate` were accepted,
-  documented and set by both factories, while the lines applying them sat
-  commented out behind a note about newer SDK versions — stale, since the
-  pubspec requires sentry_flutter >=9.0.0. `SentrySetupOptions.production()`
-  configured three things that did nothing. They are wired now, and follow the
-  same debug-mode suppression as tracing.
+**Client**
 
-* **A failed `SentrySetup.init` no longer blocks a retry.** The one-shot flag
-  was raised *before* initialization, so a failure left it standing and the
-  next attempt silently skipped setup, running the app with no Sentry at all.
-
-* **`RetryConfig` honours the `==`/`hashCode` contract.** `==` compared
-  `retryStatusCodes` element by element while `hashCode` took the list's
-  *identity* hash, so two equal configs had different hash codes: a `Set` kept
-  both, and a `Map<RetryConfig, …>` lost lookups.
-
-* **`SentrySetupOptions.customBeforeSendTransaction` receives the real
-  `Hint`.** It was handed a freshly built one, dropping every attachment and
-  every piece of context Sentry had gathered.
-
-* **`invalidateUrl` no longer sweeps away sibling paths.** It was a bare prefix
-  match, so `invalidateUrl('/users')` also removed `/users-archived` and
-  `/users/123`. The match now stops at the URL boundary; `invalidatePath` and
-  `invalidateByPrefix` remain for clearing a subtree on purpose.
-
-* **A reused `RequestOptions` is observed on every execution.** The
-  once-per-request observation marks live on `extra`, which outlives a single
-  execution, so a consumer calling `dio.fetch(options)` twice found the second
-  failure logged, measured and captured by nobody. Marks are cleared at the
-  start of a genuinely new attempt — replays excepted, so a retry storm is
-  still one event and not one per attempt.
-
-* **An empty collection sent as a bare `[]` no longer crashes the `…OrEmpty`
-  and `…OrNull` variants.** Backends routinely serialise an empty collection as
-  `[]` rather than `{"data": []}`, and the envelope unwrapper rejected it — so
-  the very methods that promise to tolerate "no data" broke on the commonest
-  spelling of it, under HTTP 200, on the user who simply had nothing yet. A
-  bare `List` or `null` at the root is now read as the payload. A `String` or a
-  number still fails: that is a shape nobody can guess at.
-
-* **A business failure dressed as `200 OK` is treated as a failure.**
-  `ResponseValidatorInterceptor` ran *after* the cache and after every
-  observer, which broke two things at once: the refused body had already been
-  **cached**, and a later cache hit resolves from `onRequest` and skips
-  response interceptors — so the stored failure came back unvalidated, as a
-  success. Meanwhile `MetricsInterceptor` had already recorded the request as
-  `success: true`, so the dashboards counted as fine the exact failures this
-  feature exists to surface.
-
-  It now runs before both, rejects with `callFollowingErrorInterceptor: true`
-  so the failure reaches the observers, and the cache refuses to answer such a
-  rejection from storage. Validator rejections are typed `unknown` rather than
-  `badResponse`: they carry status `200`, so `captureStatusCodes` could never
-  filter them sensibly.
-
-* **`ErrorMapperInterceptor` no longer replaces an already-typed exception.**
-  The "already an `ApiException`" check sat only in the `default` arm, so it
-  protected interceptors rejecting with type `unknown` and silently failed
-  every other type — a `responseValidator` returning
-  `InsufficientFundsException` had it rewritten to
-  `HttpException(status: 200)`.
-
-* **A cache hit returns the type the network returned.** Bodies were stored
-  with `jsonEncode` and read back with `jsonDecode` whatever they were, which
-  is not a round trip: a `text/plain` body of `12345` came back as the **int**
-  `12345`, and a `ResponseType.bytes` download came back as a `List<dynamic>`
-  instead of bytes, so any cast at the call site threw — on the second request
-  only. `CacheEntry` now records how the body was encoded (`CacheBodyEncoding`)
-  and reverses exactly that.
-
-* **A `304 Not Modified` now confirms the entry instead of ageing it.** dio's
-  default `validateStatus` accepts only 2xx, so a 304 arrives as an *error* and
-  the branch that handled it in `onResponse` never ran. It fell through to the
-  offline fallback, which served the body flagged `isStale` — it had to be
-  expired to be revalidated at all — and left the TTL untouched. A *successful*
-  revalidation therefore reported stale data and re-hit the network on every
-  later request: `httpCacheAware` had degenerated into "always revalidate".
-  The 304 now restarts the entry's lifetime, honouring the `Cache-Control` the
-  304 itself carries, and serves it fresh.
-
-* **A broken session is no longer the one failure nobody can see.**
-  `AuthInterceptor` ended the error chain with `handler.reject`, and it sits
-  second — so a refresh failure skipped tracing, logging, error tracking,
-  metrics *and* the error mapper. The `401` the caller received appeared in no
-  log and no tracker, and its `MetricsInterceptor` in-flight entry was never
-  released, lingering until the five-minute orphan sweep.
-
-  What hid it is that the refresh call is a request of its own: its `400` was
-  logged and captured normally, so the dashboards were never empty — they
-  showed a different request than the one that failed. The originating response
-  now rides along too, so the reported failure carries its status instead of
-  arriving blank.
-
-  Same fix for a `cacheOnly` miss, which was invisible for the same reason.
-  The exception types callers catch are unchanged.
-
-* **Multipart requests no longer drop nested fields and files.** File detection
-  was recursive, the conversion was one level deep, and everything below that
-  level was discarded without a word — while the server answered `200`:
-  `{'user': {'avatar': File, 'name': 'John'}}` lost `name` and the `user`
-  nesting, `{'items': [File, 'caption']}` lost the caption, and
-  `{'a': {'b': {'file': File}}}` sent an **empty body** — nothing uploaded at
-  all. The interceptor now only replaces `File` with `MultipartFile`, at any
-  depth, and lets `FormData.fromMap` do the encoding with dio's own
-  conventions.
-
-* **An upload now survives a token refresh or a retry.** A `FormData` is
-  single-use, and both `AuthInterceptor` (after a refresh) and
-  `RetryInterceptor` replay the original `RequestOptions` — so an upload sent
-  with an expired token failed outright. apix now keeps the caller's map and
-  builds a fresh body for each attempt.
-
-  Where it cannot — the body was handed over as a `FormData` apix did not
-  build — the request fails with the new `MultipartReplayException`, which
-  names the cause and the way out. It used to raise a `StateError` that
-  reached the caller as `ApiException: Unknown error`, having **replaced the
-  status that triggered the replay**: a `500` stopped matching
-  `on ServerException catch`.
-
-* **`ApiException.code` no longer hands back the HTTP status disguised as a
-  business code.** Many envelopes fill a field named `code` with the status
-  itself (`{"code": 401, ...}` on a `401`), so the field added in 4.0.0 to free
-  callers from branching on the status was quietly restoring that coupling —
-  a `switch (e.code)` looking like business logic while keying on a status that
-  drifts between server revisions. A value equal to the response status is now
-  dropped, in either spelling (`401` and `"401"`).
-
-  Genuine codes are untouched: `4001` under a `400` still comes through. The
-  guard costs one indistinguishable case — an API whose real code equals its
-  own status.
-
-  Reported by a consumer as a review point, against the field shipped for their a review point.
+* A bare `[]` where an envelope was expected broke the `...OrEmpty` and
+  `...OrNull` variants.
+* `ApiException.code` no longer returns the HTTP status disguised as a business
+  code — a value equal to the status is dropped, in either spelling. Reported by
+  a consumer as a review point.
+* `RetryConfig` broke the `==`/`hashCode` contract.
+* `RetryInterceptor` swallowed failures of its own retry machinery.
+* A post-refresh token read did not raise `TokenProviderException`.
+* A hanging `onAuthFailure` froze the refresh queue.
 
 ## 4.1.0
 
