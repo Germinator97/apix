@@ -49,6 +49,56 @@ class CacheHit {
 /// Signature for [CacheConfig.onCacheHit].
 typedef CacheHitHandler = void Function(CacheHit hit);
 
+/// What the cache was doing when the storage backend refused.
+enum CacheOperation {
+  /// Reading an entry, on any strategy.
+  read,
+
+  /// Writing an entry after a response.
+  write,
+}
+
+/// A storage failure the cache absorbed.
+///
+/// Handed to [CacheConfig.onCacheError]. Falling back to the network is the
+/// right behaviour and does not change; what changes is that it stops being
+/// silent.
+///
+/// The failure it exists for is not the noisy kind. A `CacheStorage` that
+/// refuses every operation — a revoked directory permission, a rotated
+/// encryption key, a full disk — degrades the client to "no cache" and keeps
+/// working. Every request succeeds, every test passes, and the only symptom is
+/// traffic nobody is measuring. Without a channel there is no moment at which
+/// anyone could find out.
+class CacheFailure {
+  /// Whether the read or the write side refused.
+  final CacheOperation operation;
+
+  /// The entry key involved, when the failure happened against one.
+  final String? key;
+
+  /// What the storage threw.
+  final Object error;
+
+  /// Where it threw.
+  final StackTrace stackTrace;
+
+  /// Creates a [CacheFailure].
+  const CacheFailure({
+    required this.operation,
+    required this.error,
+    required this.stackTrace,
+    this.key,
+  });
+
+  @override
+  String toString() => 'CacheFailure(${operation.name}'
+      '${key == null ? '' : ' $key'}): $error';
+}
+
+/// Signature for [CacheConfig.onCacheError].
+typedef CacheErrorHandler = void Function(CacheFailure failure);
+
 /// Cache strategy options.
 ///
 /// Only [cacheFirst] and [networkFirst] can hand back data that is past its
@@ -173,6 +223,29 @@ class CacheConfig {
   /// ```
   final CacheHitHandler? onCacheHit;
 
+  /// Called when the storage backend refuses an operation.
+  ///
+  /// The cache falls back to the network on any storage failure, which is the
+  /// right answer and is unchanged. What was missing is any way to learn that
+  /// it is happening: the three `catch` blocks in `CacheInterceptor` swallowed
+  /// the exception and passed the request through, so a backend that refuses
+  /// *every* operation degraded the client to "no cache" permanently and
+  /// silently. Every request still succeeds. Nothing fails, nothing is logged,
+  /// and the only symptom is traffic nobody is measuring.
+  ///
+  /// Guarded like every other consumer callback.
+  ///
+  /// ```dart
+  /// cacheConfig: CacheConfig(
+  ///   storage: FileCacheStorage(dir),
+  ///   onCacheError: (failure) => Sentry.captureException(
+  ///     failure.error,
+  ///     stackTrace: failure.stackTrace,
+  ///   ),
+  /// )
+  /// ```
+  final CacheErrorHandler? onCacheError;
+
   /// Creates a [CacheConfig] with the given parameters.
   CacheConfig({
     CacheStorage? storage,
@@ -184,6 +257,7 @@ class CacheConfig {
     this.deduplicateMethods = const ['GET'],
     this.varyHeaders = const ['Authorization'],
     this.onCacheHit,
+    this.onCacheError,
   }) : storage = storage ?? InMemoryCacheStorage();
 
   /// Returns true if the given HTTP method should be cached.
@@ -205,6 +279,7 @@ class CacheConfig {
     List<String>? deduplicateMethods,
     List<String>? varyHeaders,
     CacheHitHandler? onCacheHit,
+    CacheErrorHandler? onCacheError,
   }) {
     return CacheConfig(
       storage: storage ?? this.storage,
@@ -216,6 +291,7 @@ class CacheConfig {
       deduplicateMethods: deduplicateMethods ?? this.deduplicateMethods,
       varyHeaders: varyHeaders ?? this.varyHeaders,
       onCacheHit: onCacheHit ?? this.onCacheHit,
+      onCacheError: onCacheError ?? this.onCacheError,
     );
   }
 
