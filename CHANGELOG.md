@@ -1,4 +1,17 @@
-## 5.0.0
+## Unreleased
+
+Next release is a **major**: several defaults change because the safe value and
+the backward-compatible one turned out not to be the same.
+
+An audit of the whole package found 29 defects, 17 of them reproduced against
+the real client. None raised an exception, wrote a log or reddened a test —
+which is why they had survived every previous review. They cluster at the
+*junctions* between components (cache × auth, multipart × retry, validator ×
+observability): each interceptor was correct on its own, and nothing exercised
+their composition.
+
+Entries land here as they are fixed. The fix is
+folded in below.
 
 ### Fixed
 
