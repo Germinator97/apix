@@ -77,37 +77,56 @@ class MultipartInterceptor extends Interceptor {
     return data.values.any(_isOrContainsFile);
   }
 
-  /// Converts a Map with File values to FormData.
+  /// Converts a Map holding [File] values into [FormData].
+  ///
+  /// The only transformation applied is `File` → [MultipartFile]. **The shape
+  /// of the data is left exactly as the caller wrote it**, and `FormData` does
+  /// the encoding.
+  ///
+  /// That division of labour is the fix for three silent losses. The previous
+  /// implementation flattened the map itself, one level deep, while
+  /// [_isOrContainsFile] detected files at *any* depth — so anything below the
+  /// first level was dropped without a word:
+  ///
+  /// - `{'user': {'avatar': File, 'name': 'John'}}` sent the file under a bare
+  ///   `avatar`, losing both `name` and the `user` nesting;
+  /// - `{'a': {'b': {'file': File}}}` sent an **empty body** — request
+  ///   accepted, `200` returned, nothing uploaded;
+  /// - `{'items': [File, 'caption']}` sent the file and dropped the caption.
+  ///
+  /// `FormData.fromMap` walks maps and lists recursively through dio's
+  /// `encodeMap`, producing `user[avatar]`, `a[b][file]`, and — for a list of
+  /// scalars under `ListFormat.multi` — the repeated bare key backends expect.
+  /// Inheriting those conventions is deliberate: inventing a second bracket
+  /// syntax here would eventually disagree with the one dio uses everywhere
+  /// else.
   Future<FormData> _toFormData(Map<String, dynamic> data) async {
-    final formMap = <String, dynamic>{};
+    final converted = await _convertFiles(data);
+    return FormData.fromMap(converted as Map<String, dynamic>);
+  }
 
-    for (final entry in data.entries) {
-      final key = entry.key;
-      final value = entry.value;
+  /// Recursively replaces every [File] with a [MultipartFile], preserving maps,
+  /// lists, and every value that is neither.
+  Future<dynamic> _convertFiles(dynamic value) async {
+    if (value is File) return _fileToMultipart(value);
 
-      if (value is File) {
-        formMap[key] = await _fileToMultipart(value);
-      } else if (value is List) {
-        final files = <MultipartFile>[];
-        for (final item in value) {
-          if (item is File) {
-            files.add(await _fileToMultipart(item));
-          }
-        }
-        formMap[key] = files.isNotEmpty ? files : value;
-      } else if (value is Map) {
-        for (final mapEntry in value.entries) {
-          if (mapEntry.value is File) {
-            formMap[mapEntry.key.toString()] =
-                await _fileToMultipart(mapEntry.value as File);
-          }
-        }
-      } else {
-        formMap[key] = value;
+    if (value is Map) {
+      final result = <String, dynamic>{};
+      for (final entry in value.entries) {
+        result['${entry.key}'] = await _convertFiles(entry.value);
       }
+      return result;
     }
 
-    return FormData.fromMap(formMap);
+    if (value is Iterable) {
+      final result = <dynamic>[];
+      for (final item in value) {
+        result.add(await _convertFiles(item));
+      }
+      return result;
+    }
+
+    return value;
   }
 
   /// Converts a File to MultipartFile.
