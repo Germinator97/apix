@@ -1,3 +1,21 @@
+## 5.0.0
+
+### Fixed
+
+* **`ApiException.code` no longer hands back the HTTP status disguised as a
+  business code.** Many envelopes fill a field named `code` with the status
+  itself (`{"code": 401, ...}` on a `401`), so the field added in 4.0.0 to free
+  callers from branching on the status was quietly restoring that coupling —
+  a `switch (e.code)` looking like business logic while keying on a status that
+  drifts between server revisions. A value equal to the response status is now
+  dropped, in either spelling (`401` and `"401"`).
+
+  Genuine codes are untouched: `4001` under a `400` still comes through. The
+  guard costs one indistinguishable case — an API whose real code equals its
+  own status.
+
+  Reported by a consumer as a review point, against the field shipped for their a review point.
+
 ## 4.1.0
 
 Two rounds of the same defect, reported by a consumer and then found by

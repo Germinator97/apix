@@ -69,6 +69,12 @@ the default reads <code>code</code> and exposes it as <code>ApiException.code</c
 sites can branch on a stable business code instead of an HTTP status that
 may drift between server revisions.</p>
 <p>Defaults to <code>'code'</code>.</p>
+<p>⚠️ That default is also the field plenty of envelopes use for the <strong>HTTP
+status</strong> (<code>{"code": 401, "message": "..."}</code>). A status read as a business
+code is worse than no code at all — it looks like one. apix drops any
+value equal to the response status, so this stays safe out of the box,
+but if your API publishes real codes under a different name, say so here
+(<code>errorCodeKey: 'errorCode'</code>) rather than relying on the guard.</p>
 </section>
 
       
@@ -103,7 +109,7 @@ may drift between server revisions.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

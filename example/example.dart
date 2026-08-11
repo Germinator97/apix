@@ -210,6 +210,11 @@ void main() async {
     // (v4.0.0+) Body key holding your API's application error code, surfaced
     // as `ApiException.code`. Defaults to 'code'; set it if your envelope
     // names the field differently (e.g. 'error_code').
+    //
+    // (v5.0.0+) If your envelope puts the HTTP STATUS in this field — a very
+    // common shape, `{"code": 401, ...}` on a 401 — apix drops it rather than
+    // passing a status off as a business code. Real codes (4001 under a 400)
+    // are untouched.
     errorCodeKey: 'code',
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
