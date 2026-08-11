@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^4.0.0
+  apix: ^4.1.0
 ```
 
 ```bash
@@ -457,6 +457,29 @@ final client = ApiClientFactory.create(
   httpClientAdapter: FakeAdapter(),
 );
 ```
+
+### 🛟 Observability never breaks the request
+
+Every callback you hand apix — `logHandler`, `onMetrics`, `onBreadcrumb`,
+`onError`, `onRetry`, `startSpan` — is a side channel. If yours throws, or
+fails asynchronously, the request carries on and its own outcome reaches you
+unchanged:
+
+```dart
+final client = ApiClientFactory.create(
+  baseUrl: 'https://api.example.com',
+  // Your log sink is down. The request still returns 200.
+  loggerConfig: LoggerConfig(logHandler: (_) => throw StateError('sink down')),
+);
+```
+
+Failures are swallowed and deliberately not reported anywhere: the only
+channel available for reporting is the one that just failed, and routing it
+back would risk a loop.
+
+A request is also observed **once**, even when deduplication makes it travel
+the interceptor chain twice — so one cancelled request is one log line and one
+tracker event, not two.
 
 ### 📊 Logging
 

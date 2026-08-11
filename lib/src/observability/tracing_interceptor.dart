@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'observer_guard.dart';
+import '../http/observation_marker.dart';
+
 /// A performance span opened for a single request.
 ///
 /// Abstracted so the interceptor can be tested without a live Sentry hub, and
@@ -84,19 +87,24 @@ class TracingInterceptor extends Interceptor {
     // span covers the whole logical request instead, which is also what the
     // caller actually waited for: retries and backoff included.
     if (config.enabled && options.extra[_spanKey] == null) {
-      // The description carries the *path*, never the full URI: query strings
-      // routinely carry identifiers, and a span description is not the place
-      // to leak one.
-      final span = config.startSpan(
-        'http.client',
-        '${options.method} ${options.uri.path}',
-      );
-      if (span != null) {
-        span.setData('http.request.method', options.method);
-        span.setData('server.address', options.uri.host);
-        span.setData('url.path', options.uri.path);
-        options.extra[_spanKey] = span;
-      }
+      // Guarded like every other observation callback: a span starter that
+      // throws — no hub, a finished parent, a consumer bug — must not turn a
+      // request that would have succeeded into a failure.
+      guardObserver(() {
+        // The description carries the *path*, never the full URI: query
+        // strings routinely carry identifiers, and a span description is not
+        // the place to leak one.
+        final span = config.startSpan(
+          'http.client',
+          '${options.method} ${options.uri.path}',
+        );
+        if (span != null) {
+          span.setData('http.request.method', options.method);
+          span.setData('server.address', options.uri.host);
+          span.setData('url.path', options.uri.path);
+          options.extra[_spanKey] = span;
+        }
+      });
     }
     handler.next(options);
   }
@@ -112,6 +120,14 @@ class TracingInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.tracing)) {
+      handler.next(err);
+      return;
+    }
+
     _finish(err.requestOptions, err.response?.statusCode);
     handler.next(err);
   }
@@ -124,7 +140,7 @@ class TracingInterceptor extends Interceptor {
   void _finish(RequestOptions options, int? statusCode) {
     final span = options.extra.remove(_spanKey);
     if (span is ApiSpan) {
-      span.finish(statusCode: statusCode);
+      guardObserver(() => span.finish(statusCode: statusCode));
     }
   }
 }

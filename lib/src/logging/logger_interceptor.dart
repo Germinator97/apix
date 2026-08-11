@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import 'logger_config.dart';
+import '../observability/observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// Interceptor that logs HTTP requests and responses.
 ///
@@ -50,6 +52,14 @@ class LoggerInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.logger)) {
+      handler.next(err);
+      return;
+    }
+
     if (config.logErrors && config.shouldLog(LogLevel.error)) {
       _logError(err);
     }
@@ -130,12 +140,19 @@ class LoggerInterceptor extends Interceptor {
     }
   }
 
+  /// Hands [entry] to the consumer's sink, or prints it.
+  ///
+  /// Guarded: a log sink that throws — a closed file, a full disk, a remote
+  /// logger that is down — used to fail the request being logged, turning an
+  /// observation problem into an outage.
   void _emit(LogEntry entry) {
-    if (config.logHandler != null) {
-      config.logHandler!(entry);
-    } else {
-      _defaultPrint(entry);
-    }
+    guardObserver(() {
+      if (config.logHandler != null) {
+        config.logHandler!(entry);
+      } else {
+        _defaultPrint(entry);
+      }
+    });
   }
 
   void _defaultPrint(LogEntry entry) {

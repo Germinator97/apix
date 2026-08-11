@@ -156,6 +156,12 @@ class TooManyRequestsException extends ClientException {
   /// Null when the response carried no `Retry-After` header, or one that could
   /// not be parsed — the header is optional, so treat null as "unknown delay",
   /// never as "retry now".
+  ///
+  /// Independent of `RetryConfig.respectRetryAfter`: that flag decides whether
+  /// the *interceptor* waits this long, not whether the server sent a value.
+  /// The header is a fact about the response, so it is reported either way —
+  /// which is what lets you tell the user how long to wait even when automatic
+  /// retry is switched off.
   final Duration? retryAfter;
 
   /// Creates a [TooManyRequestsException].

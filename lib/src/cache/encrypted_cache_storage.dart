@@ -132,6 +132,12 @@ class EncryptedCacheStorage implements CacheStorage {
   /// be decrypted is reported absent, because that is what [get] will do with
   /// it a moment later. Answering `true` here and `null` there is how a caller
   /// ends up trusting a cache hit that never arrives.
+  ///
+  /// ⚠️ **This predicate can delete.** Establishing readability means decrypting,
+  /// and [get] purges what it cannot open — so asking whether an unreadable
+  /// entry exists also removes it. Surprising for a `has`, and kept anyway:
+  /// leaving it in place would fail every call forever, since the next write
+  /// cannot replace what `get` never admits exists.
   @override
   Future<bool> has(String key) async {
     if (!await delegate.has(key)) return false;

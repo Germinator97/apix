@@ -73,6 +73,11 @@
 be decrypted is reported absent, because that is what <a href="../../apix/EncryptedCacheStorage/get.html">get</a> will do with
 it a moment later. Answering <code>true</code> here and <code>null</code> there is how a caller
 ends up trusting a cache hit that never arrives.</p>
+<p>⚠️ <strong>This predicate can delete.</strong> Establishing readability means decrypting,
+and <a href="../../apix/EncryptedCacheStorage/get.html">get</a> purges what it cannot open — so asking whether an unreadable
+entry exists also removes it. Surprising for a <code>has</code>, and kept anyway:
+leaving it in place would fail every call forever, since the next write
+cannot replace what <code>get</code> never admits exists.</p>
 </section>
 
 
@@ -111,7 +116,7 @@ Future&lt;bool&gt; has(String key) async {
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>

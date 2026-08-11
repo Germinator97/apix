@@ -81,6 +81,14 @@ void onError(
   DioException err,
   ErrorInterceptorHandler handler,
 ) {
+  &#47;&#47; Deduplication sends the same request through the error chain twice.
+  &#47;&#47; Claim it once so a single logical failure is not logged, measured and
+  &#47;&#47; reported twice.
+  if (!ObservationMarker.claim(err.requestOptions, Observers.metrics)) {
+    handler.next(err);
+    return;
+  }
+
   if (config.enabled) {
     final requestId = err.requestOptions.extra[&#39;_metrics_request_id&#39;];
     if (requestId != null) {
@@ -95,7 +103,7 @@ void onError(
       );
 
       if (metrics != null) {
-        config.onMetrics?.call(metrics);
+        guardObserver(() =&gt; config.onMetrics?.call(metrics));
       }
 
       _emitBreadcrumb(
@@ -144,7 +152,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>

@@ -47,6 +47,29 @@ class RequestDeduplicator {
 
     // This is the first request, execute it
     final completer = Completer<Response<dynamic>>();
+
+    // This completer exists for duplicates that may never arrive, and in the
+    // ordinary case none does — so nothing is listening to its future when the
+    // request below finishes.
+    //
+    // That is harmless on success and *not* harmless on failure:
+    // `completeError` on a future with no listener reports an unhandled
+    // asynchronous error to the current zone. The caller already received that
+    // failure through `rethrow`; the zone receives a second, orphaned copy —
+    // which in production means an error handler firing, and Sentry filing an
+    // exception nobody can act on.
+    //
+    // The asymmetry is exactly why this survived: only the failure path shows
+    // it, and on the GETs deduplication targets, failures are rare — until a
+    // `CancelToken` on a search field makes cancellation happen on every
+    // keystroke. Reported by a consumer, who measured one unhandled error per
+    // cancellation, five for five.
+    //
+    // `ignore()` registers a listener that discards the outcome, so the future
+    // is never orphaned. It does not swallow anything a duplicate is owed:
+    // waiters below `await` the same future and each get their own delivery.
+    completer.future.ignore();
+
     _pending[key] = _PendingRequest(completer: completer);
 
     try {

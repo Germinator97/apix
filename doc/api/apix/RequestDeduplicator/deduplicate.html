@@ -92,6 +92,29 @@ or executes <code>execute</code> if this is the first request.</p>
 
   &#47;&#47; This is the first request, execute it
   final completer = Completer&lt;Response&lt;dynamic&gt;&gt;();
+
+  &#47;&#47; This completer exists for duplicates that may never arrive, and in the
+  &#47;&#47; ordinary case none does — so nothing is listening to its future when the
+  &#47;&#47; request below finishes.
+  &#47;&#47;
+  &#47;&#47; That is harmless on success and *not* harmless on failure:
+  &#47;&#47; `completeError` on a future with no listener reports an unhandled
+  &#47;&#47; asynchronous error to the current zone. The caller already received that
+  &#47;&#47; failure through `rethrow`; the zone receives a second, orphaned copy —
+  &#47;&#47; which in production means an error handler firing, and Sentry filing an
+  &#47;&#47; exception nobody can act on.
+  &#47;&#47;
+  &#47;&#47; The asymmetry is exactly why this survived: only the failure path shows
+  &#47;&#47; it, and on the GETs deduplication targets, failures are rare — until a
+  &#47;&#47; `CancelToken` on a search field makes cancellation happen on every
+  &#47;&#47; keystroke. Reported by a consumer, who measured one unhandled error per
+  &#47;&#47; cancellation, five for five.
+  &#47;&#47;
+  &#47;&#47; `ignore()` registers a listener that discards the outcome, so the future
+  &#47;&#47; is never orphaned. It does not swallow anything a duplicate is owed:
+  &#47;&#47; waiters below `await` the same future and each get their own delivery.
+  completer.future.ignore();
+
   _pending[key] = _PendingRequest(completer: completer);
 
   try {
@@ -132,7 +155,7 @@ or executes <code>execute</code> if this is the first request.</p>
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>

@@ -84,19 +84,24 @@ void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
   &#47;&#47; span covers the whole logical request instead, which is also what the
   &#47;&#47; caller actually waited for: retries and backoff included.
   if (config.enabled &amp;&amp; options.extra[_spanKey] == null) {
-    &#47;&#47; The description carries the *path*, never the full URI: query strings
-    &#47;&#47; routinely carry identifiers, and a span description is not the place
-    &#47;&#47; to leak one.
-    final span = config.startSpan(
-      &#39;http.client&#39;,
-      &#39;${options.method} ${options.uri.path}&#39;,
-    );
-    if (span != null) {
-      span.setData(&#39;http.request.method&#39;, options.method);
-      span.setData(&#39;server.address&#39;, options.uri.host);
-      span.setData(&#39;url.path&#39;, options.uri.path);
-      options.extra[_spanKey] = span;
-    }
+    &#47;&#47; Guarded like every other observation callback: a span starter that
+    &#47;&#47; throws — no hub, a finished parent, a consumer bug — must not turn a
+    &#47;&#47; request that would have succeeded into a failure.
+    guardObserver(() {
+      &#47;&#47; The description carries the *path*, never the full URI: query
+      &#47;&#47; strings routinely carry identifiers, and a span description is not
+      &#47;&#47; the place to leak one.
+      final span = config.startSpan(
+        &#39;http.client&#39;,
+        &#39;${options.method} ${options.uri.path}&#39;,
+      );
+      if (span != null) {
+        span.setData(&#39;http.request.method&#39;, options.method);
+        span.setData(&#39;server.address&#39;, options.uri.host);
+        span.setData(&#39;url.path&#39;, options.uri.path);
+        options.extra[_spanKey] = span;
+      }
+    });
   }
   handler.next(options);
 }</code></pre>
@@ -127,7 +132,7 @@ void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>
