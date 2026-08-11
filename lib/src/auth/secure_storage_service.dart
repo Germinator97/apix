@@ -80,14 +80,31 @@ class SecureStorageService {
 
   /// Creates a [SecureStorageService] with biometric protection.
   ///
-  /// On iOS, uses `KeychainAccessibility.passcode` with `userPresence` flag
-  /// requiring Face ID/Touch ID or passcode.
-  /// On Android, uses biometric-backed encryption (API 28+).
+  /// On iOS, uses `KeychainAccessibility.passcode` with the `userPresence`
+  /// flag. On Android, biometric-backed encryption (API 28+) with
+  /// `enforceBiometrics: true`.
   ///
   /// **Flow:**
   /// 1. User logs in → tokens stored securely
   /// 2. User enables biometrics → protects access to storage
   /// 3. On app resume → biometric prompt → access to refreshToken
+  ///
+  /// ## ⚠️ It degrades silently when the device has nothing to prompt for
+  ///
+  /// Enforcement belongs to the platform, not to apix, and a device with **no
+  /// enrolled biometric and no lock screen** has nothing to enforce against.
+  /// Measured on an Android 16 emulator with the lock screen disabled: a write
+  /// through this factory **succeeded with no prompt and no error**, and read
+  /// back — behaving exactly like the plain constructor.
+  ///
+  /// So this is a *request* for protection, not a guarantee of it. Where the
+  /// guarantee matters, check the device state yourself — `local_auth`'s
+  /// `canCheckBiometrics` / `isDeviceSupported` — and decide what to do when
+  /// the answer is no. Treating a successful write as proof that a prompt
+  /// happened is the mistake this note exists to prevent.
+  ///
+  /// Pinned by `apix_example_app/integration_test/secure_storage_device_test
+  /// .dart`, which is where that measurement comes from.
   ///
   /// Example:
   /// ```dart
