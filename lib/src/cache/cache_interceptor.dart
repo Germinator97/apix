@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../client/response_validator_interceptor.dart';
 import '../errors/api_exception.dart';
 import '../http/cache_vary.dart';
 import 'cache_config.dart';
@@ -293,6 +294,15 @@ class CacheInterceptor extends Interceptor {
     try {
       final options = err.requestOptions;
       final strategy = _getStrategy(options);
+
+      // A body the consumer's `responseValidator` refused is a business
+      // failure, not a transport one. Answering it from storage would swap the
+      // failure the caller must see for a stale success.
+      if (options.extra[ResponseValidatorInterceptor.validationFailedKey] ==
+          true) {
+        handler.next(err);
+        return;
+      }
 
       // Only handle networkFirst and httpCacheAware fallback
       if (strategy != CacheStrategy.networkFirst &&
