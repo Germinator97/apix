@@ -386,6 +386,61 @@ void main() async {
   );
 
   // ============================================================
+  // CACHE — FORCING A ROUND TRIP, AND WATCHING IT WORK
+  // ============================================================
+
+  // A pull-to-refresh under httpCacheAware: the user asked for the current
+  // answer, so revalidate even though the entry is still fresh. An unchanged
+  // resource costs a 304 with no body and the entry's lifetime restarts —
+  // cheaper than noCache(), which throws the body away and downloads it again.
+  final refreshed = await client.get<Map<String, dynamic>>(
+    '/orders',
+    options: Options(extra: {forceRevalidateKey: true}),
+  );
+  debugPrint(
+      'from cache: ${refreshed.isFromCache}, stale: ${refreshed.isStale}');
+
+  // A cache hit resolves before the logger, the metrics and the tracer, so
+  // none of them ever sees one. These two callbacks are the only way to know
+  // the cache is working — or that it has silently stopped.
+  final observedCache = CacheConfig(
+    strategy: CacheStrategy.cacheFirst,
+    onCacheHit: (hit) => debugPrint(
+      'cache ${hit.isStale ? 'stale' : 'fresh'}: ${hit.method} ${hit.uri.path}',
+    ),
+    onCacheError: (failure) => debugPrint(
+      'cache ${failure.operation.name} refused: ${failure.error}',
+    ),
+  );
+  debugPrint('observed cache configured: ${observedCache.strategy}');
+
+  // getCacheKeys() only reads. This is the sweep.
+  final evicted = await client.cacheInterceptor?.evictExpired() ?? 0;
+  debugPrint('evicted $evicted expired entries');
+
+  // ============================================================
+  // UPLOADS — PROGRESS, AND THE ONE FAILURE YOU CAN ACT ON
+  // ============================================================
+
+  try {
+    // A Map of Files, not a FormData: apix keeps the map and rebuilds the body
+    // for each attempt, so an auth refresh or a retry replays cleanly.
+    final receipt = await client.postAndDecodeData<User>(
+      '/documents',
+      {'file': File('/path/to/passport.png'), 'label': 'passport'},
+      User.fromJson,
+      onSendProgress: (sent, total) =>
+          debugPrint('upload ${(100 * sent / total).round()}%'),
+    );
+    debugPrint('uploaded for ${receipt.name}');
+  } on MultipartReplayException catch (e) {
+    // Raised only when the body arrived as a FormData apix did not build and
+    // cannot rebuild. Without this type, a replay failed as
+    // "ApiException: Unknown error" — replacing the status that caused it.
+    debugPrint('cannot replay this upload: ${e.message}');
+  }
+
+  // ============================================================
   // TOKEN MANAGEMENT
   // ============================================================
   // After login, save tokens

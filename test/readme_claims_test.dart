@@ -15,21 +15,55 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late String readme;
   late String pubspec;
+  late String changelog;
   late String factorySource;
 
   setUpAll(() {
     readme = File('README.md').readAsStringSync();
     pubspec = File('pubspec.yaml').readAsStringSync();
+    changelog = File('CHANGELOG.md').readAsStringSync();
     factorySource =
         File('lib/src/client/api_client_factory.dart').readAsStringSync();
   });
 
+  String declaredVersion() {
+    final declared = RegExp(r'^version:\s*(\S+)', multiLine: true)
+        .firstMatch(pubspec)
+        ?.group(1);
+    expect(declared, isNotNull, reason: 'no version: line in pubspec.yaml');
+    return declared!;
+  }
+
   group('README claims', () {
+    // The project rule says three places move together — pubspec, the README
+    // install snippet, and the CHANGELOG section title — and that this test
+    // falls if only two of them do. It read exactly two files, so forgetting
+    // the CHANGELOG heading passed in green: a rule guarded by a test that did
+    // not guard it, which is worse than an unguarded rule because nobody
+    // re-checks it by hand.
+    test('the CHANGELOG has a section for the version being shipped', () {
+      final declared = declaredVersion();
+
+      final titles = RegExp(r'^##\s+(\S+)', multiLine: true)
+          .allMatches(changelog)
+          .map((match) => match.group(1)!)
+          .toList();
+
+      expect(titles, isNotEmpty,
+          reason: 'no "## x.y.z" heading found in CHANGELOG.md — update this '
+              'regex, do not delete the test');
+      expect(
+        titles.first,
+        declared,
+        reason: 'pubspec says $declared and the newest CHANGELOG section is '
+            '${titles.first}. A consumer opening the changelog to ask "does '
+            'this break me?" finds nothing about the version they are '
+            'installing.',
+      );
+    });
+
     test('the install snippet resolves to the published version', () {
-      final declared = RegExp(r'^version:\s*(\S+)', multiLine: true)
-          .firstMatch(pubspec)
-          ?.group(1);
-      expect(declared, isNotNull, reason: 'no version: line in pubspec.yaml');
+      final declared = declaredVersion();
 
       final advertised =
           RegExp(r'apix:\s*\^(\S+)').firstMatch(readme)?.group(1);
@@ -47,7 +81,7 @@ void main() {
       // pointing somewhere nobody can reach: a different major, or a version
       // ahead of what is published.
       final want = advertised!.split('.').map(int.parse).toList();
-      final have = declared!.split('.').map(int.parse).toList();
+      final have = declared.split('.').map(int.parse).toList();
 
       expect(
         want[0],
@@ -96,8 +130,17 @@ void main() {
       );
     });
 
-    // Each of these shipped in 4.0.0 answering a specific integration
-    // complaint. A feature absent from the README is one nobody will find.
+    // Each of these shipped answering a specific complaint. A feature absent
+    // from the README is one nobody will find.
+    //
+    // ⚠️ This list is **per release, and has to move with the version**. It sat
+    // frozen at "every 4.0.0 addition" through the whole 5.0 cycle, so three
+    // APIs shipped in 5.0 — `forceRevalidate()`, `MultipartReplayException`,
+    // `CacheBodyEncoding` — reached zero mentions in the README, in
+    // `example/example.dart` and in the demo app, guarded by a test whose own
+    // comment says a feature absent from the README is one nobody will find.
+    // A relevé that outlives what it describes stops being a guard and becomes
+    // a permission.
     test('every 4.0.0 addition is mentioned', () {
       const additions = {
         'errorCodeKey': 'application error code',
@@ -120,6 +163,65 @@ void main() {
         missing,
         isEmpty,
         reason: 'shipped but undocumented: ${missing.join(', ')}',
+      );
+    });
+
+    test('every 5.0.0 addition is mentioned', () {
+      const additions = {
+        'varyHeaders': 'B1 — cache entries scoped to the caller',
+        'forceRevalidate': 'a conditional refresh nothing could trigger',
+        'MultipartReplayException': 'B4 — a replay that cannot rebuild a body',
+        'CacheBodyEncoding': 'M7 — a hit keeps the type it had',
+        'cacheInterceptor': 'reaching the invalidation API',
+        'strictContentType': 'captive portals',
+        'responseValidator': 'M8 — business failures dressed as 200',
+        'isStale': 'knowing the body is past its TTL',
+        'onCacheHit': 'a hit no observer could see',
+        'onCacheError': 'a storage failure nobody could learn about',
+        'evictExpired': 'the sweep getCacheKeys used to do silently',
+        'redactUrls': 'query values leaving for the tracker',
+        'onSendProgress': 'progress on the typed methods',
+      };
+
+      final missing = additions.entries
+          .where((e) => !readme.contains(e.key))
+          .map((e) => '${e.key} (${e.value})')
+          .toList();
+
+      expect(
+        missing,
+        isEmpty,
+        reason: 'shipped but undocumented: ${missing.join(', ')}',
+      );
+    });
+
+    // The counterpart, and the half that was missing. Containment lets the
+    // list survive what it describes; equality makes a removed API fail here
+    // too, which is the only way a relevé keeps meaning anything.
+    test('the README documents no per-request cache key apix does not read',
+        () {
+      final documented = RegExp(r"extra:\s*\{\s*'(\w+)'")
+          .allMatches(readme)
+          .map((match) => match.group(1)!)
+          .toSet();
+
+      expect(
+        documented,
+        isNotEmpty,
+        reason: 'no documented extra key found — this parsing is stale, not '
+            'the README',
+      );
+
+      // `cacheStrategy` is the only bare-string key the interceptor reads;
+      // everything else goes through a named extension. The README used to
+      // show `cacheTtl` and `forceRefresh`, neither of which has ever existed
+      // in lib/ — quietly ignored, which is the exact failure mode of an
+      // option that looks set.
+      expect(
+        documented,
+        {'cacheStrategy'},
+        reason: 'a per-request extra key in the README must be one apix '
+            'actually reads',
       );
     });
   });

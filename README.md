@@ -264,21 +264,28 @@ final client = ApiClientFactory.create(
   ),
 );
 
-// Override per request
+// Override the strategy for one request
 final config = await client.get<Map<String, dynamic>>(
   '/app-config',
-  options: Options(extra: {
-    'cacheStrategy': CacheStrategy.cacheFirst,
-    'cacheTtl': const Duration(hours: 24),
-  }),
-);
-
-// Force refresh
-final fresh = await client.get<Map<String, dynamic>>(
-  '/users',
-  options: Options(extra: {'forceRefresh': true}),
+  options: Options(extra: {'cacheStrategy': CacheStrategy.cacheFirst}),
 );
 ```
+
+Per-request control is a set of extensions on `RequestOptions`, so you never
+have to remember an `extra` key:
+
+```dart
+final options = Options().compose(client.dio.options, '/users')
+  ..noCache();                              // this one request skips the cache
+  // ..setCacheStrategy(CacheStrategy.cacheFirst);
+  // ..forceRevalidate();                   // see below
+```
+
+> The strategy override above is the one `extra` key apix reads. Earlier
+> versions of this README also showed `'cacheTtl'` and `'forceRefresh'`;
+> **neither has ever existed in the code**. They were quietly ignored — the
+> exact failure mode of an option that looks set. Use `defaultTtl` for the
+> lifetime, and `forceRevalidate()` below to force a round trip.
 
 | Strategy | Behavior | Can return stale? |
 |----------|----------|-------------------|
@@ -289,6 +296,37 @@ final fresh = await client.get<Map<String, dynamic>>(
 | `networkOnly` | Network only, never read cache | No |
 
 `networkFirst` is the default: configure nothing and you get fresh data.
+
+#### Entries are scoped to whoever asked — `varyHeaders`
+
+**Read this one even if you skip the rest of the section.** A cache key used to
+describe *what* was requested and never *who* requested it, so two accounts on
+one device shared every entry: log out, log back in as someone else, and
+`GET /me` returned the previous account's body. With `FileCacheStorage` that
+survived restarts, and the documented logout only dropped the tokens.
+
+`CacheConfig.varyHeaders` defaults to `['Authorization']`, and a truncated
+digest of those headers enters the key — never the value, since keys stay in
+clear text even under `EncryptedCacheStorage`.
+
+```dart
+cacheConfig: CacheConfig(
+  varyHeaders: const ['X-User-Id'],  // a stable identity beats a rotating token
+),
+```
+
+Two consequences worth knowing:
+
+- **A token refresh changes the fingerprint**, so entries cached under the old
+  access token stop being hit. That is a cache miss, never a wrong answer —
+  vary on a stable identity header to avoid it.
+- **The header must already be on the request** when the cache reads it.
+  `ApiClientFactory` installs auth before the cache precisely so it is. Wiring
+  the cache by hand *before* auth scopes nothing, and scoping nothing looks
+  exactly like working.
+
+Set `const []` to opt out, and only where responses genuinely do not depend on
+the caller — a public price list, a static catalogue.
 
 #### Knowing what you got
 
@@ -307,6 +345,75 @@ if (response.isFromCache && response.isStale) {
 `cacheFirst` serving instantly while it revalidates, and the offline fallback
 of `networkFirst` / `httpCacheAware`. Both are useful; both are lies if the
 caller can't tell. **On an amount, a balance or a status, surface it.**
+
+#### Forcing a round trip — `forceRevalidate()`
+
+Under `httpCacheAware`, a fresh entry is served without asking the server. On a
+pull-to-refresh the user *has* asked, so `forceRevalidate()` sends the stored
+`ETag` as `If-None-Match`: an unchanged resource costs a `304` with no body and
+the entry's lifetime restarts.
+
+```dart
+final response = await client.get<Map<String, dynamic>>(
+  '/orders',
+  options: Options(extra: {forceRevalidateKey: true}),
+);
+// or, on a RequestOptions you already hold:  options.forceRevalidate();
+```
+
+Cheaper than `noCache()`, which throws the entry away and downloads the body
+again.
+
+#### A cache hit keeps the type it had
+
+A body comes back as the type the network gave you — a `text/plain` payload
+stays a `String`, a `ResponseType.bytes` download stays bytes. `CacheEntry`
+records which of `CacheBodyEncoding.json`, `.text`, `.bytes` or `.empty` was
+used, so the round trip through storage is not a `jsonEncode`/`jsonDecode` pair
+that turns `"12345"` into an `int` on the second request only.
+
+You never set this — it is recorded for you. It is public because a custom
+`CacheStorage` receives it and must persist it alongside the body; drop it and
+every entry decodes as JSON again.
+
+#### Seeing the cache work
+
+A hit resolves before the logger, the metrics and the tracing interceptor, so
+none of them ever sees one — deliberately, since a cached response spent no
+time on the network. The consequence is that your fastest requests are missing
+from every dashboard, and the hit rate is not visible from the observability
+apix ships. Two callbacks close that:
+
+```dart
+cacheConfig: CacheConfig(
+  storage: FileCacheStorage(dir),
+  onCacheHit: (hit) => analytics.count(
+    hit.isStale ? 'cache.stale' : 'cache.fresh',
+  ),
+  onCacheError: (failure) => Sentry.captureException(
+    failure.error,
+    stackTrace: failure.stackTrace,
+  ),
+),
+```
+
+`onCacheError` matters more than it looks. The cache falls back to the network
+on any storage failure — correct, and unchanged — but a backend that refuses
+*every* operation then degrades the client to "no cache" permanently, with every
+request still succeeding. Without this callback there is no moment at which
+anyone finds out.
+
+#### Removing what expired
+
+`getCacheKeys()` only reads. Use `evictExpired()` when you want the sweep:
+
+```dart
+final removed = await client.cacheInterceptor!.evictExpired();
+```
+
+Worth calling at logout or on a memory-pressure signal; not worth calling
+routinely, since `FileCacheStorage` bounds itself by count and an expired entry
+is still what serves the user when the network is gone.
 
 #### The TTL is a guarantee
 
@@ -575,9 +682,21 @@ final client = ApiClientFactory.create(
 | Option | Description |
 |--------|-------------|
 | `captureStatusCodes` | HTTP status codes to capture (default: 5xx) |
-| `captureRequestBody` | Include request body (default: false) |
-| `captureResponseBody` | Include response body (default: true) |
+| `captureRequestBody` | Include request body (default: **false**) |
+| `captureResponseBody` | Include response body (default: **false** since 5.0) |
 | `redactedHeaders` | Headers to redact (Authorization, Cookie...) |
+| `redactUrls` | Replace query-parameter **values** before a URL is sent (default: `true`) |
+
+> Both bodies are withheld until you ask. `captureResponseBody` used to default
+> to `true` while `captureRequestBody` defaulted to `false` — and the response
+> body is the one written by the server, which can carry fields the client never
+> sent.
+>
+> `redactUrls` closes a matching gap: this interceptor redacted `Authorization`
+> and then sent the whole URI, so a token in a query parameter reached a
+> third-party service in clear, past a redaction step that had already run.
+> Parameter **names** are kept (`?token=[REDACTED]`), because knowing which
+> parameters a failing request carried is most of the value of having the URL.
 
 **3. Upload debug symbols — or your release stack traces are unreadable.**
 
@@ -645,6 +764,34 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
+| A multipart body that cannot be rebuilt for a replay | `MultipartReplayException` |
+| `cacheOnly` miss, or an expired entry under it | `CacheException` |
+
+#### `MultipartReplayException` — the one you can act on
+
+A `FormData` is single-use: dio finalizes it into a stream. Two things replay a
+request without you asking — the auth interceptor after a token refresh, and
+the retry interceptor on a retryable status — and both re-enter with the same
+`RequestOptions`.
+
+When you passed a plain `Map` containing `File`s, apix keeps that map and builds
+a fresh `FormData` per attempt, so the replay simply works. This exception is
+raised only where that is impossible: the body arrived as a `FormData` (or a
+caller-built `MultipartFile`) that apix did not build and cannot rebuild.
+
+```dart
+try {
+  await client.post('/upload', data: formData);
+} on MultipartReplayException {
+  // Pass a Map of Files instead, so each attempt gets its own body —
+  // or opt this request out of replay with options.disableRetry().
+}
+```
+
+It exists rather than being a silent skip because the alternative was worse:
+dio threw a `StateError`, which reached the mapper as type `unknown` and
+surfaced as `ApiException: Unknown error` — **replacing** the `500` that had
+triggered the replay, so `on ServerException catch` stopped matching.
 
 The **message** is automatically extracted from the API response body. Supports flat and nested formats:
 
@@ -920,6 +1067,25 @@ Since 5.0 every family is available on every verb — twelve shapes × five verb
 The table used to claim that while `PUT` and `PATCH` had two methods each and
 `DELETE` none, because filling the gaps meant copying the plumbing five times.
 It is one shared core now, so a verb cannot fall behind again.
+
+#### Progress on a typed call
+
+Every typed method takes `onReceiveProgress`, and every body-bearing one
+(`POST`, `PUT`, `PATCH`, `DELETE`) also takes `onSendProgress` — so a typed
+upload can drive a progress bar without dropping back to `client.post` and
+parsing the body by hand:
+
+```dart
+final receipt = await client.postAndDecodeData<Receipt>(
+  '/documents',
+  {'file': File(path), 'label': 'passport'},
+  Receipt.fromJson,
+  onSendProgress: (sent, total) => setState(() => _progress = sent / total),
+);
+```
+
+The twelve `GET` variants take only `onReceiveProgress`: a `GET` has nothing to
+send, and an option that can never fire is an option that looks set.
 
 ### Strict Content-Type Checks (Captive Portals)
 
