@@ -155,6 +155,13 @@ class SentrySetup {
   static bool get isInitialized => _isInitialized;
 
   /// Initializes Sentry with the given options.
+  ///
+  /// **The app starts even if this fails.** `SentryFlutter.init` runs
+  /// [appRunner] itself, so anything that threw before it got there — a
+  /// malformed DSN, a plugin missing on a platform, a `configureOptions`
+  /// touching an option the installed SDK no longer has — took the whole app
+  /// down with it. Crash reporting is a side channel; a side channel that can
+  /// prevent startup is a worse liability than the reports it collects.
   static Future<void> init({
     required SentrySetupOptions options,
     required Future<void> Function() appRunner,
@@ -169,6 +176,52 @@ class SentrySetup {
       return;
     }
 
+    await guardedStart(
+      appRunner: appRunner,
+      initialize: (runner) => _initialize(options, runner),
+    );
+  }
+
+  /// Runs [initialize], and guarantees the app starts exactly once.
+  ///
+  /// Split out so the failure path is reachable from a test: exercising it
+  /// through `SentryFlutter.init` would need a live platform channel, which is
+  /// how it came to have none.
+  ///
+  /// Two things have to hold together, and each is easy to get right while
+  /// breaking the other: the app must start even when initialization throws,
+  /// and it must not start **twice** — `SentryFlutter.init` may well have run
+  /// the runner already before failing on something after it.
+  @visibleForTesting
+  static Future<void> guardedStart({
+    required Future<void> Function() appRunner,
+    required Future<void> Function(Future<void> Function() runner) initialize,
+  }) async {
+    var started = false;
+    Future<void> runOnce() async {
+      if (started) return;
+      started = true;
+      await appRunner();
+    }
+
+    try {
+      await initialize(runOnce);
+      _isInitialized = true;
+    } catch (e, st) {
+      // Never rethrown: there is no caller above `main` to handle it, and the
+      // one thing worse than an app with no crash reporting is no app.
+      debugPrint('⚠️ [Sentry] init failed, continuing without it: $e\n$st');
+    }
+
+    // The flag stays false on failure, so a later, legitimate retry is not
+    // silently skipped — the same reason it is only set once init returns.
+    await runOnce();
+  }
+
+  static Future<void> _initialize(
+    SentrySetupOptions options,
+    Future<void> Function() appRunner,
+  ) async {
     await SentryFlutter.init(
       (sentryOptions) {
         sentryOptions.dsn = options.dsn;
@@ -233,12 +286,6 @@ class SentrySetup {
       },
       appRunner: appRunner,
     );
-
-    // Marked initialized only once init has actually returned. Setting it
-    // beforehand meant a failed init left the flag standing, so a later,
-    // legitimate retry silently skipped initialization and ran the app with no
-    // Sentry at all — reporting nothing, and looking exactly like a quiet day.
-    _isInitialized = true;
   }
 
   /// Resets the one-shot guard. Test-only.
