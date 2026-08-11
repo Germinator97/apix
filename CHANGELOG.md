@@ -42,6 +42,22 @@ folded in below.
 
 ### Fixed
 
+* **A broken session is no longer the one failure nobody can see.**
+  `AuthInterceptor` ended the error chain with `handler.reject`, and it sits
+  second — so a refresh failure skipped tracing, logging, error tracking,
+  metrics *and* the error mapper. The `401` the caller received appeared in no
+  log and no tracker, and its `MetricsInterceptor` in-flight entry was never
+  released, lingering until the five-minute orphan sweep.
+
+  What hid it is that the refresh call is a request of its own: its `400` was
+  logged and captured normally, so the dashboards were never empty — they
+  showed a different request than the one that failed. The originating response
+  now rides along too, so the reported failure carries its status instead of
+  arriving blank.
+
+  Same fix for a `cacheOnly` miss, which was invisible for the same reason.
+  The exception types callers catch are unchanged.
+
 * **Multipart requests no longer drop nested fields and files.** File detection
   was recursive, the conversion was one level deep, and everything below that
   level was discarded without a word — while the server answered `200`:
