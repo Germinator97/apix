@@ -17,7 +17,7 @@ typedef CacheCipher = String Function(String value);
 ///
 /// ```dart
 /// final storage = EncryptedCacheStorage(
-///   delegate: FileCacheStorage(directory: dir),
+///   delegate: FileCacheStorage(dir),
 ///   encrypt: (plain) => myCipher.encrypt(plain),
 ///   decrypt: (cipher) => myCipher.decrypt(cipher),
 /// );
@@ -31,10 +31,15 @@ typedef CacheCipher = String Function(String value);
 /// **Not encrypted: the cache keys.** They stay in clear text because the whole
 /// invalidation API is built on reading them — `keys()`, `removeWhere()`,
 /// `removeByPrefix()`, `invalidateUrl()` would all break if they were opaque.
-/// A key is `METHOD:url?sorted-query`, so anything identifying in a *path* or a
-/// *query parameter* — `/members/1234/balance`, `?nationalId=...` — remains
+/// A key is `METHOD:url?sorted-query` followed by `|v:<digest>` when
+/// `CacheConfig.varyHeaders` is in play, so anything identifying in a *path* or
+/// a *query parameter* — `/members/1234/balance`, `?nationalId=...` — remains
 /// readable on disk. Where that matters, keep it out of the URL, or don't cache
 /// that endpoint.
+///
+/// The identity fragment is a truncated digest precisely because this is true:
+/// it scopes the entry to a caller without writing that caller's bearer token
+/// next to it.
 ///
 /// Also unencrypted, and deliberately: status code, timestamps and ETag. The
 /// TTL has to be readable without a key, otherwise `has()` and every expiry

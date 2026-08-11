@@ -68,14 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and parses <code>response.data[dataKey]</code> using <code>parser</code>.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">// Response: { "data": "2024-01-01T00:00:00Z" }
-final date = await client.getAndParseData(
-  '/server/time',
-  (data) =&gt; DateTime.parse(data as String),
-);
-</code></pre>
+  <p>Parses <code>body[dataKey]</code> with <code>parser</code>.</p>
 </section>
 
 
@@ -88,16 +81,15 @@ final date = await client.getAndParseData(
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;T&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
-  );
-  return _parseOrThrow(
-    response,
-    () =&gt; parser(_extractData(response.data)),
+    assertJson: false,
+    decode: (response) =&gt; parser(_extractData(response.data)),
   );
 }</code></pre>
 </section>

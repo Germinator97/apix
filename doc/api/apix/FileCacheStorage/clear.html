@@ -79,6 +79,12 @@ Future&lt;void&gt; clear() async {
   await for (final file in _ownedFiles()) {
     await _discard(file);
   }
+  &#47;&#47; Temporary files from writes interrupted by a crash or a kill: nothing
+  &#47;&#47; else ever removes them, and they are ours by name.
+  await for (final file in _ownedFiles(pattern: _ownedTemp)) {
+    await _discard(file);
+  }
+  _knownCount = 0;
 }</code></pre>
 </section>
 

@@ -62,7 +62,7 @@ without apix taking on a crypto dependency or, worse, the responsibility of
 managing a key: <strong>you</strong> supply <a href="../apix/EncryptedCacheStorage/encrypt.html">encrypt</a> and <a href="../apix/EncryptedCacheStorage/decrypt.html">decrypt</a>, so the algorithm and
 the key stay in the app that owns them.</p>
 <pre class="language-dart"><code class="language-dart">final storage = EncryptedCacheStorage(
-  delegate: FileCacheStorage(directory: dir),
+  delegate: FileCacheStorage(dir),
   encrypt: (plain) =&gt; myCipher.encrypt(plain),
   decrypt: (cipher) =&gt; myCipher.decrypt(cipher),
 );
@@ -73,10 +73,14 @@ back from the server.</p>
 <p><strong>Not encrypted: the cache keys.</strong> They stay in clear text because the whole
 invalidation API is built on reading them — <code>keys()</code>, <code>removeWhere()</code>,
 <code>removeByPrefix()</code>, <code>invalidateUrl()</code> would all break if they were opaque.
-A key is <code>METHOD:url?sorted-query</code>, so anything identifying in a <em>path</em> or a
-<em>query parameter</em> — <code>/members/1234/balance</code>, <code>?nationalId=...</code> — remains
+A key is <code>METHOD:url?sorted-query</code> followed by <code>|v:&lt;digest&gt;</code> when
+<code>CacheConfig.varyHeaders</code> is in play, so anything identifying in a <em>path</em> or
+a <em>query parameter</em> — <code>/members/1234/balance</code>, <code>?nationalId=...</code> — remains
 readable on disk. Where that matters, keep it out of the URL, or don't cache
 that endpoint.</p>
+<p>The identity fragment is a truncated digest precisely because this is true:
+it scopes the entry to a caller without writing that caller's bearer token
+next to it.</p>
 <p>Also unencrypted, and deliberately: status code, timestamps and ETag. The
 TTL has to be readable without a key, otherwise <code>has()</code> and every expiry
 check would have to decrypt every entry just to learn it was stale.</p>

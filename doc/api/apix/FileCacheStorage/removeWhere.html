@@ -89,6 +89,7 @@ Future&lt;int&gt; removeWhere(bool Function(String key) predicate) async {
       removed++;
     }
   }
+  if (_knownCount != null) _knownCount = _knownCount! - removed;
   return removed;
 }</code></pre>
 </section>

@@ -100,6 +100,7 @@ Future&lt;CacheEntry?&gt; get(String key) async {
       createdAt: stored.createdAt,
       expiresAt: stored.expiresAt,
       etag: stored.etag,
+      encoding: stored.encoding,
       headers: headers is Map
           ? headers.map((k, v) =&gt; MapEntry(k.toString(), v.toString()))
           : null,

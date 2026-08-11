@@ -92,6 +92,9 @@ void onRequest(
     try {
       token = await config.tokenProvider.getAccessToken();
     } catch (e, st) {
+      &#47;&#47; `true` so the observers still see it: a keychain that will not open
+      &#47;&#47; is a failure worth a log and a tracker event, not a silent 0-byte
+      &#47;&#47; request.
       handler.reject(
         DioException(
           requestOptions: options,
@@ -103,6 +106,7 @@ void onRequest(
           ),
           type: DioExceptionType.unknown,
         ),
+        true,
       );
       return;
     }
@@ -119,6 +123,7 @@ void onRequest(
         error: e,
         type: DioExceptionType.unknown,
       ),
+      true,
     );
   }
 }</code></pre>

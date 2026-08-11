@@ -363,7 +363,7 @@ launches is also the data that must not leak, wrap it:
 
 ```dart
 final storage = EncryptedCacheStorage(
-  delegate: FileCacheStorage(directory: dir),
+  delegate: FileCacheStorage(dir),
   encrypt: (plain) => myCipher.encrypt(plain),
   decrypt: (sealed) => myCipher.decrypt(sealed),
 );

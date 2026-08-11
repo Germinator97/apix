@@ -68,13 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and parses <code>response.data[dataKey]</code>, returning null
-if the extracted data is null.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">// Response: { "data": null }
-final date = await client.getAndParseDataOrNull('/server/time', ...);
-// returns null
-</code></pre>
+  <p>Parses <code>body[dataKey]</code>, or null when it is absent.</p>
 </section>
 
 
@@ -87,17 +81,16 @@ final date = await client.getAndParseDataOrNull('/server/time', ...);
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;T?&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
+    assertJson: false,
+    decode: (response) =&gt; _mapOrNull(_extractData(response.data), parser),
   );
-  return _parseOrThrow(response, () {
-    final data = _extractData(response.data);
-    return data == null ? null : parser(data);
-  });
 }</code></pre>
 </section>
 

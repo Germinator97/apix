@@ -211,9 +211,17 @@ final client = ApiClientFactory.create(
 // After login
 await tokenProvider.saveTokens(accessToken, refreshToken);
 
-// Logout
+// Logout — drop the tokens AND the responses they fetched
 await tokenProvider.clearTokens();
+await cacheInterceptor.clearCache();
 </code></pre>
+<blockquote>
+<p><strong>Clearing the cache on logout is not optional.</strong> Cache entries are scoped by
+<code>CacheConfig.varyHeaders</code> (default <code>['Authorization']</code>), so the next account
+cannot <em>read</em> the previous one's entries — but they are still on the device
+until something removes them, and <code>FileCacheStorage</code> keeps them across
+restarts. Clear them where you clear the tokens.</p>
+</blockquote>
 <p><strong>Refresh token queue</strong>: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, <code>onAuthFailure</code> is called <strong>once</strong> (not per queued request).</p>
 <p><strong>Network resilience</strong>: When the refresh request itself fails with a connection or timeout error, the original request is rejected with <code>NetworkException</code> (typed: <code>ConnectionException</code>, <code>TimeoutException</code>) — <code>onAuthFailure</code> is <strong>not</strong> invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger <code>AuthException</code> and call <code>onAuthFailure</code>.</p>
 <p><strong>Token storage failures</strong>: Errors raised by your <code>TokenProvider</code> (corrupted keychain, missing entitlements, ...) surface as <code>TokenProviderException</code> — see <a href="#error-handling">Error Handling</a>.</p>
@@ -385,7 +393,7 @@ deduplication is switched off so a request is not collapsed twice.</p>
 <p><code>FileCacheStorage</code> writes in clear text. Where the data worth keeping between
 launches is also the data that must not leak, wrap it:</p>
 <pre class="language-dart"><code class="language-dart">final storage = EncryptedCacheStorage(
-  delegate: FileCacheStorage(directory: dir),
+  delegate: FileCacheStorage(dir),
   encrypt: (plain) =&gt; myCipher.encrypt(plain),
   decrypt: (sealed) =&gt; myCipher.decrypt(sealed),
 );
@@ -922,11 +930,15 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <td><strong>Data</strong></td>
 <td><code>{verb}And{Parse|Decode}Data</code></td>
 <td><code>response.data[dataKey]</code></td>
-<td>GET, POST</td>
+<td>all</td>
 <td>OrNull, List, ListOrNull, ListOrEmpty</td>
 </tr>
 </tbody>
 </table>
+<p>Since 5.0 every family is available on every verb — twelve shapes × five verbs.
+The table used to claim that while <code>PUT</code> and <code>PATCH</code> had two methods each and
+<code>DELETE</code> none, because filling the gaps meant copying the plumbing five times.
+It is one shared core now, so a verb cannot fall behind again.</p>
 <h3 id="strict-content-type-checks-captive-portals">Strict Content-Type Checks (Captive Portals)</h3>
 <p><code>*AndDecode</code> methods can verify that the response's <code>Content-Type</code> starts
 with <code>application/json</code> before attempting to parse. Useful in fintech /

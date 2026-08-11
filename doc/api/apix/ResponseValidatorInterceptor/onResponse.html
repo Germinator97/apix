@@ -85,31 +85,21 @@ void onResponse(
   try {
     exception = validator(response);
   } catch (e, st) {
-    handler.reject(
-      DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: ApiException(
-          message: &#39;responseValidator threw: $e&#39;,
-          statusCode: response.statusCode,
-          originalError: e,
-          stackTrace: st,
-        ),
-        type: DioExceptionType.unknown,
+    _refuse(
+      handler,
+      response,
+      ApiException(
+        message: &#39;responseValidator threw: $e&#39;,
+        statusCode: response.statusCode,
+        originalError: e,
+        stackTrace: st,
       ),
     );
     return;
   }
 
   if (exception != null) {
-    handler.reject(
-      DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: exception,
-        type: DioExceptionType.badResponse,
-      ),
-    );
+    _refuse(handler, response, exception);
     return;
   }
 

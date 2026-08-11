@@ -150,8 +150,29 @@ void onError(
       &#47;&#47; Let the error go through onError again for potential further retries
       handler.next(e);
     }
-  } catch (e) {
-    handler.next(err);
+  } catch (e, st) {
+    &#47;&#47; Anything that escapes above is the retry machinery itself failing, not
+    &#47;&#47; the request. This used to be `handler.next(err)` with `e` dropped on
+    &#47;&#47; the floor — a silent catch inside the one component whose job is to
+    &#47;&#47; recover from failure, so a bug here surfaced as the *original* status
+    &#47;&#47; and nothing else.
+    &#47;&#47;
+    &#47;&#47; The original response is kept so status-based handling and the error
+    &#47;&#47; mapper still see what the server said, while `e` travels as the cause
+    &#47;&#47; instead of vanishing.
+    if (e is DioException) {
+      handler.next(e);
+      return;
+    }
+    handler.next(
+      DioException(
+        requestOptions: err.requestOptions,
+        response: err.response,
+        type: err.type,
+        error: e,
+        stackTrace: st,
+      ),
+    );
   }
 }</code></pre>
 </section>

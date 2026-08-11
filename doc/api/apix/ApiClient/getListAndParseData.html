@@ -68,15 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and parses <code>response.data[dataKey]</code> as a list
-using <code>parser</code>.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">// Response: { "data": ["admin", "editor"] }
-final roles = await client.getListAndParseData(
-  '/roles',
-  (item) =&gt; item as String,
-);
-</code></pre>
+  <p>Parses <code>body[dataKey]</code> as a list with <code>parser</code>.</p>
 </section>
 
 
@@ -89,18 +81,15 @@ final roles = await client.getListAndParseData(
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;List&lt;T&gt;&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
-  );
-  return _parseOrThrow(
-    response,
-    () =&gt; (_extractData(response.data) as List&lt;dynamic&gt;)
-        .map((item) =&gt; parser(item))
-        .toList(),
+    assertJson: false,
+    decode: (response) =&gt; _asList(_extractData(response.data), parser),
   );
 }</code></pre>
 </section>

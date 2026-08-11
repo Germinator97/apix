@@ -81,6 +81,7 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) {
+  ObservationMarker.beginAttempt(options);
   if (config.enabled) {
     _cleanupOrphans();
     final metrics = _createMetrics(options);

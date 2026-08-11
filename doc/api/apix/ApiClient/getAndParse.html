@@ -68,11 +68,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Sends a GET request and parses the response using <code>parser</code>.</p>
-<p>Formats <code>response.data</code> directly. Use for any response type.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">final count = await client.getAndParse('/users/count', (data) =&gt; data as int);
-</code></pre>
+  <p>Parses the whole body with <code>parser</code>.</p>
 </section>
 
 
@@ -85,14 +81,16 @@
   Map&lt;String, dynamic&gt;? queryParameters,
   Options? options,
   CancelToken? cancelToken,
-}) async {
-  final response = await get&lt;dynamic&gt;(
+}) {
+  return _typed&lt;T&gt;(
+    &#39;GET&#39;,
     path,
     queryParameters: queryParameters,
     options: options,
     cancelToken: cancelToken,
+    assertJson: false,
+    decode: (response) =&gt; parser(response.data),
   );
-  return _parseOrThrow(response, () =&gt; parser(response.data));
 }</code></pre>
 </section>
 

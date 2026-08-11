@@ -63,6 +63,11 @@
       
 <section class="desc markdown">
   <p>Whether to log request body.</p>
+<p><strong>Defaults to <code>false</code> since 5.0.</strong> It used to default to <code>true</code>, so a
+plain <code>LoggerConfig()</code> printed the body of every request — the password in
+a <code>POST /login</code> included. Header redaction never covered bodies, and
+nothing warned. Turn it on deliberately, in the environments where you
+want it.</p>
 </section>
 
       
