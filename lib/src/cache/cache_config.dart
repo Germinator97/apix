@@ -1,5 +1,54 @@
 import 'cache_storage.dart';
 
+/// A response served from storage rather than from the network.
+///
+/// Handed to [CacheConfig.onCacheHit], which exists because nothing else in
+/// apix can report one. A hit is resolved from `onRequest`, which ends the
+/// chain before the logger, the metrics and the tracing interceptor are
+/// reached — deliberately, since a cached response spent no time on the
+/// network and a span opened for it would never be closed. The cost of that
+/// choice is that the *fastest* requests are the ones missing from every
+/// dashboard, and that the cache's own hit rate is invisible from the
+/// observability the package provides. This closes it without moving anything
+/// in the chain.
+class CacheHit {
+  /// The storage key the body came from.
+  final String key;
+
+  /// The HTTP method of the request that was answered.
+  final String method;
+
+  /// The URI of the request that was answered.
+  final Uri uri;
+
+  /// Whether the body handed back was past its TTL.
+  ///
+  /// True in the two situations apix knowingly serves expired data:
+  /// `cacheFirst` answering instantly while it revalidates behind, and the
+  /// offline fallback of `networkFirst` / `httpCacheAware`. A hit rate that
+  /// counts these together with fresh ones is measuring two different things.
+  final bool isStale;
+
+  /// The status code stored with the entry.
+  final int statusCode;
+
+  /// Creates a [CacheHit].
+  const CacheHit({
+    required this.key,
+    required this.method,
+    required this.uri,
+    required this.isStale,
+    required this.statusCode,
+  });
+
+  @override
+  String toString() =>
+      'CacheHit($method ${uri.path}${isStale ? ' stale' : ''} [$statusCode])';
+}
+
+/// Signature for [CacheConfig.onCacheHit].
+typedef CacheHitHandler = void Function(CacheHit hit);
+
 /// Cache strategy options.
 ///
 /// Only [cacheFirst] and [networkFirst] can hand back data that is past its
@@ -106,6 +155,24 @@ class CacheConfig {
   /// nothing — and scoping nothing looks exactly like working.
   final List<String> varyHeaders;
 
+  /// Called each time a response is answered from storage.
+  ///
+  /// The only way to see a cache hit from outside the cache. `LoggerConfig`,
+  /// `MetricsConfig` and `TracingConfig` never observe one — see [CacheHit] for
+  /// why, and why moving them in the chain would be worse.
+  ///
+  /// Guarded like every other consumer callback: a handler that throws cannot
+  /// fail the request it was only meant to watch.
+  ///
+  /// ```dart
+  /// cacheConfig: CacheConfig(
+  ///   onCacheHit: (hit) => metrics.increment(
+  ///     hit.isStale ? 'cache.stale' : 'cache.fresh',
+  ///   ),
+  /// )
+  /// ```
+  final CacheHitHandler? onCacheHit;
+
   /// Creates a [CacheConfig] with the given parameters.
   CacheConfig({
     CacheStorage? storage,
@@ -116,6 +183,7 @@ class CacheConfig {
     this.enableDeduplication = true,
     this.deduplicateMethods = const ['GET'],
     this.varyHeaders = const ['Authorization'],
+    this.onCacheHit,
   }) : storage = storage ?? InMemoryCacheStorage();
 
   /// Returns true if the given HTTP method should be cached.
@@ -136,6 +204,7 @@ class CacheConfig {
     bool? enableDeduplication,
     List<String>? deduplicateMethods,
     List<String>? varyHeaders,
+    CacheHitHandler? onCacheHit,
   }) {
     return CacheConfig(
       storage: storage ?? this.storage,
@@ -146,6 +215,7 @@ class CacheConfig {
       enableDeduplication: enableDeduplication ?? this.enableDeduplication,
       deduplicateMethods: deduplicateMethods ?? this.deduplicateMethods,
       varyHeaders: varyHeaders ?? this.varyHeaders,
+      onCacheHit: onCacheHit ?? this.onCacheHit,
     );
   }
 
