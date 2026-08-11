@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 
 import '../client/response_validator_interceptor.dart';
 import '../errors/api_exception.dart';
+import '../http/body_fingerprint.dart';
 import '../http/cache_vary.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
@@ -666,6 +667,20 @@ class CacheInterceptor extends Interceptor {
           names.map((name) => '$name=${params[name]!.join(',')}').join('&');
       buffer.write('?$canonical');
     }
+
+    // The body, for the methods that carry one.
+    //
+    // `cacheableMethods` is a public list and nothing stopped a consumer from
+    // adding `POST`. Until this line, the key described the method, the URL and
+    // the caller — never *what was asked*. Two searches with different payloads
+    // therefore shared one entry: measured, `{"q":"alice"}` and `{"q":"bob"}`
+    // collapsed into a single network call and the second caller received the
+    // first one's results.
+    //
+    // Null for a body-less request, so every `GET` keeps the key it has always
+    // had and no stored entry is orphaned by this.
+    final body = bodyFingerprint(options.data);
+    if (body != null) buffer.write('|b:$body');
 
     // Digest, never the value: `EncryptedCacheStorage` leaves keys in clear
     // text on purpose, so an embedded bearer token would be written to disk by

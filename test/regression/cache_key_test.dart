@@ -305,4 +305,113 @@ void main() {
           reason: 'keys are sorted, so declaration order is irrelevant');
     });
   });
+
+  group('N3 — the key describes the body, for the methods that carry one', () {
+    ApiClient postCachingClient(ScriptedAdapter adapter) {
+      return ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+          cacheableMethods: const ['GET', 'POST'],
+          enableDeduplication: false,
+        ),
+      );
+    }
+
+    test('two POSTs with different payloads do not share an entry', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'n': i + 1}, 200));
+      final client = postCachingClient(adapter);
+
+      final alice = await client.post<dynamic>('/search', data: {'q': 'alice'});
+      final bob = await client.post<dynamic>('/search', data: {'q': 'bob'});
+
+      expect(adapter.callCount, 2,
+          reason: 'the key described method + url + caller, never what was '
+              'asked, so widening cacheableMethods to POST served one '
+              'caller another one\'s results');
+      expect(bodyOf(alice)['n'], 1);
+      expect(bodyOf(bob)['n'], 2);
+    });
+
+    test('the same payload still hits the cache', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'n': i + 1}, 200));
+      final client = postCachingClient(adapter);
+
+      await client.post<dynamic>('/search', data: {'q': 'alice'});
+      final again = await client.post<dynamic>('/search', data: {'q': 'alice'});
+
+      expect(adapter.callCount, 1,
+          reason: 'keying on the body must not disable caching altogether — '
+              'the other half of this fix');
+      expect(bodyOf(again)['n'], 1);
+    });
+
+    test('a body-less GET keeps the key it has always had', () async {
+      final storage = InMemoryCacheStorage();
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'i': i}, 200));
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: storage,
+          strategy: CacheStrategy.cacheFirst,
+          varyHeaders: const [],
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+
+      expect(
+        await storage.keys(),
+        ['GET:https://api.test/thing'],
+        reason: 'no body fragment for a request without a body, so upgrading '
+            'orphans no stored entry',
+      );
+    });
+
+    test('invalidateUrl still matches a key carrying a body fragment',
+        () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'n': i + 1}, 200));
+      final client = postCachingClient(adapter);
+
+      await client.post<dynamic>('/search', data: {'q': 'alice'});
+      final removed = await client.cacheInterceptor!
+          .invalidateUrl('/search', method: 'POST');
+
+      expect(removed, isTrue,
+          reason: 'the boundary check accepts "|" after the URL, which is what '
+              'the new fragment starts with');
+      await client.post<dynamic>('/search', data: {'q': 'alice'});
+      expect(adapter.callCount, 2);
+    });
+
+    test('the deduplicator and the cache agree on the body', () {
+      final options = RequestOptions(
+        path: '/search',
+        method: 'POST',
+        baseUrl: 'https://api.test',
+        data: {'q': 'alice'},
+      );
+      final other = RequestOptions(
+        path: '/search',
+        method: 'POST',
+        baseUrl: 'https://api.test',
+        data: {'q': 'bob'},
+      );
+      final deduplicator = RequestDeduplicator();
+
+      expect(
+        deduplicator.generateKey(options),
+        isNot(deduplicator.generateKey(other)),
+        reason: 'the two key builders in this package disagreed twice before; '
+            'they now share one body fingerprint',
+      );
+    });
+  });
 }
