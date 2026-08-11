@@ -176,7 +176,9 @@ class CacheInterceptor extends Interceptor {
 
   /// Clears all cached entries.
   ///
-  /// Returns the number of entries removed.
+  /// Returns the number of entries removed — expired ones included, which it
+  /// used to under-report because [CacheStorage.keys] swept them on its way
+  /// past.
   Future<int> clearCache() async {
     final allKeys = await config.storage.keys();
     final count = allKeys.length;
@@ -184,9 +186,35 @@ class CacheInterceptor extends Interceptor {
     return count;
   }
 
-  /// Returns all current cache keys.
+  /// Returns all current cache keys, expired entries included.
+  ///
+  /// **Reading no longer deletes.** This used to purge every expired entry it
+  /// walked over, so asking what was cached destroyed the offline fallback —
+  /// an expired entry is precisely what `networkFirst` serves when the network
+  /// is gone. Reach for [evictExpired] when removing them is the intent.
   Future<List<String>> getCacheKeys() async {
     return config.storage.keys();
+  }
+
+  /// Removes every entry that is past its TTL, and returns how many went.
+  ///
+  /// The deletion that [getCacheKeys] used to perform as a side effect, under
+  /// a name that says so. Worth calling on a memory-pressure signal or at
+  /// logout; not worth calling routinely, since `FileCacheStorage` already
+  /// bounds itself by count and an expired entry still has value offline.
+  ///
+  /// Works against any [CacheStorage], including a consumer's own: it reads
+  /// through the interface rather than requiring a method of its own.
+  Future<int> evictExpired() async {
+    var removed = 0;
+    for (final key in await config.storage.keys()) {
+      final entry = await config.storage.get(key);
+      if (entry != null && entry.isExpired) {
+        await config.storage.remove(key);
+        removed++;
+      }
+    }
+    return removed;
   }
 
   /// Returns true if a cache entry exists for the given key.

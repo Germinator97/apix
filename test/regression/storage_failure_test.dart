@@ -113,4 +113,108 @@ void main() {
       expect(await storage.keys(), isNotEmpty);
     });
   });
+
+  group('N6 — listing the keys is not a deletion', () {
+    test('the offline fallback survives a call to getCacheKeys', () async {
+      final storage = InMemoryCacheStorage();
+      var offline = false;
+      final adapter = ScriptedAdapter((options, i) {
+        if (offline) {
+          throw DioException(
+            requestOptions: options,
+            type: DioExceptionType.connectionError,
+            message: 'offline',
+          );
+        }
+        return jsonResponse({'v': 1}, 200);
+      });
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: storage,
+          strategy: CacheStrategy.networkFirst,
+          defaultTtl: const Duration(milliseconds: 20),
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      // The whole point: an operation that only *reads*, between the entry
+      // expiring and the network dying.
+      await client.cacheInterceptor!.getCacheKeys();
+
+      offline = true;
+      final served = await client.get<dynamic>('/thing');
+
+      expect(
+        bodyOf(served)['v'],
+        1,
+        reason: 'listing the keys used to sweep every expired entry, so asking '
+            'what was cached destroyed the fallback that makes networkFirst '
+            'useful — and a missing entry looks exactly like one that was '
+            'never written',
+      );
+      expect(served.isStale, isTrue);
+    });
+
+    test('clearCache counts the expired entries it removes', () async {
+      final storage = InMemoryCacheStorage();
+      await storage.set(
+        'GET:/a',
+        CacheEntry.withTtl(
+            data: '{}', statusCode: 200, ttl: const Duration(seconds: -1)),
+      );
+      await storage.set(
+        'GET:/b',
+        CacheEntry.withTtl(
+            data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)),
+      );
+      final interceptor =
+          CacheInterceptor(config: CacheConfig(storage: storage));
+
+      expect(await interceptor.clearCache(), 2,
+          reason: 'it used to report 1, because keys() had already swept the '
+              'expired one on its way past');
+      expect(await storage.keys(), isEmpty);
+    });
+
+    test('evictExpired removes exactly the expired entries', () async {
+      final storage = InMemoryCacheStorage();
+      await storage.set(
+        'GET:/stale',
+        CacheEntry.withTtl(
+            data: '{}', statusCode: 200, ttl: const Duration(seconds: -1)),
+      );
+      await storage.set(
+        'GET:/fresh',
+        CacheEntry.withTtl(
+            data: '{}', statusCode: 200, ttl: const Duration(minutes: 5)),
+      );
+      final interceptor =
+          CacheInterceptor(config: CacheConfig(storage: storage));
+
+      expect(await interceptor.evictExpired(), 1);
+      expect(await storage.keys(), ['GET:/fresh'],
+          reason: 'the sweep is still available, under a name that says it '
+              'deletes');
+    });
+  });
+
+  group('N1 bis — the write path stays intact', () {
+    test('a cacheFirst hit is still served from a working store', () async {
+      final adapter = countingAdapter();
+      final storage = InMemoryCacheStorage();
+      final client =
+          clientWith(adapter, storage, strategy: CacheStrategy.cacheFirst);
+
+      await client.get<dynamic>('/x');
+      final second = await client.get<dynamic>('/x');
+
+      expect(adapter.callCount, 1, reason: 'the second call must be a hit');
+      expect(bodyOf(second)['n'], 1);
+      expect(await storage.keys(), isNotEmpty);
+    });
+  });
 }

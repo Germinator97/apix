@@ -88,13 +88,35 @@ void main() {
       expect(await storage.has('GET:/stale'), isFalse);
     });
 
-    test('keys() sweeps expired entries off disk', () async {
+    test('keys() reports expired entries and removes nothing', () async {
       await storage.set('GET:/fresh', fresh());
       await storage.set('GET:/stale', expired());
 
-      expect(await storage.keys(), ['GET:/fresh']);
-      // Swept, not merely hidden.
-      expect(await storage.get('GET:/stale'), isNull);
+      expect(
+        (await storage.keys())..sort(),
+        ['GET:/fresh', 'GET:/stale'],
+        reason: 'expiry is the interceptor\'s business here too',
+      );
+      expect(
+        await storage.get('GET:/stale'),
+        isNotNull,
+        reason: 'this used to sweep, so listing the keys destroyed the very '
+            'entries networkFirst serves when the network is gone',
+      );
+    });
+
+    test('keys() still discards a file that can never become an entry',
+        () async {
+      await storage.set('GET:/good', fresh());
+      File('${dir.path}/${'0' * 64}.json').writeAsStringSync('not json at all');
+
+      expect(await storage.keys(), ['GET:/good']);
+      expect(
+        dir.listSync().whereType<File>().length,
+        1,
+        reason: 'unreadable is not the same as stale: it has no key to report '
+            'and can never acquire one',
+      );
     });
   });
 
