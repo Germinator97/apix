@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
+import '../http/body_fingerprint.dart';
 import '../http/cache_vary.dart';
 
 /// Deduplicates identical concurrent requests.
@@ -110,32 +109,17 @@ class RequestDeduplicator {
       ..write(':')
       ..write(options.uri.toString());
 
-    // Include body hash for requests with body
-    if (options.data != null) {
-      final bodyHash = _hashBody(options.data);
-      buffer.write(':$bodyHash');
-    }
+    // The body, through the same helper the cache key uses. It was a private
+    // `_hashBody` here and nothing at all there, which is how `cacheableMethods`
+    // could be widened to `POST` and serve one caller another's results. One
+    // implementation is what keeps the two keys from disagreeing again.
+    final body = bodyFingerprint(options.data);
+    if (body != null) buffer.write('|b:$body');
 
     final vary = varyFingerprint(options, varyHeaders);
     if (vary != null) buffer.write('|v:$vary');
 
     return buffer.toString();
-  }
-
-  /// Hashes the request body for deduplication key.
-  String _hashBody(dynamic data) {
-    String content;
-    if (data is String) {
-      content = data;
-    } else if (data is Map || data is List) {
-      content = jsonEncode(data);
-    } else {
-      content = data.toString();
-    }
-
-    final bytes = utf8.encode(content);
-    final digest = md5.convert(bytes);
-    return digest.toString();
   }
 
   /// Returns the number of pending requests.
