@@ -40,7 +40,8 @@ import 'cache_storage.dart';
 /// - Writes are atomic (write to a temporary file, then rename), so a reader
 ///   never observes a half-written entry.
 /// - Like every [CacheStorage], this one does **not** filter on expiry — the
-///   interceptor owns the TTL. See [CacheStorage.get].
+///   interceptor owns the TTL. See [CacheStorage.get]. [keys] does not filter
+///   either, and does not sweep: reading must not delete.
 /// - [maxEntries] caps how many entries are kept. **It defaults to a bound**,
 ///   unlike [InMemoryCacheStorage]: a process cache disappears when the app
 ///   closes, a disk cache does not. Left unbounded, this one would grow for
@@ -242,11 +243,9 @@ class FileCacheStorage implements CacheStorage {
     final result = <String>[];
     await for (final file in _ownedFiles()) {
       final record = await _readRecord(file);
-      if (record == null) continue;
-      // Expired entries are swept here, as the in-memory storage does: this is
-      // the only method that walks everything, so it is the natural place to
-      // keep the directory from growing without bound.
-      if (record.entry.isExpired) {
+      // An unreadable file is not an entry and has no key to report; it is
+      // discarded because it can never become one, not because it is stale.
+      if (record == null) {
         await _discard(file);
         continue;
       }
