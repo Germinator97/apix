@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../errors/api_exception.dart';
+import '../http/cache_vary.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
 import 'cache_storage.dart';
@@ -43,7 +44,12 @@ class CacheInterceptor extends Interceptor {
   final CacheConfig config;
 
   /// The request deduplicator for concurrent requests.
-  final RequestDeduplicator _deduplicator = RequestDeduplicator();
+  ///
+  /// Scoped by the same [CacheConfig.varyHeaders] as the cache: collapsing two
+  /// concurrent requests from different callers hands the second one a body it
+  /// never asked for, exactly as a shared cache entry would.
+  late final RequestDeduplicator _deduplicator =
+      RequestDeduplicator(varyHeaders: config.varyHeaders);
 
   /// Dio instance for executing deduplicated requests.
   Dio? _dio;
@@ -494,8 +500,15 @@ class CacheInterceptor extends Interceptor {
 
   /// Generates a cache key from request options.
   ///
-  /// Uses method + base URL path (without query) + sorted query params
-  /// to produce deterministic, non-duplicated keys.
+  /// Uses method + base URL path (without query) + sorted query params, then
+  /// the identity fragment from [CacheConfig.varyHeaders], to produce
+  /// deterministic keys that cannot be shared across callers.
+  ///
+  /// Without that last part the key described only *what* was asked, never
+  /// *who* asked. Two accounts on one device therefore shared every entry:
+  /// after a logout and a login, `GET /me` returned the previous account's
+  /// body — persisted across restarts by `FileCacheStorage`, and never
+  /// cleared, since the documented logout only dropped the tokens.
   String _generateCacheKey(RequestOptions options) {
     final uri = options.uri;
     final buffer = StringBuffer()
@@ -512,6 +525,12 @@ class CacheInterceptor extends Interceptor {
       buffer.write(
           '?${Uri(queryParameters: _stringifyParams(sortedParams)).query}');
     }
+
+    // Digest, never the value: `EncryptedCacheStorage` leaves keys in clear
+    // text on purpose, so an embedded bearer token would be written to disk by
+    // the very storage picked for sensitive data.
+    final vary = varyFingerprint(options, config.varyHeaders);
+    if (vary != null) buffer.write('|v:$vary');
 
     return buffer.toString();
   }

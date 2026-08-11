@@ -174,9 +174,16 @@ final client = ApiClientFactory.create(
 // After login
 await tokenProvider.saveTokens(accessToken, refreshToken);
 
-// Logout
+// Logout — drop the tokens AND the responses they fetched
 await tokenProvider.clearTokens();
+await cacheInterceptor.clearCache();
 ```
+
+> **Clearing the cache on logout is not optional.** Cache entries are scoped by
+> `CacheConfig.varyHeaders` (default `['Authorization']`), so the next account
+> cannot *read* the previous one's entries — but they are still on the device
+> until something removes them, and `FileCacheStorage` keeps them across
+> restarts. Clear them where you clear the tokens.
 
 **Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, `onAuthFailure` is called **once** (not per queued request).
 

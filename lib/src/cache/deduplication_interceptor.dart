@@ -22,7 +22,8 @@ class DeduplicationInterceptor extends Interceptor {
   /// The deduplication configuration.
   final DeduplicationConfig config;
 
-  final RequestDeduplicator _deduplicator = RequestDeduplicator();
+  late final RequestDeduplicator _deduplicator =
+      RequestDeduplicator(varyHeaders: config.varyHeaders);
 
   /// Dio instance used to execute the single real request.
   Dio? _dio;

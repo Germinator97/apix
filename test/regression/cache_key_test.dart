@@ -56,6 +56,140 @@ void main() {
       expect(again.isStale, isFalse);
     });
 
+    test('B1 — a second identity is not served the first one\'s body',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) =>
+            jsonResponse({'me': options.headers['Authorization']}, 200),
+      );
+      final provider = StubTokenProvider(accessToken: 'token-A');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(tokenProvider: provider),
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+        ),
+      );
+
+      final asA = await client.get<dynamic>('/me');
+      expect(bodyOf(asA)['me'], 'Bearer token-A');
+
+      // What a logout followed by a login as someone else looks like from
+      // here: same device, same client, different token.
+      provider.accessToken = 'token-B';
+      final asB = await client.get<dynamic>('/me');
+
+      expect(bodyOf(asB)['me'], 'Bearer token-B',
+          reason: "user B must never be served user A's cached body");
+      expect(adapter.callCount, 2,
+          reason: 'the second identity must reach the network');
+    });
+
+    test('B1 — an anonymous request cannot read an authenticated entry',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse(
+            {'auth': options.headers['Authorization'] ?? 'none'}, 200),
+      );
+      final provider = StubTokenProvider(accessToken: 'token-A');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(tokenProvider: provider),
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+
+      // Logged out: no header at all, so no fragment. That plain key must not
+      // be the one the authenticated request wrote.
+      provider.accessToken = null;
+      final anonymous = await client.get<dynamic>('/thing');
+
+      expect(bodyOf(anonymous)['auth'], 'none');
+      expect(adapter.callCount, 2);
+    });
+
+    test('B1 — the same identity still hits the cache', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'i': i}, 200));
+      final provider = StubTokenProvider(accessToken: 'token-A');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(tokenProvider: provider),
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+      final second = await client.get<dynamic>('/thing');
+
+      // The other half of the fix: scoping must not disable caching outright.
+      // A guard that only ever misses would pass the leak test above while
+      // making the whole feature useless.
+      expect(adapter.callCount, 1);
+      expect(second.isFromCache, isTrue);
+    });
+
+    test('B1 — varyHeaders: [] restores the unscoped key', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'i': i}, 200));
+      final provider = StubTokenProvider(accessToken: 'token-A');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(tokenProvider: provider),
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+          varyHeaders: const [],
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+      provider.accessToken = 'token-B';
+      await client.get<dynamic>('/thing');
+
+      expect(adapter.callCount, 1,
+          reason: 'opting out must genuinely share entries across callers');
+    });
+
+    test('B1 — a custom header name is matched case-insensitively', () async {
+      final adapter =
+          ScriptedAdapter((options, i) => jsonResponse({'i': i}, 200));
+      final provider = StubTokenProvider(accessToken: 'k1');
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        authConfig: AuthConfig(
+          tokenProvider: provider,
+          headerName: 'x-api-key',
+          headerPrefix: '',
+        ),
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+          varyHeaders: const ['X-API-Key'],
+        ),
+      );
+
+      await client.get<dynamic>('/thing');
+      provider.accessToken = 'k2';
+      await client.get<dynamic>('/thing');
+
+      expect(adapter.callCount, 2,
+          reason: 'header names are case-insensitive; matching on the exact '
+              'spelling would scope nothing while looking like it worked');
+    });
+
     test('parameter order does not change the key', () async {
       final adapter = ScriptedAdapter(
         (options, i) => jsonResponse({'i': i}, 200),
