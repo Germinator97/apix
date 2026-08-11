@@ -82,6 +82,15 @@ arrives here as <code>'4001'</code>, so a <code>switch</code> never has to care 
 the server picked. Null when the body carried no code, was not a JSON
 object, or the value was neither a string nor a number — and null on every
 non-HTTP failure (timeout, connection loss), which has no body to read.</p>
+<p><strong>Also null when the body's code merely repeats the HTTP status.</strong> Many
+envelopes fill a field named <code>code</code> with the status itself
+(<code>{"code": 401, ...}</code> on a <code>401</code>); handing that back here would restore
+the very coupling this field removes, disguised as a business code. It is
+dropped rather than reported, so <code>code</code> stays a promise you can trust: a
+non-null value means the backend published something the status does not
+already tell you.</p>
+<p>One case pays for that guard — an API whose genuine code equals its own
+status — and it is indistinguishable from the disguise by construction.</p>
 <p>Which key is read is configurable through <code>ApiClientConfig.errorCodeKey</code>.</p>
 </section>
 
@@ -117,7 +126,7 @@ non-HTTP failure (timeout, connection loss), which has no body to read.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

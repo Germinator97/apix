@@ -133,7 +133,7 @@ class ErrorMapperInterceptor extends Interceptor {
     final response = err.response;
     final statusCode = response?.statusCode ?? 0;
     final message = _extractMessage(response);
-    final code = _extractCode(response, errorCodeKey);
+    final code = _extractCode(response, errorCodeKey, statusCode);
 
     return switch (statusCode) {
       401 => UnauthorizedException(
@@ -223,18 +223,49 @@ class ErrorMapperInterceptor extends Interceptor {
   /// call sites can `switch` on a single type without knowing which of the two
   /// the server sent. Any other type yields null rather than a `toString()`
   /// that would turn a malformed body into a plausible-looking code.
-  static String? _extractCode(Response<dynamic>? response, String key) {
+  ///
+  /// **A value equal to [statusCode] is discarded**, whatever its type. Plenty
+  /// of envelopes put the HTTP status in a field literally named `code`:
+  ///
+  /// ```json
+  /// {"code": 401, "status": "error", "message": "Authentification requise."}
+  /// ```
+  ///
+  /// Read as-is, `ApiException.code` would be `'401'` — and this field exists
+  /// precisely to free callers from branching on the status. Handing it back
+  /// under another name would restore that coupling *in disguise*: a
+  /// `switch (e.code)` looks like business logic while it keys on a status that
+  /// can drift between server revisions. Nothing would signal it either, since
+  /// the value is perfectly plausible.
+  ///
+  /// The guard is deliberately narrow. Refusing every numeric code — the first
+  /// remedy suggested — would also drop the legitimate case (`4001` under a
+  /// `400`), which is the one this field was built for. Equality with the
+  /// status is the only mechanically detectable signal, and it costs one real
+  /// case: an API whose genuine business code happens to equal its own status.
+  /// That case is indistinguishable from the disguise by construction.
+  ///
+  /// Reported by a consumer, against the field these codes are read from.
+  static String? _extractCode(
+    Response<dynamic>? response,
+    String key,
+    int statusCode,
+  ) {
     final data = response?.data;
     if (data is! Map) return null;
 
     final nested = data['error'];
     final code = data[key] ?? (nested is Map ? nested[key] : null);
 
-    return switch (code) {
+    final normalised = switch (code) {
       final String value => value,
       final num value => value.toString(),
       _ => null,
     };
+
+    // Compared after normalising, so `"401"` as a string is caught too — the
+    // reported remedy only covered the numeric spelling.
+    return normalised == statusCode.toString() ? null : normalised;
   }
 
   static String _extractMessage(Response<dynamic>? response) {

@@ -554,7 +554,82 @@ void main() {
           badResponse({'code': 4001, 'message': 'Numeric'}),
         );
 
-        expect(result.code, equals('4001'));
+        expect(
+          result.code,
+          equals('4001'),
+          reason: 'a real numeric business code under a different status is '
+              'the case this field was built for — the guard must not '
+              'take it away',
+        );
+      });
+
+      // Reported by a consumer: their envelope puts the HTTP status in a
+      // field named `code`, so the field meant to free callers from the status
+      // handed the status back, disguised as a business code. Nothing signals
+      // it — it compiles, it does not throw, and "401" is perfectly plausible.
+      group('a code that merely repeats the HTTP status', () {
+        test('is dropped rather than reported', () {
+          final result = ErrorMapperInterceptor.mapDioException(
+            badResponse(
+              {
+                'code': 401,
+                'status': 'error',
+                'message': 'Authentification requise.',
+              },
+              statusCode: 401,
+            ),
+          );
+
+          expect(
+            result.code,
+            isNull,
+            reason: 'reporting it would restore the coupling to the status '
+                'that this field exists to remove',
+          );
+          expect(result.statusCode, equals(401), reason: 'still available');
+          expect(result.message, equals('Authentification requise.'));
+        });
+
+        test('is dropped when spelled as a string too', () {
+          final result = ErrorMapperInterceptor.mapDioException(
+            badResponse({'code': '404', 'message': 'Introuvable'},
+                statusCode: 404),
+          );
+
+          expect(
+            result.code,
+            isNull,
+            reason: 'the numeric spelling is not the only one an envelope uses',
+          );
+        });
+
+        test('leaves a genuine code that differs from the status', () {
+          for (final body in [
+            {'code': 4001},
+            {'code': 'INSUFFICIENT_FUNDS'},
+            {'code': '4010'},
+          ]) {
+            final result = ErrorMapperInterceptor.mapDioException(
+              badResponse(body, statusCode: 401),
+            );
+
+            expect(
+              result.code,
+              isNotNull,
+              reason: '$body was dropped — the guard is cutting too wide',
+            );
+          }
+        });
+
+        test('applies to the nested shape as well', () {
+          final result = ErrorMapperInterceptor.mapDioException(
+            badResponse({
+              'error': {'code': 403, 'message': 'Interdit'},
+            }, statusCode: 403),
+          );
+
+          expect(result.code, isNull);
+        });
       });
 
       test('honours a custom errorCodeKey', () {

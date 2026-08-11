@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^4.1.0
+  apix: ^5.0.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -751,6 +751,16 @@ number, so a <code>switch</code> never has to care which. It is null on non-HTTP
 which have no body to read.</p>
 <p>Keep status branching for the cross-cutting cases — <code>401</code> refresh, <code>403</code>, a
 generic <code>5xx</code> — or when no code is guaranteed.</p>
+<blockquote>
+<p><strong>A code that is just the status is dropped.</strong> Plenty of envelopes fill a
+field named <code>code</code> with the HTTP status (<code>{"code": 401, ...}</code> on a <code>401</code>).
+Reported as a business code, it would restore the coupling this field exists
+to remove — disguised, since <code>switch (e.code)</code> would look like business logic.
+apix drops any value equal to the response status, in either spelling. Real
+codes are untouched: <code>4001</code> under a <code>400</code> comes through. If your API publishes
+codes under another name, prefer <code>errorCodeKey: 'errorCode'</code> over relying on
+the guard.</p>
+</blockquote>
 <h3 id="rate-limits">Rate limits</h3>
 <pre class="language-dart"><code class="language-dart">on TooManyRequestsException catch (e) {
   final wait = e.retryAfter;
@@ -1269,7 +1279,7 @@ with <code>actualContentType: null</code>.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

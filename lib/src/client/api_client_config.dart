@@ -61,6 +61,13 @@ class ApiClientConfig {
   /// may drift between server revisions.
   ///
   /// Defaults to `'code'`.
+  ///
+  /// ⚠️ That default is also the field plenty of envelopes use for the **HTTP
+  /// status** (`{"code": 401, "message": "..."}`). A status read as a business
+  /// code is worse than no code at all — it looks like one. apix drops any
+  /// value equal to the response status, so this stays safe out of the box,
+  /// but if your API publishes real codes under a different name, say so here
+  /// (`errorCodeKey: 'errorCode'`) rather than relying on the guard.
   final String errorCodeKey;
 
   /// When `true`, typed-decode methods (`*AndDecode`, `*AndDecodeData`,

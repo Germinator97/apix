@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^4.1.0
+  apix: ^5.0.0
 ```
 
 ```bash
@@ -714,6 +714,15 @@ which have no body to read.
 
 Keep status branching for the cross-cutting cases — `401` refresh, `403`, a
 generic `5xx` — or when no code is guaranteed.
+
+> **A code that is just the status is dropped.** Plenty of envelopes fill a
+> field named `code` with the HTTP status (`{"code": 401, ...}` on a `401`).
+> Reported as a business code, it would restore the coupling this field exists
+> to remove — disguised, since `switch (e.code)` would look like business logic.
+> apix drops any value equal to the response status, in either spelling. Real
+> codes are untouched: `4001` under a `400` comes through. If your API publishes
+> codes under another name, prefer `errorCodeKey: 'errorCode'` over relying on
+> the guard.
 
 ### Rate limits
 
