@@ -42,6 +42,28 @@ folded in below.
 
 ### Fixed
 
+* **A business failure dressed as `200 OK` is treated as a failure.**
+  `ResponseValidatorInterceptor` ran *after* the cache and after every
+  observer, which broke two things at once: the refused body had already been
+  **cached**, and a later cache hit resolves from `onRequest` and skips
+  response interceptors — so the stored failure came back unvalidated, as a
+  success. Meanwhile `MetricsInterceptor` had already recorded the request as
+  `success: true`, so the dashboards counted as fine the exact failures this
+  feature exists to surface.
+
+  It now runs before both, rejects with `callFollowingErrorInterceptor: true`
+  so the failure reaches the observers, and the cache refuses to answer such a
+  rejection from storage. Validator rejections are typed `unknown` rather than
+  `badResponse`: they carry status `200`, so `captureStatusCodes` could never
+  filter them sensibly.
+
+* **`ErrorMapperInterceptor` no longer replaces an already-typed exception.**
+  The "already an `ApiException`" check sat only in the `default` arm, so it
+  protected interceptors rejecting with type `unknown` and silently failed
+  every other type — a `responseValidator` returning
+  `InsufficientFundsException` had it rewritten to
+  `HttpException(status: 200)`.
+
 * **A cache hit returns the type the network returned.** Bodies were stored
   with `jsonEncode` and read back with `jsonDecode` whatever they were, which
   is not a round trip: a `text/plain` body of `12345` came back as the **int**

@@ -62,6 +62,18 @@ class ErrorMapperInterceptor extends Interceptor {
     DioException err, {
     String errorCodeKey = defaultErrorCodeKey,
   }) {
+    // Already typed by whoever raised it — a `responseValidator`, the auth
+    // interceptor, the multipart replay guard. Re-mapping would discard the
+    // exact subclass they chose and hand the caller a generic one built from
+    // the HTTP status, which for a validator rejection is `200`: the caller
+    // would catch `HttpException(status: 200)` where the validator returned
+    // `InsufficientFundsException`.
+    //
+    // This check used to live only in the `default` arm, so it protected the
+    // interceptors that reject with type `unknown` and silently failed the
+    // ones that reject with any other type.
+    if (err.error is ApiException) return err.error! as ApiException;
+
     switch (err.type) {
       case DioExceptionType.connectionTimeout:
         return TimeoutException(
@@ -117,10 +129,6 @@ class ErrorMapperInterceptor extends Interceptor {
       // named `unknown` case is intentionally omitted so this default stays
       // reachable on older dio where every value is otherwise covered.
       default:
-        // Check if the inner error is already an ApiException
-        if (err.error is ApiException) {
-          return err.error as ApiException;
-        }
         return ApiException(
           message: err.message ?? 'Unknown error',
           originalError: err.error ?? err,

@@ -168,6 +168,119 @@ void main() {
     });
   });
 
+  group('M8 — a business failure dressed as 200 is treated as a failure', () {
+    /// A legacy-style API: HTTP 200, `{"success": false}` in the body.
+    ScriptedAdapter legacyApi() => ScriptedAdapter(
+          (options, i) => jsonResponse(
+              {'success': false, 'message': 'insufficient funds'}, 200),
+        );
+
+    ApiException? rejectUnsuccessful(Response<dynamic> response) {
+      final data = response.data;
+      if (data is Map && data['success'] == false) {
+        return ApiException(message: data['message'] as String);
+      }
+      return null;
+    }
+
+    test('it is measured as a failure, not a success', () async {
+      final measured = <RequestMetrics>[];
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: legacyApi(),
+        metricsConfig: MetricsConfig(onMetrics: measured.add),
+        responseValidator: rejectUnsuccessful,
+      );
+
+      await expectLater(
+        client.get<dynamic>('/transfer'),
+        throwsA(isA<ApiException>()),
+      );
+
+      expect(measured.single.success, isFalse,
+          reason: 'the dashboards used to count these as fine — the exact '
+              'failures this feature exists to surface');
+      final metrics =
+          client.dio.interceptors.whereType<MetricsInterceptor>().single;
+      expect(metrics.inFlightCount, 0);
+    });
+
+    test('it reaches the error tracker', () async {
+      final captured = <Object>[];
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: legacyApi(),
+        errorTrackingConfig: ErrorTrackingConfig(
+          onError: (exception, {stackTrace, extra, tags}) async =>
+              captured.add(exception),
+        ),
+        responseValidator: rejectUnsuccessful,
+      );
+
+      await expectLater(
+        client.get<dynamic>('/transfer'),
+        throwsA(isA<ApiException>()),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(captured, isNotEmpty);
+    });
+
+    test('a refused body is never cached, nor served unvalidated later',
+        () async {
+      final adapter = legacyApi();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+        ),
+        responseValidator: rejectUnsuccessful,
+      );
+
+      await expectLater(
+        client.get<dynamic>('/transfer'),
+        throwsA(isA<ApiException>()),
+      );
+
+      // A cache hit resolves from onRequest and skips response interceptors,
+      // so a stored failure would come back as an unvalidated success.
+      await expectLater(
+        client.get<dynamic>('/transfer'),
+        throwsA(isA<ApiException>()),
+      );
+      expect(adapter.callCount, 2, reason: 'nothing should have been stored');
+    });
+
+    test('a valid body still passes, and is still cached', () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'success': true, 'amount': 42}, 200),
+      );
+      final measured = <RequestMetrics>[];
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          defaultTtl: const Duration(minutes: 10),
+        ),
+        metricsConfig: MetricsConfig(onMetrics: measured.add),
+        responseValidator: rejectUnsuccessful,
+      );
+
+      // The direction that must not break: a validator that refused everything
+      // would pass every test above.
+      final first = await client.get<dynamic>('/transfer');
+      final second = await client.get<dynamic>('/transfer');
+
+      expect(bodyOf(first)['amount'], 42);
+      expect(second.isFromCache, isTrue);
+      expect(adapter.callCount, 1);
+      expect(measured.single.success, isTrue);
+    });
+  });
+
   group('B5 — a cacheOnly miss is observed too', () {
     test('the failure is measured and the in-flight entry is released',
         () async {

@@ -162,6 +162,22 @@ class ApiClientFactory {
       dio.interceptors.add(dedupInterceptor);
     }
 
+    // Add the response validator BEFORE the cache and before every observer.
+    //
+    // Before the cache, because a 2xx body the validator refuses must never be
+    // stored: a later cache hit resolves from `onRequest` and skips response
+    // interceptors, so a stored business failure would come back unvalidated,
+    // as a success.
+    //
+    // Before the observers, because `MetricsInterceptor.onResponse` would
+    // otherwise have already recorded `success: true` and released its
+    // in-flight entry — counting as fine the exact failures this feature
+    // exists to surface — and error tracking would never see them at all.
+    if (config.responseValidator != null) {
+      dio.interceptors
+          .add(ResponseValidatorInterceptor(config.responseValidator!));
+    }
+
     // Add cache interceptor if configured
     if (cacheConfig != null) {
       // When standalone deduplication is wired in, the cache must not
@@ -198,13 +214,6 @@ class ApiClientFactory {
     // Add metrics interceptor if configured
     if (metricsConfig != null) {
       dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
-    }
-
-    // Add response validator if configured (fires on 2xx; rejected
-    // responses fall through to ErrorMapperInterceptor below)
-    if (config.responseValidator != null) {
-      dio.interceptors
-          .add(ResponseValidatorInterceptor(config.responseValidator!));
     }
 
     // Add custom interceptors
