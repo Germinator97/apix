@@ -176,7 +176,7 @@ await tokenProvider.saveTokens(accessToken, refreshToken);
 
 // Logout — drop the tokens AND the responses they fetched
 await tokenProvider.clearTokens();
-await cacheInterceptor.clearCache();
+await client.cacheInterceptor?.clearCache();
 ```
 
 > **Clearing the cache on logout is not optional.** Cache entries are scoped by
@@ -184,6 +184,10 @@ await cacheInterceptor.clearCache();
 > cannot *read* the previous one's entries — but they are still on the device
 > until something removes them, and `FileCacheStorage` keeps them across
 > restarts. Clear them where you clear the tokens.
+>
+> `client.cacheInterceptor` is how you reach the invalidation API —
+> `clearCache()`, `invalidateUrl()`, `invalidatePath()` — on the instance the
+> client actually uses. It returns `null` when no `cacheConfig` was given.
 
 **Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, `onAuthFailure` is called **once** (not per queued request).
 

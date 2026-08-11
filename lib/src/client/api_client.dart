@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../cache/cache_interceptor.dart';
 import '../errors/api_exception.dart';
 import '../errors/parsing_exception.dart';
 import '../errors/unexpected_content_type_exception.dart';
@@ -39,6 +40,32 @@ class ApiClient {
   ///
   /// Prefer using the ApiClient methods when possible.
   Dio get dio => _dio;
+
+  /// The [CacheInterceptor] in this client's chain, or `null` when no cache is
+  /// installed.
+  ///
+  /// This is how you reach the invalidation API — `clearCache()`,
+  /// `invalidateUrl()`, `invalidatePath()` — on the instance the client is
+  /// actually using:
+  ///
+  /// ```dart
+  /// await client.cacheInterceptor?.clearCache();
+  /// ```
+  ///
+  /// It was always reachable through `client.dio.interceptors.whereType<…>()`,
+  /// which is not something anyone should have to discover. Not knowing it
+  /// pushed consumers to build a `CacheInterceptor` by hand and pass it through
+  /// `ApiClientConfig.interceptors` purely to keep a reference — see the note
+  /// there for why that position costs a duplicate log line.
+  ///
+  /// Found by type rather than remembered at construction, so it works whether
+  /// the cache came from `cacheConfig` or was wired in by hand.
+  CacheInterceptor? get cacheInterceptor {
+    for (final interceptor in _dio.interceptors) {
+      if (interceptor is CacheInterceptor) return interceptor;
+    }
+    return null;
+  }
 
   /// Closes the client and releases resources.
   void close({bool force = false}) {

@@ -23,6 +23,13 @@ how much traffic and how many tracker events to expect.
 * `RequestOptions.forceRevalidate()`, `MultipartReplayException`,
   `CacheBodyEncoding`.
 
+* **`ApiClient.cacheInterceptor`** — reaches the invalidation API
+  (`clearCache()`, `invalidateUrl()`, …) on the instance the client uses.
+  Reachable before only through `dio.interceptors.whereType<…>()`, which is
+  not something anyone should have to discover; not knowing it pushed
+  consumers to wire a `CacheInterceptor` through `interceptors:` just to keep
+  a reference, and that position costs a duplicate request log line.
+
 ### Fixed
 
 **Cache**

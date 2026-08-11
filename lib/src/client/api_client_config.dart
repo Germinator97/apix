@@ -41,6 +41,29 @@ class ApiClientConfig {
   final String? defaultContentType;
 
   /// Custom Dio interceptors to add.
+  ///
+  /// Appended **after** everything the factory installs — auth, retry,
+  /// deduplication, cache, and every observer — and before the error mapper.
+  /// That is the right place for a custom interceptor: it sees the final
+  /// request and the final response, after apix has done its work.
+  ///
+  /// ## One caveat, for *re-entrant* interceptors
+  ///
+  /// `CacheInterceptor` and `DeduplicationInterceptor` are re-entrant: they
+  /// call `dio.fetch(...)` internally, which restarts the whole chain for the
+  /// request they actually send. The factory places them **before** the
+  /// observers so that inner pass is not logged a second time.
+  ///
+  /// Passing one here puts it after the observers instead, and the inner pass
+  /// is observed too. Measured, so it is not a guess: one call becomes two
+  /// `→ Request` log lines and one extra request breadcrumb. Network traffic,
+  /// metrics and response logs are unchanged — it is log noise, not doubled
+  /// telemetry.
+  ///
+  /// So prefer `cacheConfig` / `deduplicationConfig`, and reach for the
+  /// instance through `ApiClient.cacheInterceptor` when you need the
+  /// invalidation API. Wiring one here still works, and is worth it if you
+  /// need a placement the factory does not offer.
   final List<Interceptor>? interceptors;
 
   /// The key used to extract data from envelope responses.
