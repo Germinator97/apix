@@ -85,7 +85,15 @@ class CacheInterceptor extends Interceptor {
   ///
   /// Accepts both relative paths and absolute URLs.
   /// Relative paths are resolved against the client's base URL.
-  /// All query parameter variants for the same URL are invalidated.
+  /// All query parameter variants — and all callers, when
+  /// [CacheConfig.varyHeaders] is in play — are invalidated for that exact URL.
+  ///
+  /// **Sibling paths are not touched.** The match stops at the URL boundary, so
+  /// `invalidateUrl('/users')` leaves `/users-archived` and `/users/123` alone.
+  /// It used to be a bare prefix match, which swept both away — a surprise
+  /// nobody could see, since a cache entry that vanished early just looks like
+  /// a miss. Reach for [invalidatePath] or [invalidateByPrefix] when clearing a
+  /// whole subtree really is the intent.
   ///
   /// Returns true if at least one entry was removed.
   ///
@@ -97,9 +105,22 @@ class CacheInterceptor extends Interceptor {
     final resolvedUrl = _resolveUrl(url);
     final prefix = '$method:$resolvedUrl';
     final removed = await config.storage.removeWhere(
-      (key) => key.startsWith(prefix),
+      (key) => _matchesUrlExactly(key, prefix),
     );
     return removed > 0;
+  }
+
+  /// Whether [key] is an entry for exactly [prefix], rather than for a URL that
+  /// merely starts with it.
+  ///
+  /// A key is `METHOD:scheme://authority/path` optionally followed by `?query`
+  /// and by the `|v:` identity fragment, so anything else after the prefix
+  /// means a different URL.
+  bool _matchesUrlExactly(String key, String prefix) {
+    if (!key.startsWith(prefix)) return false;
+    if (key.length == prefix.length) return true;
+    final next = key[prefix.length];
+    return next == '?' || next == '|';
   }
 
   /// Resolves a relative URL against the client's base URL.

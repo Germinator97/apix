@@ -198,6 +198,7 @@ class SentrySetup {
         sentryOptions.beforeSendTransaction =
             (transaction, hint) => _beforeSendTransaction(
                   transaction,
+                  hint,
                   options,
                 );
 
@@ -244,6 +245,7 @@ class SentrySetup {
 
   static FutureOr<SentryTransaction?> _beforeSendTransaction(
     SentryTransaction transaction,
+    Hint hint,
     SentrySetupOptions options,
   ) {
     // Filter short transactions
@@ -255,9 +257,15 @@ class SentrySetup {
       return null;
     }
 
-    // Call custom beforeSendTransaction if provided
+    // Call custom beforeSendTransaction if provided.
+    //
+    // Forwarding the real hint, not a fresh one: this used to build `Hint()`
+    // on the spot, so every attachment and every piece of context Sentry had
+    // gathered for the transaction was dropped before the consumer's callback
+    // ever saw it — and a callback reading an empty hint looks exactly like one
+    // reading a hint that happens to be empty.
     if (options.customBeforeSendTransaction != null) {
-      return options.customBeforeSendTransaction!(transaction, Hint());
+      return options.customBeforeSendTransaction!(transaction, hint);
     }
 
     return transaction;

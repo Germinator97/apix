@@ -26,6 +26,7 @@ class LoggerInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
+    ObservationMarker.beginAttempt(options);
     options.recordStartTime();
 
     if (config.shouldLog(LogLevel.info)) {

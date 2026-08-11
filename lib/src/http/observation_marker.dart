@@ -51,6 +51,40 @@ class ObservationMarker {
     markSeen(options, observer);
     return true;
   }
+
+  /// Key set by `RetryInterceptor` before it replays a request.
+  ///
+  /// Matched by name rather than imported: this file sits below both `retry/`
+  /// and `auth/` precisely so neither depends on the other.
+  static const String _retryAttemptKey = '_retryAttempt';
+
+  /// Key set by `AuthInterceptor` before it replays a request post-refresh.
+  static const String _authRetryKey = 'apix_is_auth_retry';
+
+  /// Clears the marks at the start of a genuinely new attempt.
+  ///
+  /// The marks live on `RequestOptions.extra`, which outlives a single
+  /// execution: a consumer holding one `RequestOptions` and calling
+  /// `dio.fetch(options)` twice found the second failure observed by nobody —
+  /// no log, no metric, no tracker event — because the first execution's marks
+  /// were still set. An absence, so nothing said so.
+  ///
+  /// Called from each observer's `onRequest`, which is what makes it precise:
+  /// the case the marker exists for — deduplication delivering the *same*
+  /// request to the error chain twice — does not re-run `onRequest` in between,
+  /// so those marks survive and the second delivery is still skipped.
+  ///
+  /// **Replays are exempt.** `RetryInterceptor` and `AuthInterceptor` re-enter
+  /// the chain through `onRequest`, so clearing there would report a three-try
+  /// retry storm as three separate failures. One logical request stays one
+  /// event; the attempts are what `RetryConfig`'s `onRetry` callback is for.
+  static void beginAttempt(RequestOptions options) {
+    final extra = options.extra;
+    if (extra[_retryAttemptKey] != null || extra[_authRetryKey] == true) {
+      return;
+    }
+    extra.removeWhere((key, _) => key.startsWith(_prefix));
+  }
 }
 
 /// Identifiers for the interceptors that observe a request.

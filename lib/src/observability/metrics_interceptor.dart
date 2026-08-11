@@ -270,6 +270,7 @@ class MetricsInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
+    ObservationMarker.beginAttempt(options);
     if (config.enabled) {
       _cleanupOrphans();
       final metrics = _createMetrics(options);
