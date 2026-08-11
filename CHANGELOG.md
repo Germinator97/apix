@@ -40,7 +40,31 @@ folded in below.
   (`['X-User-Id']`) to avoid it, or `varyHeaders: const []` to restore the old
   key where responses genuinely do not depend on the caller.
 
+* **Safer defaults for logging and Sentry.**
+  `LoggerConfig.logRequestBody` and `logResponseBody` now default to `false`: a
+  plain `LoggerConfig()` used to print the body of every request and response,
+  the password in a `POST /login` included, and header redaction never covered
+  bodies. `SentrySetupOptions.sendDefaultPii` now defaults to `false`, matching
+  Sentry's own default, instead of shipping headers, cookies and IP addresses
+  unless told otherwise.
+
+  `maxBodyLength` is documented for what it actually bounds — the rendered
+  text — and explicitly not `LogEntry.body`, which a custom handler still
+  receives whole so it can log structured data.
+
 ### Fixed
+
+* **Three Sentry options stop being inert.** `profilesSampleRate`,
+  `replayOnErrorSampleRate` and `replaySessionSampleRate` were accepted,
+  documented and set by both factories, while the lines applying them sat
+  commented out behind a note about newer SDK versions — stale, since the
+  pubspec requires sentry_flutter >=9.0.0. `SentrySetupOptions.production()`
+  configured three things that did nothing. They are wired now, and follow the
+  same debug-mode suppression as tracing.
+
+* **A failed `SentrySetup.init` no longer blocks a retry.** The one-shot flag
+  was raised *before* initialization, so a failure left it standing and the
+  next attempt silently skipped setup, running the app with no Sentry at all.
 
 * **`RetryConfig` honours the `==`/`hashCode` contract.** `==` compared
   `retryStatusCodes` element by element while `hashCode` took the list's

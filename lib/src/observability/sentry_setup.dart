@@ -33,6 +33,16 @@ class SentrySetupOptions {
   final double replaySessionSampleRate;
 
   /// Whether to send default PII (Personally Identifiable Information).
+  ///
+  /// **Defaults to `false`**, matching Sentry's own default. It used to default
+  /// to `true`, so every app wiring `SentrySetup` shipped request headers,
+  /// cookies and IP addresses to the tracker unless it thought to say
+  /// otherwise — a choice worth making deliberately, in a package whose users
+  /// are often working on financial data, and one that a privacy policy has to
+  /// be able to describe truthfully.
+  ///
+  /// Set it to `true` when you have decided you want that, and said so where
+  /// your users can read it.
   final bool sendDefaultPii;
 
   /// Whether to capture failed HTTP requests.
@@ -81,7 +91,7 @@ class SentrySetupOptions {
     this.profilesSampleRate = 0.1,
     this.replayOnErrorSampleRate = 1.0,
     this.replaySessionSampleRate = 0.1,
-    this.sendDefaultPii = true,
+    this.sendDefaultPii = false,
     this.captureFailedRequests = true,
     this.anrEnabled = false,
     this.filterNetworkNoise = true,
@@ -159,8 +169,6 @@ class SentrySetup {
       return;
     }
 
-    _isInitialized = true;
-
     await SentryFlutter.init(
       (sentryOptions) {
         sentryOptions.dsn = options.dsn;
@@ -172,13 +180,23 @@ class SentrySetup {
         // Disable tracing in debug mode
         sentryOptions.tracesSampleRate =
             kDebugMode ? 0.0 : options.tracesSampleRate;
-        // Note: profilesSampleRate is experimental and may be removed
-        // sentryOptions.profilesSampleRate =
-        //     kDebugMode ? 0.0 : options.profilesSampleRate;
 
-        // Note: Replay options available in newer versions
-        // sentryOptions.replay.onErrorSampleRate = options.replayOnErrorSampleRate;
-        // sentryOptions.replay.sessionSampleRate = options.replaySessionSampleRate;
+        // Profiling and replay are now actually wired.
+        //
+        // These three were accepted by `SentrySetupOptions`, documented, and
+        // set by both of its factories — while the lines that applied them sat
+        // commented out behind "available in newer versions". That note was
+        // stale: the pubspec requires sentry_flutter >=9.0.0, which exposes
+        // `profilesSampleRate` and `replay.*`. So
+        // `SentrySetupOptions.production()` configured three things that did
+        // nothing, and nothing anywhere said so — the worst kind of option,
+        // one that looks set.
+        sentryOptions.profilesSampleRate =
+            kDebugMode ? 0.0 : options.profilesSampleRate;
+        sentryOptions.replay.onErrorSampleRate =
+            kDebugMode ? 0.0 : options.replayOnErrorSampleRate;
+        sentryOptions.replay.sessionSampleRate =
+            kDebugMode ? 0.0 : options.replaySessionSampleRate;
 
         sentryOptions.debug = kDebugMode;
         sentryOptions.captureFailedRequests = options.captureFailedRequests;
@@ -215,6 +233,21 @@ class SentrySetup {
       },
       appRunner: appRunner,
     );
+
+    // Marked initialized only once init has actually returned. Setting it
+    // beforehand meant a failed init left the flag standing, so a later,
+    // legitimate retry silently skipped initialization and ran the app with no
+    // Sentry at all — reporting nothing, and looking exactly like a quiet day.
+    _isInitialized = true;
+  }
+
+  /// Resets the one-shot guard. Test-only.
+  ///
+  /// `init` is idempotent by design, which makes it impossible to exercise
+  /// twice in a suite without this.
+  @visibleForTesting
+  static void resetForTesting() {
+    _isInitialized = false;
   }
 
   static FutureOr<SentryEvent?> _beforeSend(

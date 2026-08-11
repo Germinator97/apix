@@ -121,18 +121,36 @@ class LoggerConfig {
   final bool logRequestHeaders;
 
   /// Whether to log request body.
+  ///
+  /// **Defaults to `false` since 5.0.** It used to default to `true`, so a
+  /// plain `LoggerConfig()` printed the body of every request — the password in
+  /// a `POST /login` included. Header redaction never covered bodies, and
+  /// nothing warned. Turn it on deliberately, in the environments where you
+  /// want it.
   final bool logRequestBody;
 
   /// Whether to log response headers.
   final bool logResponseHeaders;
 
   /// Whether to log response body.
+  ///
+  /// **Defaults to `false` since 5.0**, for the same reason as
+  /// [logRequestBody]: a response body holds whatever the endpoint returns —
+  /// tokens, balances, personal records.
   final bool logResponseBody;
 
   /// Whether to log errors.
   final bool logErrors;
 
-  /// Maximum body length to log (truncates if exceeded).
+  /// Maximum body length for the text this config renders — the default
+  /// printer's output and anything you pass through [truncateBody].
+  ///
+  /// **It does not bound [LogEntry.body]**, which a custom [logHandler]
+  /// receives whole and unmodified. That is deliberate: a handler forwarding to
+  /// a structured logger wants the object, not a string clipped mid-token, and
+  /// truncating it would change its type. If your handler ships bodies
+  /// somewhere, bound them there — or leave [logRequestBody] and
+  /// [logResponseBody] off, which is now the default.
   final int maxBodyLength;
 
   /// Headers to redact from logs (e.g., Authorization).
@@ -148,9 +166,9 @@ class LoggerConfig {
     this.enabled = true,
     this.level = LogLevel.info,
     this.logRequestHeaders = true,
-    this.logRequestBody = true,
+    this.logRequestBody = false,
     this.logResponseHeaders = false,
-    this.logResponseBody = true,
+    this.logResponseBody = false,
     this.logErrors = true,
     this.maxBodyLength = 1024,
     this.redactedHeaders = const ['Authorization', 'Cookie', 'Set-Cookie'],
