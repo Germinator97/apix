@@ -56,6 +56,61 @@ void main() {
       expect(again.isStale, isFalse);
     });
 
+    test('B2 — two pages written inline in the path do not collide', () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'call': i}, 200),
+      );
+      final client = clientWith(adapter);
+
+      final first = await client.get<dynamic>('/users?page=1');
+      final second = await client.get<dynamic>('/users?page=2');
+
+      expect(adapter.callCount, 2,
+          reason: 'page=2 must reach the network, not read page=1 back');
+      expect(bodyOf(first)['call'], 0);
+      expect(bodyOf(second)['call'], 1);
+    });
+
+    test('B2 — an inline query and the same one passed as a map share a key',
+        () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'call': i}, 200),
+      );
+      final client = clientWith(adapter);
+
+      await client.get<dynamic>('/users?page=1');
+      await client.get<dynamic>('/users', queryParameters: {'page': 1});
+
+      expect(adapter.callCount, 1,
+          reason: 'the same request spelled two ways is the same request');
+    });
+
+    test('B2 — an inline query still caches on its own', () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'call': i}, 200),
+      );
+      final client = clientWith(adapter);
+
+      await client.get<dynamic>('/users?page=1');
+      final again = await client.get<dynamic>('/users?page=1');
+
+      expect(adapter.callCount, 1);
+      expect(again.isFromCache, isTrue);
+    });
+
+    test('B2 — repeated parameters are not collapsed', () async {
+      final adapter = ScriptedAdapter(
+        (options, i) => jsonResponse({'call': i}, 200),
+      );
+      final client = clientWith(adapter);
+
+      await client.get<dynamic>('/search?tag=a&tag=b');
+      await client.get<dynamic>('/search?tag=a');
+
+      expect(adapter.callCount, 2,
+          reason: 'two tags and one tag are different requests');
+    });
+
     test('B1 — a second identity is not served the first one\'s body',
         () async {
       final adapter = ScriptedAdapter(
