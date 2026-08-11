@@ -250,6 +250,38 @@ class SentrySetup {
     _isInitialized = false;
   }
 
+  /// Decides whether [event] is sent. Exposed for testing.
+  ///
+  /// This is a component whose entire job is to **drop** events, wired into
+  /// the channel that would otherwise report its own mistakes. Over-filtering
+  /// here produces an absence, and an absence looks exactly like a quiet day —
+  /// which is how `isNetworkNoiseError` came to discard every server error
+  /// ApiX reported without anyone noticing. It has to be exercised directly.
+  @visibleForTesting
+  static FutureOr<SentryEvent?> beforeSendForTesting(
+    SentryEvent event,
+    Hint hint,
+    SentrySetupOptions options,
+  ) =>
+      _beforeSend(event, hint, options);
+
+  /// Whether a transaction running from [start] to [end] is too short to be
+  /// worth reporting, per [SentrySetupOptions.minTransactionDurationMs].
+  ///
+  /// Extracted so the rule can be tested without building a real
+  /// `SentryTransaction`, which needs an `@internal` `SentryTracer` — importing
+  /// sentry's internals from a test would couple this suite to a private shape
+  /// across the whole declared `>=9.0.0 <10.0.0` range, and turn a CI red
+  /// without a line of apix changing.
+  ///
+  /// A null [end] means the transaction has no measurable duration, which is
+  /// not a reason to drop it.
+  @visibleForTesting
+  static bool isTooShort(DateTime start, DateTime? end, int minDurationMs) {
+    if (end == null) return false;
+    return end.difference(start).inMilliseconds < minDurationMs;
+  }
+
   static FutureOr<SentryEvent?> _beforeSend(
     SentryEvent event,
     Hint hint,
@@ -281,12 +313,13 @@ class SentrySetup {
     Hint hint,
     SentrySetupOptions options,
   ) {
-    // Filter short transactions
-    final duration = transaction.timestamp?.difference(
+    // Filter short transactions. The rule lives in [isTooShort] so it can be
+    // exercised without constructing a SentryTransaction.
+    if (isTooShort(
       transaction.startTimestamp,
-    );
-    if (duration != null &&
-        duration.inMilliseconds < options.minTransactionDurationMs) {
+      transaction.timestamp,
+      options.minTransactionDurationMs,
+    )) {
       return null;
     }
 
