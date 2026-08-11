@@ -192,10 +192,24 @@ class ApiClientFactory {
       dio.interceptors.add(cacheInterceptor);
     }
 
-    // Add tracing AFTER the cache, deliberately: a cache hit resolves the
-    // chain early and would leave a span opened before it dangling forever.
-    // Sitting here, a cached response never opens one at all — which is also
-    // the truth, since it spent no time on the network.
+    // Everything below sits AFTER the cache, deliberately — and the same
+    // sentence has to be read for all three of them, not just for tracing.
+    //
+    // A cache hit resolves from `onRequest`, which ends the chain here. A span
+    // opened before the cache would therefore never be closed, leaking on
+    // exactly the requests that were fastest; that is why tracing is placed
+    // below. But the logger and the metrics inherit the other half of the same
+    // fact: **a cache hit produces no log line and no metric at all.** Measured,
+    // not assumed — `isFromCache: true`, zero logs, zero metrics.
+    //
+    // That is defensible for tracing, where there is no network time to report.
+    // It is a genuine gap for the other two: the fastest requests are missing
+    // from the latency figures, and the cache's own hit rate is invisible from
+    // the observability this package ships. Moving them above the cache would
+    // trade that for a worse defect — a metric recorded and never completed,
+    // and a span never closed — so the reporting goes through
+    // `CacheConfig.onCacheHit` instead, which fires where the hit is actually
+    // served.
     if (tracingConfig != null) {
       dio.interceptors.add(TracingInterceptor(config: tracingConfig));
     }

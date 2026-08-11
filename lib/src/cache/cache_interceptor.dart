@@ -8,6 +8,7 @@ import '../client/response_validator_interceptor.dart';
 import '../errors/api_exception.dart';
 import '../http/body_fingerprint.dart';
 import '../http/cache_vary.dart';
+import '../observability/observer_guard.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
 import 'cache_storage.dart';
@@ -397,6 +398,7 @@ class CacheInterceptor extends Interceptor {
         final response = _buildResponseFromCache(
           options,
           cached,
+          cacheKey,
           stale: cached.isExpired,
         );
         handler.resolve(response);
@@ -439,7 +441,7 @@ class CacheInterceptor extends Interceptor {
     );
     await config.storage.set(cacheKey, refreshed);
 
-    return _buildResponseFromCache(options, refreshed);
+    return _buildResponseFromCache(options, refreshed, cacheKey);
   }
 
   /// Handles CacheFirst strategy: serve the cache immediately, refresh behind.
@@ -461,7 +463,7 @@ class CacheInterceptor extends Interceptor {
 
     if (cached != null) {
       if (cached.isValid) {
-        handler.resolve(_buildResponseFromCache(options, cached));
+        handler.resolve(_buildResponseFromCache(options, cached, cacheKey));
         return;
       }
 
@@ -470,7 +472,7 @@ class CacheInterceptor extends Interceptor {
       // a normal blocking request rather than serving stale data forever.
       if (_dio != null) {
         handler.resolve(
-          _buildResponseFromCache(options, cached, stale: true),
+          _buildResponseFromCache(options, cached, cacheKey, stale: true),
         );
         _revalidateInBackground(options, cacheKey);
         return;
@@ -524,7 +526,7 @@ class CacheInterceptor extends Interceptor {
         // Check if we should revalidate based on no-cache
         final shouldRevalidate = options.extra[forceRevalidateKey] == true;
         if (!shouldRevalidate) {
-          final response = _buildResponseFromCache(options, cached);
+          final response = _buildResponseFromCache(options, cached, cacheKey);
           handler.resolve(response);
           return;
         }
@@ -548,7 +550,7 @@ class CacheInterceptor extends Interceptor {
     final cached = await config.storage.get(cacheKey);
 
     if (cached != null && cached.isValid) {
-      final response = _buildResponseFromCache(options, cached);
+      final response = _buildResponseFromCache(options, cached, cacheKey);
       handler.resolve(response);
       return;
     }
@@ -611,6 +613,7 @@ class CacheInterceptor extends Interceptor {
           final cachedResponse = _buildResponseFromCache(
             options,
             cached,
+            cacheKey,
             stale: cached.isExpired,
           );
           handler.resolve(cachedResponse);
@@ -883,12 +886,30 @@ class CacheInterceptor extends Interceptor {
     return headers.value('etag');
   }
 
-  /// Builds a response from a cached entry.
+  /// Builds a response from a cached entry, and reports the hit.
+  ///
+  /// Every path that answers from storage passes through here — the five
+  /// strategies, the 304 confirmation and both offline fallbacks — which is why
+  /// [CacheConfig.onCacheHit] is fired from this one place rather than from
+  /// each of them. A reporting call added per site is a reporting call that
+  /// will be missing from the next site.
   Response<dynamic> _buildResponseFromCache(
     RequestOptions options,
-    CacheEntry entry, {
+    CacheEntry entry,
+    String cacheKey, {
     bool stale = false,
   }) {
+    final handler = config.onCacheHit;
+    if (handler != null) {
+      guardObserver(() => handler(CacheHit(
+            key: cacheKey,
+            method: options.method,
+            uri: options.uri,
+            isStale: stale,
+            statusCode: entry.statusCode,
+          )));
+    }
+
     return Response<dynamic>(
       requestOptions: options,
       data: _decodeBody(entry),
