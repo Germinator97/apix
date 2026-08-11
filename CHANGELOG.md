@@ -42,6 +42,29 @@ folded in below.
 
 ### Fixed
 
+* **Multipart requests no longer drop nested fields and files.** File detection
+  was recursive, the conversion was one level deep, and everything below that
+  level was discarded without a word — while the server answered `200`:
+  `{'user': {'avatar': File, 'name': 'John'}}` lost `name` and the `user`
+  nesting, `{'items': [File, 'caption']}` lost the caption, and
+  `{'a': {'b': {'file': File}}}` sent an **empty body** — nothing uploaded at
+  all. The interceptor now only replaces `File` with `MultipartFile`, at any
+  depth, and lets `FormData.fromMap` do the encoding with dio's own
+  conventions.
+
+* **An upload now survives a token refresh or a retry.** A `FormData` is
+  single-use, and both `AuthInterceptor` (after a refresh) and
+  `RetryInterceptor` replay the original `RequestOptions` — so an upload sent
+  with an expired token failed outright. apix now keeps the caller's map and
+  builds a fresh body for each attempt.
+
+  Where it cannot — the body was handed over as a `FormData` apix did not
+  build — the request fails with the new `MultipartReplayException`, which
+  names the cause and the way out. It used to raise a `StateError` that
+  reached the caller as `ApiException: Unknown error`, having **replaced the
+  status that triggered the replay**: a `500` stopped matching
+  `on ServerException catch`.
+
 * **`ApiException.code` no longer hands back the HTTP status disguised as a
   business code.** Many envelopes fill a field named `code` with the status
   itself (`{"code": 401, ...}` on a `401`), so the field added in 4.0.0 to free
