@@ -81,6 +81,7 @@ class TracingInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    ObservationMarker.beginAttempt(options);
     // A retried request re-enters the chain carrying the same `extra` map, so
     // an unconditional start would open one span per attempt while only the
     // last one ever reached onError — the earlier ones leaking, silently. One

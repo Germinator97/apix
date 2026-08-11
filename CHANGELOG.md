@@ -42,6 +42,27 @@ folded in below.
 
 ### Fixed
 
+* **`RetryConfig` honours the `==`/`hashCode` contract.** `==` compared
+  `retryStatusCodes` element by element while `hashCode` took the list's
+  *identity* hash, so two equal configs had different hash codes: a `Set` kept
+  both, and a `Map<RetryConfig, …>` lost lookups.
+
+* **`SentrySetupOptions.customBeforeSendTransaction` receives the real
+  `Hint`.** It was handed a freshly built one, dropping every attachment and
+  every piece of context Sentry had gathered.
+
+* **`invalidateUrl` no longer sweeps away sibling paths.** It was a bare prefix
+  match, so `invalidateUrl('/users')` also removed `/users-archived` and
+  `/users/123`. The match now stops at the URL boundary; `invalidatePath` and
+  `invalidateByPrefix` remain for clearing a subtree on purpose.
+
+* **A reused `RequestOptions` is observed on every execution.** The
+  once-per-request observation marks live on `extra`, which outlives a single
+  execution, so a consumer calling `dio.fetch(options)` twice found the second
+  failure logged, measured and captured by nobody. Marks are cleared at the
+  start of a genuinely new attempt — replays excepted, so a retry storm is
+  still one event and not one per attempt.
+
 * **An empty collection sent as a bare `[]` no longer crashes the `…OrEmpty`
   and `…OrNull` variants.** Backends routinely serialise an empty collection as
   `[]` rather than `{"data": []}`, and the envelope unwrapper rejected it — so
