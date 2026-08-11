@@ -910,7 +910,12 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 |-------|---------|--------|-------|----------|
 | **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | all | — |
 | **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
-| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | GET, POST | OrNull, List, ListOrNull, ListOrEmpty |
+| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | all | OrNull, List, ListOrNull, ListOrEmpty |
+
+Since 5.0 every family is available on every verb — twelve shapes × five verbs.
+The table used to claim that while `PUT` and `PATCH` had two methods each and
+`DELETE` none, because filling the gaps meant copying the plumbing five times.
+It is one shared core now, so a verb cannot fall behind again.
 
 ### Strict Content-Type Checks (Captive Portals)
 
