@@ -114,6 +114,106 @@ void main() {
     });
   });
 
+  group('N8 — an absorbed storage failure is still reported', () {
+    test('a refused write reaches onCacheError', () async {
+      final failures = <CacheFailure>[];
+      final adapter = countingAdapter();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: FailingCacheStorage(),
+          strategy: CacheStrategy.networkFirst,
+          onCacheError: failures.add,
+        ),
+      );
+
+      await client.get<dynamic>('/x');
+
+      expect(failures, isNotEmpty,
+          reason: 'the three catch blocks swallowed this, so a backend that '
+              'refuses everything left the client permanently cacheless with '
+              'no moment at which anyone could find out');
+      expect(failures.first.operation, CacheOperation.write);
+      expect(failures.first.key, contains('/x'));
+      expect(failures.first.error, isA<StateError>());
+    });
+
+    test('a refused read reaches onCacheError', () async {
+      final failures = <CacheFailure>[];
+      final adapter = countingAdapter();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: FailingCacheStorage(onSet: false, onGet: true),
+          strategy: CacheStrategy.cacheFirst,
+          onCacheError: failures.add,
+        ),
+      );
+
+      await client.get<dynamic>('/x');
+
+      expect(failures.map((f) => f.operation), contains(CacheOperation.read));
+    });
+
+    test('the request still succeeds — absorbing was always the right call',
+        () async {
+      final adapter = countingAdapter();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: FailingCacheStorage(onSet: true, onGet: true),
+          strategy: CacheStrategy.cacheFirst,
+          onCacheError: (_) {},
+        ),
+      );
+
+      final response = await client.get<dynamic>('/x');
+
+      expect(bodyOf(response)['n'], 1);
+      expect(adapter.callCount, 1);
+    });
+
+    test('a handler that throws does not fail the request', () async {
+      final adapter = countingAdapter();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          storage: FailingCacheStorage(),
+          strategy: CacheStrategy.networkFirst,
+          onCacheError: (_) => throw StateError('consumer bug'),
+        ),
+      );
+
+      final response = await client.get<dynamic>('/x');
+
+      expect(bodyOf(response)['n'], 1);
+    });
+
+    test('a healthy store reports nothing', () async {
+      final failures = <CacheFailure>[];
+      final adapter = countingAdapter();
+      final client = ApiClientFactory.create(
+        baseUrl: 'https://api.test',
+        httpClientAdapter: adapter,
+        cacheConfig: CacheConfig(
+          strategy: CacheStrategy.cacheFirst,
+          onCacheError: failures.add,
+        ),
+      );
+
+      await client.get<dynamic>('/x');
+      await client.get<dynamic>('/x');
+
+      expect(failures, isEmpty,
+          reason: 'a channel that fires on the happy path is noise, and noise '
+              'is how a real report gets ignored');
+    });
+  });
+
   group('N6 — listing the keys is not a deletion', () {
     test('the offline fallback survives a call to getCacheKeys', () async {
       final storage = InMemoryCacheStorage();

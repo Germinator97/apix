@@ -270,8 +270,9 @@ class CacheInterceptor extends Interceptor {
             handler.next(options);
           }
       }
-    } catch (e) {
-      // On storage or other failure, fall through to network
+    } catch (e, st) {
+      // On storage or other failure, fall through to network — and say so.
+      _reportCacheFailure(CacheOperation.read, e, st);
       handler.next(options);
     }
   }
@@ -331,8 +332,9 @@ class CacheInterceptor extends Interceptor {
       }
 
       handler.next(response);
-    } catch (_) {
-      // On storage failure, pass through the response unmodified
+    } catch (e, st) {
+      // On storage failure, pass through the response unmodified.
+      _reportCacheFailure(CacheOperation.write, e, st);
       handler.next(response);
     }
   }
@@ -406,8 +408,9 @@ class CacheInterceptor extends Interceptor {
       }
 
       handler.next(err);
-    } catch (_) {
-      // On storage failure, propagate the original error
+    } catch (e, st) {
+      // On storage failure, propagate the original error.
+      _reportCacheFailure(CacheOperation.read, e, st);
       handler.next(err);
     }
   }
@@ -636,8 +639,10 @@ class CacheInterceptor extends Interceptor {
   ) async {
     try {
       await _cacheResponse(key, response, strategy: strategy);
-    } catch (_) {
-      // The caller keeps its response; the entry simply is not written.
+    } catch (e, st) {
+      // The caller keeps its response; the entry simply is not written — and
+      // the consumer is told, which is the part that was missing.
+      _reportCacheFailure(CacheOperation.write, e, st, key: key);
     }
   }
 
@@ -645,9 +650,33 @@ class CacheInterceptor extends Interceptor {
   Future<CacheEntry?> _readQuietly(String key) async {
     try {
       return await config.storage.get(key);
-    } catch (_) {
+    } catch (e, st) {
+      _reportCacheFailure(CacheOperation.read, e, st, key: key);
       return null;
     }
+  }
+
+  /// Hands a storage failure to [CacheConfig.onCacheError], if one is wired.
+  ///
+  /// Absorbing the failure is right: a cache that cannot answer is a cache
+  /// miss, and failing the request over it would turn a degraded optimisation
+  /// into an outage. Absorbing it *without a word* is what was wrong. A backend
+  /// refusing every operation left the client permanently cacheless with no
+  /// moment at which anyone could find out — every request still succeeded.
+  void _reportCacheFailure(
+    CacheOperation operation,
+    Object error,
+    StackTrace stackTrace, {
+    String? key,
+  }) {
+    final handler = config.onCacheError;
+    if (handler == null) return;
+    guardObserver(() => handler(CacheFailure(
+          operation: operation,
+          key: key,
+          error: error,
+          stackTrace: stackTrace,
+        )));
   }
 
   /// Executes the actual network request using the main Dio instance.
