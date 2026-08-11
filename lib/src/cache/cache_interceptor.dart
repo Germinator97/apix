@@ -555,16 +555,29 @@ class CacheInterceptor extends Interceptor {
         () => _executeRequest(options),
       );
 
-      // Cache the response if needed
+      // Storing is deliberately unable to fail the request.
+      //
+      // It used to be a bare `await _cacheResponse(...)` sitting *before* the
+      // resolve, so a storage failure escaped to `onRequest`'s catch — which
+      // falls through to `handler.next(options)` and sends the request a second
+      // time. Measured on the default configuration: two network calls, and the
+      // caller handed the **second** response. Not merely wasted traffic, a
+      // different answer than the one that was actually computed first; and a
+      // duplicated side effect for anyone who widened `cacheableMethods`.
+      //
+      // Kept awaited rather than moved after the resolve: the write stays
+      // deterministic for callers that inspect the store right after a request.
       if (_shouldStore(strategy) && _shouldCacheResponse(response)) {
-        await _cacheResponse(cacheKey, response, strategy: strategy);
+        await _storeQuietly(cacheKey, response, strategy);
       }
 
       handler.resolve(response);
     } on DioException catch (e) {
-      // For networkFirst, try cache fallback
+      // For networkFirst, try cache fallback. Read through the guarded helper
+      // for the same reason: a throwing read here would escape to the same
+      // catch and replay the request that has just failed.
       if (strategy == CacheStrategy.networkFirst) {
-        final cached = await config.storage.get(cacheKey);
+        final cached = await _readQuietly(cacheKey);
         if (cached != null) {
           final cachedResponse = _buildResponseFromCache(
             options,
@@ -576,6 +589,32 @@ class CacheInterceptor extends Interceptor {
         }
       }
       handler.reject(e);
+    }
+  }
+
+  /// Writes an entry, absorbing any storage failure.
+  ///
+  /// Used on the paths where a response is already in hand. There, a storage
+  /// exception has nothing to do with the request's outcome, and letting it
+  /// travel changes that outcome — see the note in [_handleWithDeduplication].
+  Future<void> _storeQuietly(
+    String key,
+    Response<dynamic> response,
+    CacheStrategy? strategy,
+  ) async {
+    try {
+      await _cacheResponse(key, response, strategy: strategy);
+    } catch (_) {
+      // The caller keeps its response; the entry simply is not written.
+    }
+  }
+
+  /// Reads an entry, absorbing any storage failure as a miss.
+  Future<CacheEntry?> _readQuietly(String key) async {
+    try {
+      return await config.storage.get(key);
+    } catch (_) {
+      return null;
     }
   }
 

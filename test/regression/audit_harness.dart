@@ -94,6 +94,71 @@ ResponseBody textResponse(
 Map<String, dynamic> bodyOf(Response<dynamic> response) =>
     response.data as Map<String, dynamic>;
 
+/// A [CacheStorage] whose chosen operations fail.
+///
+/// A storage backend is supplied by the consumer, so it can fail for reasons
+/// apix knows nothing about — a full disk, a revoked permission, a rotated
+/// encryption key. What matters is that none of those may change the *outcome*
+/// of a request that already has its response, and that none of them may pass
+/// unreported.
+class FailingCacheStorage implements CacheStorage {
+  FailingCacheStorage({
+    this.onSet = true,
+    this.onGet = false,
+    this.delegate,
+  });
+
+  /// Whether [set] throws.
+  final bool onSet;
+
+  /// Whether [get] throws.
+  final bool onGet;
+
+  /// Where the operations that do not fail are sent. Defaults to memory.
+  final CacheStorage? delegate;
+
+  late final CacheStorage _inner = delegate ?? InMemoryCacheStorage();
+
+  /// Every failure this storage produced, in order.
+  final List<String> refused = [];
+
+  Never _fail(String operation) {
+    refused.add(operation);
+    throw StateError('storage unavailable: $operation');
+  }
+
+  @override
+  Future<void> set(String key, CacheEntry entry) async {
+    if (onSet) _fail('set');
+    return _inner.set(key, entry);
+  }
+
+  @override
+  Future<CacheEntry?> get(String key) async {
+    if (onGet) _fail('get');
+    return _inner.get(key);
+  }
+
+  @override
+  Future<void> remove(String key) => _inner.remove(key);
+
+  @override
+  Future<void> clear() => _inner.clear();
+
+  @override
+  Future<bool> has(String key) => _inner.has(key);
+
+  @override
+  Future<List<String>> keys() => _inner.keys();
+
+  @override
+  Future<int> removeWhere(bool Function(String key) predicate) =>
+      _inner.removeWhere(predicate);
+
+  @override
+  Future<int> removeByPrefix(String prefix) => _inner.removeByPrefix(prefix);
+}
+
 /// A [TokenProvider] backed by plain fields, so a test can change identity
 /// mid-flight the way a logout/login does.
 class StubTokenProvider implements TokenProvider {
