@@ -1,9 +1,10 @@
 ## 5.0.0
 
-Audit of the whole package: 29 defects, 17 reproduced against the real client.
-None raised, logged or reddened a test — they lived at the junctions between
-interceptors. Nothing below needs a code change on your side; two entries change
-how much traffic and how many tracker events to expect.
+Two audits of the whole package: 29 defects, then 18 more found on the
+corrected code — two of those living in the corrections themselves. None
+raised, logged or reddened a test; they live at the junctions between
+interceptors. Nothing below needs a code change on your side; a few entries
+change how much traffic and how many tracker events to expect.
 
 ### Breaking
 
@@ -11,8 +12,16 @@ how much traffic and how many tracker events to expect.
   `['Authorization']`. Two accounts on one device used to share every entry.
   A token refresh now invalidates the cache: vary on a stable identity header to
   avoid it, or `const []` to opt out.
-* `LoggerConfig` no longer logs request and response bodies by default.
+* Cache entries are also keyed on the request body, so widening
+  `cacheableMethods` past `GET` no longer serves one caller another's results.
+  `GET` keys are unchanged.
+* `LoggerConfig` no longer logs request and response bodies by default —
+  including on the error path, which was still handing them over.
 * `SentrySetupOptions.sendDefaultPii` defaults to `false`.
+* `ErrorTrackingConfig.captureResponseBody` defaults to `false`, and query
+  parameter values are replaced before a URL reaches the tracker.
+* `CacheStorage.keys()` no longer deletes expired entries. Call
+  `CacheInterceptor.evictExpired()` for that.
 * Failures that reached no observer now do — expect a one-off rise in events.
 
 ### Added
@@ -22,20 +31,24 @@ how much traffic and how many tracker events to expect.
   and POST had 12 each, PUT and PATCH 2, DELETE none.
 * `RequestOptions.forceRevalidate()`, `MultipartReplayException`,
   `CacheBodyEncoding`.
-
-* **`ApiClient.cacheInterceptor`** — reaches the invalidation API
-  (`clearCache()`, `invalidateUrl()`, …) on the instance the client uses.
-  Reachable before only through `dio.interceptors.whereType<…>()`, which is
-  not something anyone should have to discover; not knowing it pushed
-  consumers to wire a `CacheInterceptor` through `interceptors:` just to keep
-  a reference, and that position costs a duplicate request log line.
+* `ApiClient.cacheInterceptor` — reaches the invalidation API (`clearCache()`,
+  `invalidateUrl()`, …) on the instance the client uses.
+* `CacheConfig.onCacheHit` / `onCacheError` — a cache hit reaches no observer,
+  and a storage failure was absorbed in silence.
+* `CacheInterceptor.evictExpired()` — the sweep `getCacheKeys()` used to do
+  behind your back.
+* `onSendProgress` / `onReceiveProgress` on every typed method.
+* `ErrorTrackingConfig.redactUrls` — query values no longer leave for the
+  tracker.
 
 ### Fixed
 
 **Cache**
 
+* A failing cache write re-sent the request and returned the second response.
 * Query parameters written into the path were dropped from the key, so
   `/users?page=1` and `?page=2` shared one entry.
+* `clearCache()` under-reported by the expired entries `keys()` had just swept.
 * A cache hit changed the body's type: `text/plain` `12345` returned as an int,
   a binary download as `List<dynamic>`.
 * A `304` served the body as stale and never restarted the TTL, so
@@ -64,6 +77,8 @@ how much traffic and how many tracker events to expect.
 * `profilesSampleRate` and both replay sample rates were accepted and ignored;
   `customBeforeSendTransaction` got an empty `Hint`; a failed `SentrySetup.init`
   blocked every later attempt.
+* A failed `SentrySetup.init` could stop the app from starting at all.
+* Every retry stranded an in-flight metric until the five-minute sweep.
 
 **Client**
 
@@ -115,6 +130,17 @@ listens to is reported to the zone — a Sentry event nobody can act on.
   what it cannot open), `AuthInterceptor` swallows a throwing `onAuthFailure`
   to avoid deadlocking the refresh queue, and `TooManyRequestsException
   .retryAfter` is populated regardless of `RetryConfig.respectRetryAfter`.
+* The README showed two per-request cache options — `extra: {'cacheTtl': …}`
+  and `extra: {'forceRefresh': true}` — that **have never existed in the code**
+  and were silently ignored. Use `defaultTtl` and `forceRevalidate()`.
+* A cache hit reaches no logger, no metric and no span — documented, and now
+  reportable through `CacheConfig.onCacheHit`.
+* An interceptor passed through `ApiClientConfig.interceptors` sees a raw
+  `DioException`, never the typed `ApiException`.
+* `TokenProviderOperation.clear` is never raised by apix; it exists for your own
+  `TokenProvider` to raise.
+* `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
+  `CacheBodyEncoding` are documented at last.
 
 ## 4.0.0
 

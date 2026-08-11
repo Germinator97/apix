@@ -64,6 +64,21 @@ class ApiClientConfig {
   /// instance through `ApiClient.cacheInterceptor` when you need the
   /// invalidation API. Wiring one here still works, and is worth it if you
   /// need a placement the factory does not offer.
+  ///
+  /// ## Your `onError` sees a raw `DioException`, not an `ApiException`
+  ///
+  /// The mapper is installed **after** this list, so an interceptor here runs
+  /// before any typing has happened: `err.error` is whatever dio put there, and
+  /// `err.type` is a `DioExceptionType`. The `ServerException` /
+  /// `NotFoundException` hierarchy the rest of the documentation talks about
+  /// does not exist yet at this point in the chain.
+  ///
+  /// That placement is deliberate — the mapper ends the error chain with
+  /// `handler.reject`, so anything after it would never run at all — but it is
+  /// surprising, and it is the sort of thing discovered from an `on
+  /// ServerException catch` clause that silently never fires. Map it yourself
+  /// with `ErrorMapperInterceptor.mapDioException(err)`, which is a pure static
+  /// and is exactly what `ErrorTrackingInterceptor` does for the same reason.
   final List<Interceptor>? interceptors;
 
   /// The key used to extract data from envelope responses.
