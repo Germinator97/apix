@@ -12,9 +12,11 @@ issue_tracker: https://github.com/Germinator97/apix/issues
 
 # Shown as a gallery on the pub.dev package page, separately from the README.
 screenshots:
-  - description: "The example app: cache strategies, cache invalidation and mutations, with live request metrics in the status bar."
+  - description: "The example app: requests, responses and caching filed under one taxonomy, with live request metrics in the status bar."
     path: assets/screenshots/home.png
-  - description: "The example app: method-aware retry probes, Sentry error triggers, and the data fetched through apix."
+  - description: "A probe reporting its evidence rather than a tick: two accounts on one device are served their own cache entry. Auth, upload and error-code demos below."
+    path: assets/screenshots/probes.png
+  - description: "Method-aware retry counted attempt by attempt, plus what reaches the error tracker and what is dropped as transport noise."
     path: assets/screenshots/demos.png
 
 environment:

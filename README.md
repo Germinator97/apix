@@ -1009,19 +1009,36 @@ A complete Flutter app demonstrating all ApiX features is available on GitHub:
 👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
 
 <p align="center">
-  <img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
-  &nbsp;&nbsp;
-  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App — requests, responses and caching under one taxonomy, with live request metrics in the status bar" width="260">
+  &nbsp;
+  <img src="assets/screenshots/probes.png" alt="ApiX Example App — a probe reporting that two accounts on one device are served their own cache entry, above the auth, upload and error-code demos" width="260">
+  &nbsp;
+  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry counted attempt by attempt, and what reaches the error tracker versus what is dropped as transport noise" width="260">
 </p>
 
-Features demonstrated:
-- 🔐 SecureTokenProvider with simplified refresh flow
-- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API
-- 🔄 Retry: exponential backoff, `Retry-After`, and the method-aware guard — three live probes measure how many times the server is actually hit for `GET`, `POST` and `POST` + `forceRetry()`
-- 🛡️ Typed failures: `ParsingException`, `UnexpectedContentTypeException`, `responseValidator` → custom exception, `TokenProviderException`
-- 📦 Envelope API (`*Data` methods) against a mocked backend
-- 🐛 Sentry integration with error testing
-- 📊 Request metrics and logging
+The app is organised by **theme**, not by release, and each section pairs the
+live feature with the probes that pin it:
+
+- 📥 **Requests & responses** — plain CRUD and the envelope (`*Data`) methods
+  against a mocked backend
+- 💾 **Cache** — the five strategies and the invalidation API, plus probes for
+  per-caller scoping, inline query keys, `networkOnly` writing nothing, and
+  deduplication without a cache
+- 🔐 **Auth & uploads** — `SecureTokenProvider` with the simplified refresh
+  flow, an upload surviving a token refresh, nested multipart, and
+  `TokenProviderException`
+- ⚠️ **Errors & error codes** — application codes, a status that is not a code,
+  `429` with its delay, a business failure dressed as `200`, a bare `[]`,
+  `ParsingException`, captive portals, `responseValidator`
+- 🔁 **Retry** — exponential backoff, `Retry-After`, and the method-aware
+  guard; four probes count how many times the server is actually hit
+- 📤 **Observability** — what reaches the tracker, what is dropped as transport
+  noise, a broken log sink that cannot fail the request, and live Sentry
+  triggers
+
+Every probe reports the **evidence** — a count, a body, a flag — rather than a
+pass mark, because the defects they cover produced a wrong answer rather than
+an error.
 
 > A shorter, single-file example lives in [`example/example.dart`](example/example.dart) — that is the one rendered on pub.dev. The linked repo is the full Flutter app.
 
