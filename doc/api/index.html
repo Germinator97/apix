@@ -213,7 +213,7 @@ await tokenProvider.saveTokens(accessToken, refreshToken);
 
 // Logout — drop the tokens AND the responses they fetched
 await tokenProvider.clearTokens();
-await cacheInterceptor.clearCache();
+await client.cacheInterceptor?.clearCache();
 </code></pre>
 <blockquote>
 <p><strong>Clearing the cache on logout is not optional.</strong> Cache entries are scoped by
@@ -221,6 +221,9 @@ await cacheInterceptor.clearCache();
 cannot <em>read</em> the previous one's entries — but they are still on the device
 until something removes them, and <code>FileCacheStorage</code> keeps them across
 restarts. Clear them where you clear the tokens.</p>
+<p><code>client.cacheInterceptor</code> is how you reach the invalidation API —
+<code>clearCache()</code>, <code>invalidateUrl()</code>, <code>invalidatePath()</code> — on the instance the
+client actually uses. It returns <code>null</code> when no <code>cacheConfig</code> was given.</p>
 </blockquote>
 <p><strong>Refresh token queue</strong>: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, <code>onAuthFailure</code> is called <strong>once</strong> (not per queued request).</p>
 <p><strong>Network resilience</strong>: When the refresh request itself fails with a connection or timeout error, the original request is rejected with <code>NetworkException</code> (typed: <code>ConnectionException</code>, <code>TimeoutException</code>) — <code>onAuthFailure</code> is <strong>not</strong> invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger <code>AuthException</code> and call <code>onAuthFailure</code>.</p>
@@ -1209,20 +1212,35 @@ with <code>actualContentType: null</code>.</p>
 <p>A complete Flutter app demonstrating all ApiX features is available on GitHub:</p>
 <p>👉 <strong><a href="https://github.com/Germinator97/apix_example_app">apix_example_app</a></strong></p>
 <p align="center">
-<img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
-&nbsp;&nbsp;
-<img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
+<img src="assets/screenshots/home.png" alt="ApiX Example App — requests, responses and caching under one taxonomy, with live request metrics in the status bar" width="260">
+&nbsp;
+<img src="assets/screenshots/probes.png" alt="ApiX Example App — a probe reporting that two accounts on one device are served their own cache entry, above the auth, upload and error-code demos" width="260">
+&nbsp;
+<img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry counted attempt by attempt, and what reaches the error tracker versus what is dropped as transport noise" width="260">
 </p>
-<p>Features demonstrated:</p>
+<p>The app is organised by <strong>theme</strong>, not by release, and each section pairs the
+live feature with the probes that pin it:</p>
 <ul>
-<li>🔐 SecureTokenProvider with simplified refresh flow</li>
-<li>💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API</li>
-<li>🔄 Retry: exponential backoff, <code>Retry-After</code>, and the method-aware guard — three live probes measure how many times the server is actually hit for <code>GET</code>, <code>POST</code> and <code>POST</code> + <code>forceRetry()</code></li>
-<li>🛡️ Typed failures: <code>ParsingException</code>, <code>UnexpectedContentTypeException</code>, <code>responseValidator</code> → custom exception, <code>TokenProviderException</code></li>
-<li>📦 Envelope API (<code>*Data</code> methods) against a mocked backend</li>
-<li>🐛 Sentry integration with error testing</li>
-<li>📊 Request metrics and logging</li>
+<li>📥 <strong>Requests &amp; responses</strong> — plain CRUD and the envelope (<code>*Data</code>) methods
+against a mocked backend</li>
+<li>💾 <strong>Cache</strong> — the five strategies and the invalidation API, plus probes for
+per-caller scoping, inline query keys, <code>networkOnly</code> writing nothing, and
+deduplication without a cache</li>
+<li>🔐 <strong>Auth &amp; uploads</strong> — <code>SecureTokenProvider</code> with the simplified refresh
+flow, an upload surviving a token refresh, nested multipart, and
+<code>TokenProviderException</code></li>
+<li>⚠️ <strong>Errors &amp; error codes</strong> — application codes, a status that is not a code,
+<code>429</code> with its delay, a business failure dressed as <code>200</code>, a bare <code>[]</code>,
+<code>ParsingException</code>, captive portals, <code>responseValidator</code></li>
+<li>🔁 <strong>Retry</strong> — exponential backoff, <code>Retry-After</code>, and the method-aware
+guard; four probes count how many times the server is actually hit</li>
+<li>📤 <strong>Observability</strong> — what reaches the tracker, what is dropped as transport
+noise, a broken log sink that cannot fail the request, and live Sentry
+triggers</li>
 </ul>
+<p>Every probe reports the <strong>evidence</strong> — a count, a body, a flag — rather than a
+pass mark, because the defects they cover produced a wrong answer rather than
+an error.</p>
 <blockquote>
 <p>A shorter, single-file example lives in <a href="example/example.dart"><code>example/example.dart</code></a> — that is the one rendered on pub.dev. The linked repo is the full Flutter app.</p>
 </blockquote>
