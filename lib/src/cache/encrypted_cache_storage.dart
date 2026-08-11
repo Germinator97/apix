@@ -73,6 +73,10 @@ class EncryptedCacheStorage implements CacheStorage {
         createdAt: entry.createdAt,
         expiresAt: entry.expiresAt,
         etag: entry.etag,
+        // Travels in the clear alongside the timestamps: it says how the body
+        // was encoded, never anything about what it contains, and the decode
+        // path needs it as plainly as the expiry needs its date.
+        encoding: entry.encoding,
       ),
     );
   }
@@ -93,6 +97,7 @@ class EncryptedCacheStorage implements CacheStorage {
         createdAt: stored.createdAt,
         expiresAt: stored.expiresAt,
         etag: stored.etag,
+        encoding: stored.encoding,
         headers: headers is Map
             ? headers.map((k, v) => MapEntry(k.toString(), v.toString()))
             : null,

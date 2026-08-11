@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -247,13 +248,17 @@ class CacheInterceptor extends Interceptor {
           options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
       final strategy = _getStrategy(options);
 
-      // Handle 304 Not Modified for httpCacheAware
+      // Handle 304 Not Modified for httpCacheAware.
+      //
+      // Only reachable when the caller widened `validateStatus` to accept a
+      // 304; with dio's default it arrives as an error, and `onError` handles
+      // it. Both routes go through the same helper so they cannot drift.
       if (strategy == CacheStrategy.httpCacheAware &&
           response.statusCode == 304) {
-        final cached = await config.storage.get(cacheKey);
-        if (cached != null) {
-          final cachedResponse = _buildResponseFromCache(options, cached);
-          handler.resolve(cachedResponse);
+        final revalidated =
+            await _serveRevalidated(options, cacheKey, response);
+        if (revalidated != null) {
+          handler.resolve(revalidated);
           return;
         }
       }
@@ -305,6 +310,25 @@ class CacheInterceptor extends Interceptor {
       final cacheKey =
           options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
 
+      // A 304 is not a failure, it is the successful outcome of a conditional
+      // request — but dio's default `validateStatus` accepts only 2xx, so it
+      // arrives here as an error. Handling it in `onResponse` alone meant the
+      // branch never ran: the 304 fell through to the generic fallback below,
+      // which served the entry flagged `isStale` (it had to be expired to be
+      // revalidated at all) and left its TTL untouched. So a *successful*
+      // revalidation reported stale data and re-hit the network on every later
+      // request — `httpCacheAware` degenerated into "always revalidate", the
+      // opposite of what it documents.
+      if (strategy == CacheStrategy.httpCacheAware &&
+          err.response?.statusCode == 304) {
+        final revalidated =
+            await _serveRevalidated(options, cacheKey, err.response!);
+        if (revalidated != null) {
+          handler.resolve(revalidated);
+          return;
+        }
+      }
+
       // Try to return cached response on network failure. An expired entry is
       // served on purpose here — stale data beats no data when the network is
       // gone — but it is flagged so the caller can say so.
@@ -324,6 +348,38 @@ class CacheInterceptor extends Interceptor {
       // On storage failure, propagate the original error
       handler.next(err);
     }
+  }
+
+  /// Answers a `304 Not Modified` from the stored entry, restarting its
+  /// lifetime first.
+  ///
+  /// Returns null when there is nothing stored to confirm, in which case the
+  /// caller carries on with its normal handling.
+  ///
+  /// Restarting the TTL is the whole point: a 304 is the server saying "what
+  /// you hold is still current". Serving the body without recording that left
+  /// the entry expired, so the next request revalidated again — and the one
+  /// after that — while every hit was flagged `isStale`, telling callers the
+  /// data was old at the exact moment the server had confirmed it was not.
+  ///
+  /// The new lifetime comes from the 304's own `Cache-Control` when it carries
+  /// one, since that is the server's current answer, not the one it gave when
+  /// the body was first stored.
+  Future<Response<dynamic>?> _serveRevalidated(
+    RequestOptions options,
+    String cacheKey,
+    Response<dynamic> notModified,
+  ) async {
+    final cached = await config.storage.get(cacheKey);
+    if (cached == null) return null;
+
+    final refreshed = cached.revalidated(
+      ttl: _ttlFor(notModified, CacheStrategy.httpCacheAware),
+      etag: _getEtag(notModified.headers),
+    );
+    await config.storage.set(cacheKey, refreshed);
+
+    return _buildResponseFromCache(options, refreshed);
   }
 
   /// Handles CacheFirst strategy: serve the cache immediately, refresh behind.
@@ -594,32 +650,66 @@ class CacheInterceptor extends Interceptor {
     Response<dynamic> response, {
     CacheStrategy? strategy,
   }) async {
-    final data = response.data;
-    final jsonString = data is String ? data : jsonEncode(data);
-
-    // Determine TTL based on Cache-Control for httpCacheAware
-    Duration ttl = config.defaultTtl;
-    String? etag;
-
-    if (strategy == CacheStrategy.httpCacheAware) {
-      final cacheControl = _parseCacheControl(response.headers);
-      if (cacheControl.maxAge != null) {
-        ttl = Duration(seconds: cacheControl.maxAge!);
-      }
-      etag = _getEtag(response.headers);
-    }
+    final (encoded, encoding) = _encodeBody(response.data);
 
     final entry = CacheEntry.withTtl(
-      data: jsonString,
+      data: encoded,
+      encoding: encoding,
       statusCode: response.statusCode ?? 200,
-      ttl: ttl,
-      etag: etag,
+      ttl: _ttlFor(response, strategy),
+      etag: strategy == CacheStrategy.httpCacheAware
+          ? _getEtag(response.headers)
+          : null,
       headers: response.headers.map.map(
         (key, value) => MapEntry(key, value.join(', ')),
       ),
     );
 
     await config.storage.set(key, entry);
+  }
+
+  /// How long an entry built from [response] should live.
+  Duration _ttlFor(Response<dynamic> response, CacheStrategy? strategy) {
+    if (strategy != CacheStrategy.httpCacheAware) return config.defaultTtl;
+    final maxAge = _parseCacheControl(response.headers).maxAge;
+    return maxAge == null ? config.defaultTtl : Duration(seconds: maxAge);
+  }
+
+  /// Encodes a response body for storage, recording how, so the hit can hand
+  /// back the same runtime type the network handed back.
+  ///
+  /// Everything used to go through `jsonEncode`/`jsonDecode`, which is not a
+  /// round trip for two common bodies: a `text/plain` payload of `12345` came
+  /// back as the **int** `12345`, and a `ResponseType.bytes` download came back
+  /// as a `List<dynamic>`, so any cast to `Uint8List` at the call site threw —
+  /// on the second request only, which is what made it so hard to see.
+  (String, CacheBodyEncoding) _encodeBody(dynamic data) {
+    if (data == null) return ('', CacheBodyEncoding.empty);
+    if (data is String) return (data, CacheBodyEncoding.text);
+    if (data is Uint8List || data is List<int>) {
+      return (base64Encode(data as List<int>), CacheBodyEncoding.bytes);
+    }
+    return (jsonEncode(data), CacheBodyEncoding.json);
+  }
+
+  /// Reverses [_encodeBody].
+  dynamic _decodeBody(CacheEntry entry) {
+    switch (entry.encoding) {
+      case CacheBodyEncoding.empty:
+        return null;
+      case CacheBodyEncoding.text:
+        return entry.data;
+      case CacheBodyEncoding.bytes:
+        return base64Decode(entry.data);
+      case CacheBodyEncoding.json:
+        try {
+          return jsonDecode(entry.data);
+        } catch (_) {
+          // An entry written before `encoding` existed, holding a body that was
+          // never JSON. Handing the raw string back is what the old code did.
+          return entry.data;
+        }
+    }
   }
 
   /// Parses Cache-Control header into structured data.
@@ -668,16 +758,9 @@ class CacheInterceptor extends Interceptor {
     CacheEntry entry, {
     bool stale = false,
   }) {
-    dynamic data;
-    try {
-      data = jsonDecode(entry.data);
-    } catch (_) {
-      data = entry.data;
-    }
-
     return Response<dynamic>(
       requestOptions: options,
-      data: data,
+      data: _decodeBody(entry),
       statusCode: entry.statusCode,
       headers: Headers.fromMap(
         entry.headers?.map((k, v) => MapEntry(k, [v])) ?? {},
