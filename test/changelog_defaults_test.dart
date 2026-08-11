@@ -38,20 +38,21 @@ void main() {
   /// Named by the exact string the changelog uses, so a reworded entry fails
   /// loudly rather than silently ceasing to be checked.
   Map<String, ({String announced, Object actual})> defaults() => {
-        '`SentrySetupOptions.sendDefaultPii` defaults to `false`': (
+        '`SentrySetupOptions.sendDefaultPii` → **`false`**': (
           announced: 'false',
           actual: const SentrySetupOptions(dsn: 'x', environment: 'y')
               .sendDefaultPii,
         ),
-        '`ErrorTrackingConfig.captureResponseBody` defaults to `false`': (
+        '`ErrorTrackingConfig.captureResponseBody` → **`false`**': (
           announced: 'false',
           actual: const ErrorTrackingConfig().captureResponseBody,
         ),
-        '`redactUrls`, default `true`': (
+        '`ErrorTrackingConfig.redactUrls` → **`true`**': (
           announced: 'true',
           actual: const ErrorTrackingConfig().redactUrls,
         ),
-        '`LoggerConfig` no longer logs request or response bodies by default': (
+        '`LoggerConfig` logs no request or response body, error path included':
+            (
           announced: 'false',
           actual: const LoggerConfig().logResponseBody &&
               const LoggerConfig().logRequestBody,
@@ -81,7 +82,7 @@ void main() {
     test('it says what breaks at build time', () {
       expect(
         currentSection,
-        contains('Nothing here breaks your build'),
+        contains('Nothing breaks your build'),
         reason: 'the first question before a major, and the only one with a '
             'yes/no answer',
       );
@@ -92,7 +93,7 @@ void main() {
     test('it warns where a fix removes information', () {
       expect(
         currentSection,
-        contains('remove information you may be relying on'),
+        contains('remove a field you may be diagnosing from'),
         reason: 'two of the tightened defaults make Sentry tickets thinner. A '
             'consumer who is not told will look for the fault in their API.',
       );
@@ -100,7 +101,7 @@ void main() {
 
     test('it names the error classes behind the rise in events', () {
       for (final named in [
-        'Broken sessions',
+        'broken sessions',
         'responseValidator',
         'cacheOnly'
       ]) {
