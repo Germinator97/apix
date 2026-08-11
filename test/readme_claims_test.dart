@@ -40,10 +40,10 @@ void main() {
             'this regex if the snippet was reworded',
       );
 
-      // Caret compatibility, not equality. `^4.0.0` correctly installs 4.0.1,
-      // so demanding equality would fail on every patch release and push
-      // toward editing the README for no reader-visible reason — a guard that
-      // cries wolf gets silenced. What must never happen is the snippet
+      // Caret compatibility, not equality. `^4.0.0` correctly installs any
+      // later 4.x, so demanding equality would fail on every patch release and
+      // push toward editing the README for no reader-visible reason — a guard
+      // that cries wolf gets silenced. What must never happen is the snippet
       // pointing somewhere nobody can reach: a different major, or a version
       // ahead of what is published.
       final want = advertised!.split('.').map(int.parse).toList();
