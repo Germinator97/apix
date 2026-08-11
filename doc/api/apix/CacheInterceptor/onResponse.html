@@ -131,8 +131,9 @@ void onResponse(
     }
 
     handler.next(response);
-  } catch (_) {
-    &#47;&#47; On storage failure, pass through the response unmodified
+  } catch (e, st) {
+    &#47;&#47; On storage failure, pass through the response unmodified.
+    _reportCacheFailure(CacheOperation.write, e, st);
     handler.next(response);
   }
 }</code></pre>

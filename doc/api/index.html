@@ -287,21 +287,26 @@ it. A server-named <code>Retry-After</code> is never jittered.</p>
   ),
 );
 
-// Override per request
+// Override the strategy for one request
 final config = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
   '/app-config',
-  options: Options(extra: {
-    'cacheStrategy': CacheStrategy.cacheFirst,
-    'cacheTtl': const Duration(hours: 24),
-  }),
-);
-
-// Force refresh
-final fresh = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
-  '/users',
-  options: Options(extra: {'forceRefresh': true}),
+  options: Options(extra: {'cacheStrategy': CacheStrategy.cacheFirst}),
 );
 </code></pre>
+<p>Per-request control is a set of extensions on <code>RequestOptions</code>, so you never
+have to remember an <code>extra</code> key:</p>
+<pre class="language-dart"><code class="language-dart">final options = Options().compose(client.dio.options, '/users')
+  ..noCache();                              // this one request skips the cache
+  // ..setCacheStrategy(CacheStrategy.cacheFirst);
+  // ..forceRevalidate();                   // see below
+</code></pre>
+<blockquote>
+<p>The strategy override above is the one <code>extra</code> key apix reads. Earlier
+versions of this README also showed <code>'cacheTtl'</code> and <code>'forceRefresh'</code>;
+<strong>neither has ever existed in the code</strong>. They were quietly ignored — the
+exact failure mode of an option that looks set. Use <code>defaultTtl</code> for the
+lifetime, and <code>forceRevalidate()</code> below to force a round trip.</p>
+</blockquote>
 <table>
 <thead>
 <tr>
@@ -339,6 +344,31 @@ final fresh = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
 </tbody>
 </table>
 <p><code>networkFirst</code> is the default: configure nothing and you get fresh data.</p>
+<h4 id="entries-are-scoped-to-whoever-asked--varyheaders">Entries are scoped to whoever asked — <code>varyHeaders</code></h4>
+<p><strong>Read this one even if you skip the rest of the section.</strong> A cache key used to
+describe <em>what</em> was requested and never <em>who</em> requested it, so two accounts on
+one device shared every entry: log out, log back in as someone else, and
+<code>GET /me</code> returned the previous account's body. With <code>FileCacheStorage</code> that
+survived restarts, and the documented logout only dropped the tokens.</p>
+<p><code>CacheConfig.varyHeaders</code> defaults to <code>['Authorization']</code>, and a truncated
+digest of those headers enters the key — never the value, since keys stay in
+clear text even under <code>EncryptedCacheStorage</code>.</p>
+<pre class="language-dart"><code class="language-dart">cacheConfig: CacheConfig(
+  varyHeaders: const ['X-User-Id'],  // a stable identity beats a rotating token
+),
+</code></pre>
+<p>Two consequences worth knowing:</p>
+<ul>
+<li><strong>A token refresh changes the fingerprint</strong>, so entries cached under the old
+access token stop being hit. That is a cache miss, never a wrong answer —
+vary on a stable identity header to avoid it.</li>
+<li><strong>The header must already be on the request</strong> when the cache reads it.
+<code>ApiClientFactory</code> installs auth before the cache precisely so it is. Wiring
+the cache by hand <em>before</em> auth scopes nothing, and scoping nothing looks
+exactly like working.</li>
+</ul>
+<p>Set <code>const []</code> to opt out, and only where responses genuinely do not depend on
+the caller — a public price list, a static catalogue.</p>
 <h4 id="knowing-what-you-got">Knowing what you got</h4>
 <p>Any response served from the cache says so, and says whether it was past its
 TTL:</p>
@@ -352,6 +382,57 @@ if (response.isFromCache &amp;&amp; response.isStale) {
 <code>cacheFirst</code> serving instantly while it revalidates, and the offline fallback
 of <code>networkFirst</code> / <code>httpCacheAware</code>. Both are useful; both are lies if the
 caller can't tell. <strong>On an amount, a balance or a status, surface it.</strong></p>
+<h4 id="forcing-a-round-trip--forcerevalidate">Forcing a round trip — <code>forceRevalidate()</code></h4>
+<p>Under <code>httpCacheAware</code>, a fresh entry is served without asking the server. On a
+pull-to-refresh the user <em>has</em> asked, so <code>forceRevalidate()</code> sends the stored
+<code>ETag</code> as <code>If-None-Match</code>: an unchanged resource costs a <code>304</code> with no body and
+the entry's lifetime restarts.</p>
+<pre class="language-dart"><code class="language-dart">final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;(
+  '/orders',
+  options: Options(extra: {forceRevalidateKey: true}),
+);
+// or, on a RequestOptions you already hold:  options.forceRevalidate();
+</code></pre>
+<p>Cheaper than <code>noCache()</code>, which throws the entry away and downloads the body
+again.</p>
+<h4 id="a-cache-hit-keeps-the-type-it-had">A cache hit keeps the type it had</h4>
+<p>A body comes back as the type the network gave you — a <code>text/plain</code> payload
+stays a <code>String</code>, a <code>ResponseType.bytes</code> download stays bytes. <code>CacheEntry</code>
+records which of <code>CacheBodyEncoding.json</code>, <code>.text</code>, <code>.bytes</code> or <code>.empty</code> was
+used, so the round trip through storage is not a <code>jsonEncode</code>/<code>jsonDecode</code> pair
+that turns <code>"12345"</code> into an <code>int</code> on the second request only.</p>
+<p>You never set this — it is recorded for you. It is public because a custom
+<code>CacheStorage</code> receives it and must persist it alongside the body; drop it and
+every entry decodes as JSON again.</p>
+<h4 id="seeing-the-cache-work">Seeing the cache work</h4>
+<p>A hit resolves before the logger, the metrics and the tracing interceptor, so
+none of them ever sees one — deliberately, since a cached response spent no
+time on the network. The consequence is that your fastest requests are missing
+from every dashboard, and the hit rate is not visible from the observability
+apix ships. Two callbacks close that:</p>
+<pre class="language-dart"><code class="language-dart">cacheConfig: CacheConfig(
+  storage: FileCacheStorage(dir),
+  onCacheHit: (hit) =&gt; analytics.count(
+    hit.isStale ? 'cache.stale' : 'cache.fresh',
+  ),
+  onCacheError: (failure) =&gt; Sentry.captureException(
+    failure.error,
+    stackTrace: failure.stackTrace,
+  ),
+),
+</code></pre>
+<p><code>onCacheError</code> matters more than it looks. The cache falls back to the network
+on any storage failure — correct, and unchanged — but a backend that refuses
+<em>every</em> operation then degrades the client to "no cache" permanently, with every
+request still succeeding. Without this callback there is no moment at which
+anyone finds out.</p>
+<h4 id="removing-what-expired">Removing what expired</h4>
+<p><code>getCacheKeys()</code> only reads. Use <code>evictExpired()</code> when you want the sweep:</p>
+<pre class="language-dart"><code class="language-dart">final removed = await client.cacheInterceptor!.evictExpired();
+</code></pre>
+<p>Worth calling at logout or on a memory-pressure signal; not worth calling
+routinely, since <code>FileCacheStorage</code> bounds itself by count and an expired entry
+is still what serves the user when the network is gone.</p>
 <h4 id="the-ttl-is-a-guarantee">The TTL is a guarantee</h4>
 <p><code>defaultTtl</code> is enforced by the interceptor, not by the storage backend — a
 custom <code>CacheStorage</code> cannot weaken it by forgetting to filter. Backends just
@@ -597,18 +678,33 @@ await SentrySetup.init(
 </tr>
 <tr>
 <td><code>captureRequestBody</code></td>
-<td>Include request body (default: false)</td>
+<td>Include request body (default: <strong>false</strong>)</td>
 </tr>
 <tr>
 <td><code>captureResponseBody</code></td>
-<td>Include response body (default: true)</td>
+<td>Include response body (default: <strong>false</strong> since 5.0)</td>
 </tr>
 <tr>
 <td><code>redactedHeaders</code></td>
 <td>Headers to redact (Authorization, Cookie...)</td>
 </tr>
+<tr>
+<td><code>redactUrls</code></td>
+<td>Replace query-parameter <strong>values</strong> before a URL is sent (default: <code>true</code>)</td>
+</tr>
 </tbody>
 </table>
+<blockquote>
+<p>Both bodies are withheld until you ask. <code>captureResponseBody</code> used to default
+to <code>true</code> while <code>captureRequestBody</code> defaulted to <code>false</code> — and the response
+body is the one written by the server, which can carry fields the client never
+sent.</p>
+<p><code>redactUrls</code> closes a matching gap: this interceptor redacted <code>Authorization</code>
+and then sent the whole URI, so a token in a query parameter reached a
+third-party service in clear, past a redaction step that had already run.
+Parameter <strong>names</strong> are kept (<code>?token=[REDACTED]</code>), because knowing which
+parameters a failing request carried is most of the value of having the URL.</p>
+</blockquote>
 <p><strong>3. Upload debug symbols — or your release stack traces are unreadable.</strong></p>
 <p><code>sentry_flutter</code> reports the error; it does <strong>not</strong> upload the symbols needed
 to make sense of it. Without this step everything looks fine — events arrive,
@@ -696,8 +792,36 @@ dart run sentry_dart_plugin
 <td>Wrong <code>Content-Type</code> (with <code>strictContentType: true</code>)</td>
 <td><code>UnexpectedContentTypeException</code></td>
 </tr>
+<tr>
+<td>A multipart body that cannot be rebuilt for a replay</td>
+<td><code>MultipartReplayException</code></td>
+</tr>
+<tr>
+<td><code>cacheOnly</code> miss, or an expired entry under it</td>
+<td><code>CacheException</code></td>
+</tr>
 </tbody>
 </table>
+<h4 id="multipartreplayexception--the-one-you-can-act-on"><code>MultipartReplayException</code> — the one you can act on</h4>
+<p>A <code>FormData</code> is single-use: dio finalizes it into a stream. Two things replay a
+request without you asking — the auth interceptor after a token refresh, and
+the retry interceptor on a retryable status — and both re-enter with the same
+<code>RequestOptions</code>.</p>
+<p>When you passed a plain <code>Map</code> containing <code>File</code>s, apix keeps that map and builds
+a fresh <code>FormData</code> per attempt, so the replay simply works. This exception is
+raised only where that is impossible: the body arrived as a <code>FormData</code> (or a
+caller-built <code>MultipartFile</code>) that apix did not build and cannot rebuild.</p>
+<pre class="language-dart"><code class="language-dart">try {
+  await client.post('/upload', data: formData);
+} on MultipartReplayException {
+  // Pass a Map of Files instead, so each attempt gets its own body —
+  // or opt this request out of replay with options.disableRetry().
+}
+</code></pre>
+<p>It exists rather than being a silent skip because the alternative was worse:
+dio threw a <code>StateError</code>, which reached the mapper as type <code>unknown</code> and
+surfaced as <code>ApiException: Unknown error</code> — <strong>replacing</strong> the <code>500</code> that had
+triggered the replay, so <code>on ServerException catch</code> stopped matching.</p>
 <p>The <strong>message</strong> is automatically extracted from the API response body. Supports flat and nested formats:</p>
 <pre class="language-dart"><code>{ "message": "Bad request" }                       → "Bad request"
 { "detail": "Not found" }                          → "Not found"
@@ -942,6 +1066,20 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 The table used to claim that while <code>PUT</code> and <code>PATCH</code> had two methods each and
 <code>DELETE</code> none, because filling the gaps meant copying the plumbing five times.
 It is one shared core now, so a verb cannot fall behind again.</p>
+<h4 id="progress-on-a-typed-call">Progress on a typed call</h4>
+<p>Every typed method takes <code>onReceiveProgress</code>, and every body-bearing one
+(<code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>) also takes <code>onSendProgress</code> — so a typed
+upload can drive a progress bar without dropping back to <code>client.post</code> and
+parsing the body by hand:</p>
+<pre class="language-dart"><code class="language-dart">final receipt = await client.postAndDecodeData&lt;Receipt&gt;(
+  '/documents',
+  {'file': File(path), 'label': 'passport'},
+  Receipt.fromJson,
+  onSendProgress: (sent, total) =&gt; setState(() =&gt; _progress = sent / total),
+);
+</code></pre>
+<p>The twelve <code>GET</code> variants take only <code>onReceiveProgress</code>: a <code>GET</code> has nothing to
+send, and an option that can never fire is an option that looks set.</p>
 <h3 id="strict-content-type-checks-captive-portals">Strict Content-Type Checks (Captive Portals)</h3>
 <p><code>*AndDecode</code> methods can verify that the response's <code>Content-Type</code> starts
 with <code>application/json</code> before attempting to parse. Useful in fintech /

@@ -57,14 +57,21 @@
 <section class="desc markdown">
   <p>A type that represents either a success value or a failure.</p>
 <p>Use <a href="../apix/Result-class.html">Result</a> for functional error handling as an alternative to exceptions.</p>
-<p>Example:</p>
-<pre class="language-dart"><code class="language-dart">final result = await client.get('/users').getResult();
+<p><code>getResult</code> wraps whatever the future produces, so what lands in
+<code>onSuccess</code> is what the call itself returns — a <code>Response</code> from the raw
+verbs, your own type from the typed ones:</p>
+<pre class="language-dart"><code class="language-dart">final result = await client
+    .getListAndDecodeData('/users', User.fromJson)
+    .getResult();
 
 result.fold(
   onSuccess: (users) =&gt; print('Got ${users.length} users'),
   onFailure: (error) =&gt; print('Error: ${error.message}'),
 );
 </code></pre>
+<p>This example used to show <code>client.get('/users')</code>, whose success value is a
+<code>Response&lt;T&gt;</code> and has no <code>.length</code> — the snippet did not compile, and the
+one place a reader looks to learn the type was the place that misnamed it.</p>
 </section>
 
 

@@ -221,6 +221,19 @@
 
 </dd>
 
+        <dt id="beforeSendForTesting" class="callable">
+  <span class="name"><a href="../apix/SentrySetup/beforeSendForTesting.html">beforeSendForTesting</a></span><span class="signature">(<wbr><span class="parameter" id="beforeSendForTesting-param-event"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.24.0/sentry/SentryEvent-class.html">SentryEvent</a></span> <span class="parameter-name">event</span>, </span><span class="parameter" id="beforeSendForTesting-param-hint"><span class="type-annotation"><a href="https://pub.dev/documentation/sentry/9.24.0/sentry/Hint-class.html">Hint</a></span> <span class="parameter-name">hint</span>, </span><span class="parameter" id="beforeSendForTesting-param-options"><span class="type-annotation"><a href="../apix/SentrySetupOptions-class.html">SentrySetupOptions</a></span> <span class="parameter-name">options</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-async/FutureOr-class.html">FutureOr</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/sentry/9.24.0/sentry/SentryEvent-class.html">SentryEvent</a>?</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Decides whether <code>event</code> is sent. Exposed for testing.
+  
+
+</dd>
+
         <dt id="captureException" class="callable">
   <span class="name"><a href="../apix/SentrySetup/captureException.html">captureException</a></span><span class="signature">(<wbr><span class="parameter" id="captureException-param-exception"><span class="type-annotation">dynamic</span> <span class="parameter-name">exception</span>, {</span><span class="parameter" id="captureException-param-stackTrace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/StackTrace-class.html">StackTrace</a>?</span> <span class="parameter-name">stackTrace</span>, </span><span class="parameter" id="captureException-param-extra"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">extra</span>, </span><span class="parameter" id="captureException-param-tags"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span>?</span> <span class="parameter-name">tags</span></span>})
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
@@ -247,6 +260,19 @@
 
 </dd>
 
+        <dt id="guardedStart" class="callable">
+  <span class="name"><a href="../apix/SentrySetup/guardedStart.html">guardedStart</a></span><span class="signature">(<wbr>{<span class="parameter" id="guardedStart-param-appRunner"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span> <span class="parameter-name">appRunner</span>(), </span><span class="parameter" id="guardedStart-param-initialize"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span> <span class="parameter-name">initialize</span>(<span class="parameter" id="param-runner"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span> <span class="parameter-name">runner</span>()</span>)</span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Runs <code>initialize</code>, and guarantees the app starts exactly once.
+  
+
+</dd>
+
         <dt id="init" class="callable">
   <span class="name"><a href="../apix/SentrySetup/init.html">init</a></span><span class="signature">(<wbr>{<span class="parameter" id="init-param-options"><span>required</span> <span class="type-annotation"><a href="../apix/SentrySetupOptions-class.html">SentrySetupOptions</a></span> <span class="parameter-name">options</span>, </span><span class="parameter" id="init-param-appRunner"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span> <span class="parameter-name">appRunner</span>()</span>})
     <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span></span>
@@ -269,6 +295,20 @@
 </dt>
 <dd>
   Checks if an event is a network noise error that should be filtered.
+  
+
+</dd>
+
+        <dt id="isTooShort" class="callable">
+  <span class="name"><a href="../apix/SentrySetup/isTooShort.html">isTooShort</a></span><span class="signature">(<wbr><span class="parameter" id="isTooShort-param-start"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/DateTime-class.html">DateTime</a></span> <span class="parameter-name">start</span>, </span><span class="parameter" id="isTooShort-param-end"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/DateTime-class.html">DateTime</a>?</span> <span class="parameter-name">end</span>, </span><span class="parameter" id="isTooShort-param-minDurationMs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">minDurationMs</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether a transaction running from <code>start</code> to <code>end</code> is too short to be
+worth reporting, per <a href="../apix/SentrySetupOptions/minTransactionDurationMs.html">SentrySetupOptions.minTransactionDurationMs</a>.
   
 
 </dd>

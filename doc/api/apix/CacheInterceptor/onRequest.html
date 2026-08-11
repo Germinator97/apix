@@ -115,8 +115,9 @@ void onRequest(
           handler.next(options);
         }
     }
-  } catch (e) {
-    &#47;&#47; On storage or other failure, fall through to network
+  } catch (e, st) {
+    &#47;&#47; On storage or other failure, fall through to network — and say so.
+    _reportCacheFailure(CacheOperation.read, e, st);
     handler.next(options);
   }
 }</code></pre>

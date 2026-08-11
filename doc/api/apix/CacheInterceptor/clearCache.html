@@ -63,7 +63,9 @@
     
 <section class="desc markdown">
   <p>Clears all cached entries.</p>
-<p>Returns the number of entries removed.</p>
+<p>Returns the number of entries removed — expired ones included, which it
+used to under-report because <a href="../../apix/CacheStorage/keys.html">CacheStorage.keys</a> swept them on its way
+past.</p>
 </section>
 
 

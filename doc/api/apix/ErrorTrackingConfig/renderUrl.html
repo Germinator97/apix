@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the message property from the HttpTrackingException class, for the Dart programming language.">
-  <title>message property - HttpTrackingException class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the renderUrl method from the ErrorTrackingConfig class, for the Dart programming language.">
+  <title>renderUrl method - ErrorTrackingConfig class - apix library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
-    <li><a href="../../apix/HttpTrackingException-class.html">HttpTrackingException</a></li>
-    <li class="self-crumb">message property</li>
+    <li><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a></li>
+    <li class="self-crumb">renderUrl method</li>
   </ol>
-  <div class="self-name">message</div>
+  <div class="self-name">renderUrl</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,36 +46,38 @@
 <div
     id="dartdoc-main-content"
     class="main-content"
-    data-above-sidebar="apix&#47;HttpTrackingException-class-sidebar.html"
+    data-above-sidebar="apix&#47;ErrorTrackingConfig-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">message</span> property 
+<h1><span class="kind-method">renderUrl</span> method 
 </h1></div>
 
-    
-      <section class="multi-line-signature">
-        
-        <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>
-        <span class="name ">message</span>
-        <div class="features"><span class="feature">final</span></div>
-
-      </section>
+    <section class="multi-line-signature">
       
+<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+<span class="name ">renderUrl</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="renderUrl-param-uri"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Uri-class.html">Uri</a></span> <span class="parameter-name">uri</span></span></li>
+</ol>)
+
+      
+
+    </section>
+    
 <section class="desc markdown">
-  <p>Error message.</p>
+  <p>Renders <code>uri</code> as it should appear in a report.</p>
 </section>
 
-      
+
+    
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final String message;</code></pre>
+  <pre class="language-dart"><code class="language-dart">String renderUrl(Uri uri) =&gt;
+    redactUrls ? redactQueryValues(uri) : uri.toString();</code></pre>
 </section>
 
 
-    
-</div> <!-- /.main-content -->
-<div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
-  <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
 <header id="header-search-sidebar" class="hidden-l">
   <form class="search-sidebar" role="search">
     <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
@@ -84,20 +86,20 @@
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
-    <li><a href="../../apix/HttpTrackingException-class.html">HttpTrackingException</a></li>
-    <li class="self-crumb">message property</li>
+    <li><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a></li>
+    <li class="self-crumb">renderUrl method</li>
 </ol>
 
-  <h5>HttpTrackingException class</h5>
-  <div id="dartdoc-sidebar-left-content"></div>
-</div><!--/.sidebar-offcanvas-->
-<div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+    <h5>ErrorTrackingConfig class</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div><!--/.sidebar-offcanvas-->
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
 </div><!--/.sidebar-offcanvas-->
 </main>
 <footer>
   <span class="no-break">
     apix
-      3.0.0
+      5.0.0
   </span>
   
 </footer>

@@ -137,6 +137,22 @@ and handles token refresh on configured status codes.
   A cached response entry with metadata.
 </dd>
 
+          <dt id="CacheFailure">
+  <span class="name "><a href="../apix/CacheFailure-class.html">CacheFailure</a></span> 
+
+</dt>
+<dd>
+  A storage failure the cache absorbed.
+</dd>
+
+          <dt id="CacheHit">
+  <span class="name "><a href="../apix/CacheHit-class.html">CacheHit</a></span> 
+
+</dt>
+<dd>
+  A response served from storage rather than from the network.
+</dd>
+
           <dt id="CacheInterceptor">
   <span class="name "><a href="../apix/CacheInterceptor-class.html">CacheInterceptor</a></span> 
 
@@ -523,6 +539,14 @@ secure key-value storage operations.
 therefore how it must be turned back.
 </dd>
 
+          <dt id="CacheOperation">
+  <span class="name "><a href="../apix/CacheOperation.html">CacheOperation</a></span> 
+
+</dt>
+<dd>
+  What the cache was doing when the storage backend refused.
+</dd>
+
           <dt id="CacheStrategy">
   <span class="name "><a href="../apix/CacheStrategy.html">CacheStrategy</a></span> 
 
@@ -745,6 +769,34 @@ has happened during requests.
   </dt>
   <dd>
     Transforms a string one way and back — supplied by the caller.
+    
+
+  </dd>
+
+          
+  <dt id="CacheErrorHandler" class="callable">
+    <span class="name"><a href="../apix/CacheErrorHandler.html">CacheErrorHandler</a></span><span class="signature">
+      <span class="returntype parameter">= void Function<span class="signature">(<span class="parameter" id="param-failure"><span class="type-annotation"><a href="../apix/CacheFailure-class.html">CacheFailure</a></span> <span class="parameter-name">failure</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Signature for <a href="../apix/CacheConfig/onCacheError.html">CacheConfig.onCacheError</a>.
+    
+
+  </dd>
+
+          
+  <dt id="CacheHitHandler" class="callable">
+    <span class="name"><a href="../apix/CacheHitHandler.html">CacheHitHandler</a></span><span class="signature">
+      <span class="returntype parameter">= void Function<span class="signature">(<span class="parameter" id="param-hit"><span class="type-annotation"><a href="../apix/CacheHit-class.html">CacheHit</a></span> <span class="parameter-name">hit</span></span>)</span></span>
+    </span>
+    
+
+  </dt>
+  <dd>
+    Signature for <a href="../apix/CacheConfig/onCacheHit.html">CacheConfig.onCacheHit</a>.
     
 
   </dd>
