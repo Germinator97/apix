@@ -3,10 +3,47 @@
 Two audits of the whole package: 29 defects, then 18 more found on the
 corrected code — two of those living in the corrections themselves. None
 raised, logged or reddened a test; they live at the junctions between
-interceptors. Nothing below needs a code change on your side; a few entries
-change how much traffic and how many tracker events to expect.
+interceptors.
 
-### Breaking
+**Nothing here breaks your build.** No public type, constructor or method
+signature was removed or narrowed, and `CacheStorage` gained no member — a
+backend you wrote yourself still compiles. The claim is checked rather than
+asserted: `test/migration_4_1_0_compiles_test.dart` is a consumer written
+against the 4.1.0 API, compiled against this release.
+
+**What changes is what happens at runtime.** The list below is the whole of it.
+
+### Breaking — a default now decides differently
+
+A library's defaults are the only decisions a consumer makes without knowing
+it. Four of these used to send personal data to a third party out of the box,
+so they are listed first and separately.
+
+* **`SentrySetupOptions.sendDefaultPii` defaults to `false`.** It was `true`,
+  against the Sentry SDK's own default. Every app that wired `SentrySetup` and
+  configured nothing therefore shipped **request headers, cookies and the
+  user's IP address** to a third-party service. Nothing signalled it, because
+  no option was wrong — an inherited default is not written anywhere in the
+  code that inherits it. If your privacy policy describes what you collect,
+  re-read it against this line.
+* **`ErrorTrackingConfig.captureResponseBody` defaults to `false`**, matching
+  `captureRequestBody`. The response body is the one written by the server, so
+  it can carry fields your client never sent.
+* **Query-parameter values are replaced before a URL reaches the tracker**
+  (`redactUrls`, default `true`). A token in `?token=…` used to travel in
+  clear, past the redaction that already covered headers. Names are kept:
+  `?token=[REDACTED]`.
+* **`LoggerConfig` no longer logs request or response bodies by default** — on
+  the error path too, which kept handing them over after 5.0 had closed the
+  success path. `LoggerConfig.trace()` still keeps both, so a debug-only
+  configuration loses nothing by switching to it.
+
+⚠️ **Two of these remove information you may be relying on.** If you diagnose
+5xx from the response body in Sentry, or read full URLs there, those fields go
+quiet — set `captureResponseBody: true` / `redactUrls: false` deliberately
+rather than discovering the gap through thinner tickets.
+
+### Breaking — behaviour
 
 * Cache entries are scoped to the caller — `CacheConfig.varyHeaders`, default
   `['Authorization']`. Two accounts on one device used to share every entry.
@@ -15,14 +52,33 @@ change how much traffic and how many tracker events to expect.
 * Cache entries are also keyed on the request body, so widening
   `cacheableMethods` past `GET` no longer serves one caller another's results.
   `GET` keys are unchanged.
-* `LoggerConfig` no longer logs request and response bodies by default —
-  including on the error path, which was still handing them over.
-* `SentrySetupOptions.sendDefaultPii` defaults to `false`.
-* `ErrorTrackingConfig.captureResponseBody` defaults to `false`, and query
-  parameter values are replaced before a URL reaches the tracker.
 * `CacheStorage.keys()` no longer deletes expired entries. Call
   `CacheInterceptor.evictExpired()` for that.
-* Failures that reached no observer now do — expect a one-off rise in events.
+* A failing cache write no longer re-sends the request, so you no longer
+  receive the second response.
+* An unreadable secure-storage entry still triggers a recovery delete, but now
+  announces it first — `SecureStorageService.onBeforeRecoveryDelete`.
+* A failed `SentrySetup.init` starts the app without Sentry instead of not
+  starting it.
+
+### Breaking — expect more events, once
+
+Failures that reached no observer now do. **Expect a one-off rise, concentrated
+in three classes**, all of them real failures that were previously invisible
+rather than new noise:
+
+* **Broken sessions.** A refresh failure — the `401` your caller actually
+  received — reached no log, no metric and no tracker; only the refresh call's
+  own error did. On an authenticated app this is the most frequent incident
+  class there is, so this is where the rise will show.
+* **Business failures dressed as `200`.** A `responseValidator` rejection was
+  recorded as a success and cached. It is now a failure everywhere.
+* **`cacheOnly` misses**, which ended the chain silently.
+
+If your own noise filter classifies by exception name, check it against the
+typed hierarchy first: these arrive as `UnauthorizedException`,
+`ServerException` and the rest, and a filter keyed on names cannot tell them
+from their `dart:io` namesakes.
 
 ### Added
 
@@ -92,6 +148,30 @@ change how much traffic and how many tracker events to expect.
 * A post-refresh token read did not raise `TokenProviderException`.
 * A hanging `onAuthFailure` froze the refresh queue.
 
+### Docs
+
+* The README showed two per-request cache options — `extra: {'cacheTtl': …}`
+  and `extra: {'forceRefresh': true}` — that **have never existed in the code**
+  and were silently ignored. Use `defaultTtl` and `forceRevalidate()`.
+* A cache hit reaches no logger, no metric and no span — documented, and now
+  reportable through `CacheConfig.onCacheHit`.
+* An interceptor passed through `ApiClientConfig.interceptors` sees a raw
+  `DioException`, never the typed `ApiException`.
+* `TokenProviderOperation.clear` is never raised by apix; it exists for your own
+  `TokenProvider` to raise.
+* `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
+  `CacheBodyEncoding` are documented at last.
+
+### Notes
+
+  was fixed here instead. Nothing to wait for on pub.dev.
+* The `OrNull` and `OrEmpty` variants tolerate every shape of an empty payload:
+  a bare `[]`, `"data": null`, a **`data` key absent from the envelope**, and no
+  body at all. The third one matters if your serialiser drops empty
+  collections — Jackson's `default-property-inclusion: non_empty` does — and it
+  is now pinned rather than incidental. The strict variants still refuse, and
+  say which key was missing and which variant would have accepted it.
+
 ## 4.1.0
 
 Two rounds of the same defect, reported by a consumer and then found by
@@ -130,17 +210,6 @@ listens to is reported to the zone — a Sentry event nobody can act on.
   what it cannot open), `AuthInterceptor` swallows a throwing `onAuthFailure`
   to avoid deadlocking the refresh queue, and `TooManyRequestsException
   .retryAfter` is populated regardless of `RetryConfig.respectRetryAfter`.
-* The README showed two per-request cache options — `extra: {'cacheTtl': …}`
-  and `extra: {'forceRefresh': true}` — that **have never existed in the code**
-  and were silently ignored. Use `defaultTtl` and `forceRevalidate()`.
-* A cache hit reaches no logger, no metric and no span — documented, and now
-  reportable through `CacheConfig.onCacheHit`.
-* An interceptor passed through `ApiClientConfig.interceptors` sees a raw
-  `DioException`, never the typed `ApiException`.
-* `TokenProviderOperation.clear` is never raised by apix; it exists for your own
-  `TokenProvider` to raise.
-* `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
-  `CacheBodyEncoding` are documented at last.
 
 ## 4.0.0
 
