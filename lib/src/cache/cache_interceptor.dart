@@ -516,14 +516,25 @@ class CacheInterceptor extends Interceptor {
       ..write(':')
       ..write('${uri.scheme}://${uri.authority}${uri.path}');
 
-    // Append sorted query parameters for deterministic keys
-    if (options.queryParameters.isNotEmpty) {
-      final sortedParams = Map.fromEntries(
-        options.queryParameters.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key)),
-      );
-      buffer.write(
-          '?${Uri(queryParameters: _stringifyParams(sortedParams)).query}');
+    // Read the query off `uri`, never off `options.queryParameters`.
+    //
+    // dio merges both sources into `uri`: parameters passed as
+    // `queryParameters:` *and* those the caller wrote straight into the path.
+    // Reading only the map dropped the second kind entirely, so
+    // `get('/users?page=1')` and `get('/users?page=2')` produced the same key
+    // and the second call was served the first one's body — one network
+    // request for two different pages. The same two pages passed as
+    // `queryParameters: {'page': n}` did not collide, so whether the defect
+    // fired depended on how the caller happened to spell the request.
+    //
+    // Sorted by name so declaration order is irrelevant; repeated values keep
+    // their order, which can carry meaning.
+    final params = uri.queryParametersAll;
+    if (params.isNotEmpty) {
+      final names = params.keys.toList()..sort();
+      final canonical =
+          names.map((name) => '$name=${params[name]!.join(',')}').join('&');
+      buffer.write('?$canonical');
     }
 
     // Digest, never the value: `EncryptedCacheStorage` leaves keys in clear
@@ -533,11 +544,6 @@ class CacheInterceptor extends Interceptor {
     if (vary != null) buffer.write('|v:$vary');
 
     return buffer.toString();
-  }
-
-  /// Converts query parameters to string map.
-  Map<String, String> _stringifyParams(Map<String, dynamic> params) {
-    return params.map((key, value) => MapEntry(key, value.toString()));
   }
 
   /// Gets the cache strategy for this request.
