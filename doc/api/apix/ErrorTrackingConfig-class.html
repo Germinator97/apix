@@ -99,7 +99,7 @@ It works with Sentry, Crashlytics, or any other service via callbacks.</p>
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="ErrorTrackingConfig.new" class="callable">
-          <span class="name"><a href="../apix/ErrorTrackingConfig/ErrorTrackingConfig.html">ErrorTrackingConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-enabled"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">enabled</span> = <span class="default-value">true</span>, </span><span class="parameter" id="-param-environment"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">environment</span>, </span><span class="parameter" id="-param-onError"><span class="type-annotation"><a href="../apix/CaptureException.html">CaptureException</a>?</span> <span class="parameter-name">onError</span>, </span><span class="parameter" id="-param-onBreadcrumb"><span class="type-annotation"><a href="../apix/AddBreadcrumb.html">AddBreadcrumb</a>?</span> <span class="parameter-name">onBreadcrumb</span>, </span><span class="parameter" id="-param-captureStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Set-class.html">Set</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">captureStatusCodes</span> = <span class="default-value">const {500, 501, 502, 503, 504}</span>, </span><span class="parameter" id="-param-captureRequestBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureRequestBody</span> = <span class="default-value">false</span>, </span><span class="parameter" id="-param-captureResponseBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureResponseBody</span> = <span class="default-value">true</span>, </span><span class="parameter" id="-param-redactedHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span> <span class="parameter-name">redactedHeaders</span> = <span class="default-value">const [&#39;Authorization&#39;, &#39;Cookie&#39;, &#39;Set-Cookie&#39;]</span>, </span><span class="parameter" id="-param-maxBodyLength"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxBodyLength</span> = <span class="default-value">1024</span></span>})</span>
+          <span class="name"><a href="../apix/ErrorTrackingConfig/ErrorTrackingConfig.html">ErrorTrackingConfig.new</a></span><span class="signature">({<span class="parameter" id="-param-enabled"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">enabled</span> = <span class="default-value">true</span>, </span><span class="parameter" id="-param-environment"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">environment</span>, </span><span class="parameter" id="-param-onError"><span class="type-annotation"><a href="../apix/CaptureException.html">CaptureException</a>?</span> <span class="parameter-name">onError</span>, </span><span class="parameter" id="-param-onBreadcrumb"><span class="type-annotation"><a href="../apix/AddBreadcrumb.html">AddBreadcrumb</a>?</span> <span class="parameter-name">onBreadcrumb</span>, </span><span class="parameter" id="-param-captureStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Set-class.html">Set</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">captureStatusCodes</span> = <span class="default-value">const {500, 501, 502, 503, 504}</span>, </span><span class="parameter" id="-param-captureRequestBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureRequestBody</span> = <span class="default-value">false</span>, </span><span class="parameter" id="-param-captureResponseBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureResponseBody</span> = <span class="default-value">false</span>, </span><span class="parameter" id="-param-redactedHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span> <span class="parameter-name">redactedHeaders</span> = <span class="default-value">const [&#39;Authorization&#39;, &#39;Cookie&#39;, &#39;Set-Cookie&#39;]</span>, </span><span class="parameter" id="-param-redactUrls"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">redactUrls</span> = <span class="default-value">true</span>, </span><span class="parameter" id="-param-maxBodyLength"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxBodyLength</span> = <span class="default-value">1024</span></span>})</span>
         </dt>
         <dd>
           
@@ -139,7 +139,7 @@ It works with Sentry, Crashlytics, or any other service via callbacks.</p>
 
 </dt>
 <dd>
-  Whether to capture response body in error context.
+  Whether to capture the response body in the error context.
   <div class="features"><span class="feature">final</span></div>
 
 </dd>
@@ -241,6 +241,19 @@ Defaults to 5xx errors only.
 
 </dd>
 
+        <dt id="redactUrls" class="property">
+  <span class="name"><a href="../apix/ErrorTrackingConfig/redactUrls.html">redactUrls</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd>
+  Whether query-parameter <strong>values</strong> are replaced before a URL leaves for
+the tracker. Names are kept.
+  <div class="features"><span class="feature">final</span></div>
+
+</dd>
+
         <dt id="runtimeType" class="property inherited">
   <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html">runtimeType</a></span>
   <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Type-class.html">Type</a></span>
@@ -284,6 +297,19 @@ Defaults to 5xx errors only.
 </dt>
 <dd>
   Redacts sensitive headers.
+  
+
+</dd>
+
+        <dt id="renderUrl" class="callable">
+  <span class="name"><a href="../apix/ErrorTrackingConfig/renderUrl.html">renderUrl</a></span><span class="signature">(<wbr><span class="parameter" id="renderUrl-param-uri"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Uri-class.html">Uri</a></span> <span class="parameter-name">uri</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Renders <code>uri</code> as it should appear in a report.
   
 
 </dd>

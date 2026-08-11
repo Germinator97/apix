@@ -65,6 +65,12 @@
     
 <section class="desc markdown">
   <p>Initializes Sentry with the given options.</p>
+<p><strong>The app starts even if this fails.</strong> <code>SentryFlutter.init</code> runs
+<code>appRunner</code> itself, so anything that threw before it got there — a
+malformed DSN, a plugin missing on a platform, a <code>configureOptions</code>
+touching an option the installed SDK no longer has — took the whole app
+down with it. Crash reporting is a side channel; a side channel that can
+prevent startup is a worse liability than the reports it collects.</p>
 </section>
 
 
@@ -85,76 +91,10 @@
     return;
   }
 
-  await SentryFlutter.init(
-    (sentryOptions) {
-      sentryOptions.dsn = options.dsn;
-      sentryOptions.environment = options.environment;
-
-      sentryOptions.sendDefaultPii = options.sendDefaultPii;
-      sentryOptions.sampleRate = options.sampleRate;
-
-      &#47;&#47; Disable tracing in debug mode
-      sentryOptions.tracesSampleRate =
-          kDebugMode ? 0.0 : options.tracesSampleRate;
-
-      &#47;&#47; Profiling and replay are now actually wired.
-      &#47;&#47;
-      &#47;&#47; These three were accepted by `SentrySetupOptions`, documented, and
-      &#47;&#47; set by both of its factories — while the lines that applied them sat
-      &#47;&#47; commented out behind &quot;available in newer versions&quot;. That note was
-      &#47;&#47; stale: the pubspec requires sentry_flutter &gt;=9.0.0, which exposes
-      &#47;&#47; `profilesSampleRate` and `replay.*`. So
-      &#47;&#47; `SentrySetupOptions.production()` configured three things that did
-      &#47;&#47; nothing, and nothing anywhere said so — the worst kind of option,
-      &#47;&#47; one that looks set.
-      sentryOptions.profilesSampleRate =
-          kDebugMode ? 0.0 : options.profilesSampleRate;
-      sentryOptions.replay.onErrorSampleRate =
-          kDebugMode ? 0.0 : options.replayOnErrorSampleRate;
-      sentryOptions.replay.sessionSampleRate =
-          kDebugMode ? 0.0 : options.replaySessionSampleRate;
-
-      sentryOptions.debug = kDebugMode;
-      sentryOptions.captureFailedRequests = options.captureFailedRequests;
-      sentryOptions.anrEnabled = options.anrEnabled;
-
-      &#47;&#47; Session and performance tracking
-      sentryOptions.enableAutoSessionTracking = true;
-      sentryOptions.enableAutoPerformanceTracing = true;
-
-      &#47;&#47; Event filtering
-      sentryOptions.beforeSend = (event, hint) =&gt; _beforeSend(
-            event,
-            hint,
-            options,
-          );
-
-      sentryOptions.beforeSendTransaction =
-          (transaction, hint) =&gt; _beforeSendTransaction(
-                transaction,
-                hint,
-                options,
-              );
-
-      &#47;&#47; Escape hatch: invoked last so consumers can override any option.
-      &#47;&#47; Guarded to avoid crashing app startup on a faulty callback.
-      if (options.configureOptions != null) {
-        try {
-          options.configureOptions!(sentryOptions);
-        } catch (e, st) {
-          debugPrint(&#39;⚠️ [Sentry] configureOptions threw: $e\n$st&#39;);
-          if (kDebugMode) rethrow;
-        }
-      }
-    },
+  await guardedStart(
     appRunner: appRunner,
+    initialize: (runner) =&gt; _initialize(options, runner),
   );
-
-  &#47;&#47; Marked initialized only once init has actually returned. Setting it
-  &#47;&#47; beforehand meant a failed init left the flag standing, so a later,
-  &#47;&#47; legitimate retry silently skipped initialization and ran the app with no
-  &#47;&#47; Sentry at all — reporting nothing, and looking exactly like a quiet day.
-  _isInitialized = true;
 }</code></pre>
 </section>
 

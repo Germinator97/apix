@@ -60,6 +60,11 @@
     
 <section class="desc markdown">
   <p>The kind of operation a <a href="../apix/TokenProviderException-class.html">TokenProviderException</a> is reporting on.</p>
+<h2 id="which-of-these-apix-itself-produces">Which of these apix itself produces</h2>
+<p>Only <a href="../apix/TokenProviderOperation.html">read</a> and <a href="../apix/TokenProviderOperation.html">write</a>. That distinction is documented per value below,
+and pinned by a test, because it decides whether a <code>switch</code> on
+<code>e.operation</code> has a branch that can never be taken — and a branch that
+never runs looks exactly like a branch whose case never happens.</p>
 </section>
 
 
@@ -98,8 +103,10 @@
 
 </dt>
 <dd>
-  <p>A read operation on the token provider failed
-(<code>getAccessToken</code>, <code>getRefreshToken</code>).</p>
+  <p>A read failed — <code>getAccessToken</code> or <code>getRefreshToken</code>.</p>
+<p><strong>Produced by apix</strong>, on three paths: injecting the header in
+<code>onRequest</code>, reading the refresh token before a refresh call, and reading
+the new access token after a successful one.</p>
   
 
 </dd>
@@ -111,8 +118,9 @@
 
 </dt>
 <dd>
-  <p>A write operation failed
-(<code>saveTokens</code> or the user-supplied <code>onTokenRefreshed</code> callback).</p>
+  <p>A write failed — <code>saveTokens</code>, or the <code>onTokenRefreshed</code> callback that is
+supposed to call it.</p>
+<p><strong>Produced by apix</strong>, when persisting the tokens a refresh just obtained.</p>
   
 
 </dd>
@@ -124,7 +132,15 @@
 
 </dt>
 <dd>
-  <p>A clear operation failed (<code>clearTokens</code>).</p>
+  <p>A clear failed — <code>clearTokens</code>.</p>
+<p><strong>Never produced by apix</strong>, and that is by design rather than by
+omission: apix does not own your logout. <code>clearTokens</code> is called from
+your own code — typically inside <code>AuthConfig.onAuthFailure</code> — so a
+failure there is raised in your frame, where you can already see it.</p>
+<p>The value exists for <strong>you</strong> to raise from a custom <a href="../apix/TokenProvider-class.html">TokenProvider</a>, so a
+caller of your provider can tell a failed wipe from a failed read. Do not
+expect apix to hand you one: a <code>case TokenProviderOperation.clear</code> in a
+<code>catch</code> around an apix call is a branch that will never be taken.</p>
   
 
 </dd>

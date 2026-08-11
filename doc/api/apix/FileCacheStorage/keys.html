@@ -67,7 +67,15 @@
     </section>
     
 <section class="desc markdown">
-  <p>Returns all cached keys.</p>
+  <p>Returns every stored key, <strong>expired or not</strong>, and removes nothing.</p>
+<p>Reading must not delete. Both built-in backends used to purge expired
+entries while walking, which made a listing destructive in a way its name
+gave no hint of — and destructive of the wrong thing: an expired entry is
+exactly what <code>networkFirst</code> serves when the network is gone, and what
+<code>cacheFirst</code> serves while it revalidates. Calling <code>getCacheKeys()</code> to see
+what was cached therefore threw away the offline fallback, silently,
+leaving a cache miss where there had been data.</p>
+<p>Use <code>CacheInterceptor.evictExpired()</code> when removing them is the intent.</p>
 </section>
 
 
@@ -79,11 +87,9 @@ Future&lt;List&lt;String&gt;&gt; keys() async {
   final result = &lt;String&gt;[];
   await for (final file in _ownedFiles()) {
     final record = await _readRecord(file);
-    if (record == null) continue;
-    &#47;&#47; Expired entries are swept here, as the in-memory storage does: this is
-    &#47;&#47; the only method that walks everything, so it is the natural place to
-    &#47;&#47; keep the directory from growing without bound.
-    if (record.entry.isExpired) {
+    &#47;&#47; An unreadable file is not an entry and has no key to report; it is
+    &#47;&#47; discarded because it can never become one, not because it is stale.
+    if (record == null) {
       await _discard(file);
       continue;
     }
