@@ -42,6 +42,24 @@ folded in below.
 
 ### Fixed
 
+* **A cache hit returns the type the network returned.** Bodies were stored
+  with `jsonEncode` and read back with `jsonDecode` whatever they were, which
+  is not a round trip: a `text/plain` body of `12345` came back as the **int**
+  `12345`, and a `ResponseType.bytes` download came back as a `List<dynamic>`
+  instead of bytes, so any cast at the call site threw — on the second request
+  only. `CacheEntry` now records how the body was encoded (`CacheBodyEncoding`)
+  and reverses exactly that.
+
+* **A `304 Not Modified` now confirms the entry instead of ageing it.** dio's
+  default `validateStatus` accepts only 2xx, so a 304 arrives as an *error* and
+  the branch that handled it in `onResponse` never ran. It fell through to the
+  offline fallback, which served the body flagged `isStale` — it had to be
+  expired to be revalidated at all — and left the TTL untouched. A *successful*
+  revalidation therefore reported stale data and re-hit the network on every
+  later request: `httpCacheAware` had degenerated into "always revalidate".
+  The 304 now restarts the entry's lifetime, honouring the `Cache-Control` the
+  304 itself carries, and serves it fresh.
+
 * **A broken session is no longer the one failure nobody can see.**
   `AuthInterceptor` ended the error chain with `handler.reject`, and it sits
   second — so a refresh failure skipped tracing, logging, error tracking,
