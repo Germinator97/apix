@@ -228,6 +228,32 @@ client actually uses. It returns <code>null</code> when no <code>cacheConfig</co
 <p><strong>Refresh token queue</strong>: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, <code>onAuthFailure</code> is called <strong>once</strong> (not per queued request).</p>
 <p><strong>Network resilience</strong>: When the refresh request itself fails with a connection or timeout error, the original request is rejected with <code>NetworkException</code> (typed: <code>ConnectionException</code>, <code>TimeoutException</code>) — <code>onAuthFailure</code> is <strong>not</strong> invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger <code>AuthException</code> and call <code>onAuthFailure</code>.</p>
 <p><strong>Token storage failures</strong>: Errors raised by your <code>TokenProvider</code> (corrupted keychain, missing entitlements, ...) surface as <code>TokenProviderException</code> — see <a href="#error-handling">Error Handling</a>.</p>
+<h4 id="when-the-keychain-deletes-your-users-session">When the keychain deletes your user's session</h4>
+<p><code>SecureStorageService</code> recovers from data it cannot decrypt — after a reinstall,
+a key rotation, a restored backup — by <strong>deleting it</strong>: the affected key on a
+<code>read</code>, and the whole store on a <code>readAll</code>. That is the right call, since
+undecryptable bytes never become readable and re-reading them forever is worse.</p>
+<p>But the decision rests on matching substrings against a platform exception's
+message, and a false positive here does not degrade a feature — it <strong>logs a user
+out</strong>, indistinguishably from a session that expired on its own. Nothing else
+can report it: the recovery swallows the exception, writes no log, and the next
+read simply misses.</p>
+<pre class="language-dart"><code class="language-dart">final storage = SecureStorageService(
+  onBeforeRecoveryDelete: (event) =&gt; Sentry.captureMessage(
+    'secure storage purge: ${event.operation.name} '
+    '${event.isFullWipe ? "(whole store)" : event.key}',
+    level: SentryLevel.warning,
+  ),
+);
+final tokenProvider = SecureTokenProvider(storage: storage);
+</code></pre>
+<p>Fires <strong>before</strong> the deletion, so you can snapshot what is about to go.
+<code>isFullWipe</code> separates one lost key from a lost session without parsing
+anything, and <code>event.error</code> carries the exception whose message triggered the
+decision — worth capturing verbatim, since those recognised substrings are the
+real contract of this component.</p>
+<p>Requested by a consumer, whose support desk receives "it logged me out" with no
+way to reach a string in a platform message.</p>
 <hr>
 <h3 id="-retry-with-exponential-backoff">🔄 Retry with Exponential Backoff</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(

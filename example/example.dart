@@ -443,6 +443,21 @@ void main() async {
   // ============================================================
   // TOKEN MANAGEMENT
   // ============================================================
+
+  // The keychain deletes a session it cannot decrypt — after a reinstall, a
+  // key rotation, a restored backup. That is the right call, but a false
+  // positive logs a user out indistinguishably from a normal expiry, and
+  // nothing else can report it: the recovery swallows the exception and the
+  // next read simply misses.
+  final watchedStorage = SecureStorageService(
+    onBeforeRecoveryDelete: (event) => debugPrint(
+      'secure storage purge (${event.operation.name}): '
+      '${event.isFullWipe ? "whole store" : event.key} — ${event.error}',
+    ),
+  );
+  final watchedTokens = SecureTokenProvider(storage: watchedStorage);
+  debugPrint('watched provider ready: ${watchedTokens.accessTokenKey}');
+
   // After login, save tokens
   await tokenProvider.saveTokens('access_token_here', 'refresh_token_here');
 

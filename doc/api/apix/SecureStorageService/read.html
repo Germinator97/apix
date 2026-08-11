@@ -78,6 +78,7 @@ key is deleted rather than clearing all storage.</p>
     return await _storage.read(key: key);
   } catch (e) {
     if (_isBadPaddingException(e)) {
+      _announce(SecureStorageOperation.read, e, key: key);
       await delete(key);
       return null;
     }

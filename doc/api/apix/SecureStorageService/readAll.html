@@ -76,6 +76,8 @@ If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
     return await _storage.readAll();
   } catch (e) {
     if (_isBadPaddingException(e)) {
+      &#47;&#47; No key: this one takes the whole store.
+      _announce(SecureStorageOperation.readAll, e);
       await deleteAll();
       return {};
     }

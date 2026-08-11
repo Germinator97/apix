@@ -195,6 +195,39 @@ await client.cacheInterceptor?.clearCache();
 
 **Token storage failures**: Errors raised by your `TokenProvider` (corrupted keychain, missing entitlements, ...) surface as `TokenProviderException` — see [Error Handling](#error-handling).
 
+#### When the keychain deletes your user's session
+
+`SecureStorageService` recovers from data it cannot decrypt — after a reinstall,
+a key rotation, a restored backup — by **deleting it**: the affected key on a
+`read`, and the whole store on a `readAll`. That is the right call, since
+undecryptable bytes never become readable and re-reading them forever is worse.
+
+But the decision rests on matching substrings against a platform exception's
+message, and a false positive here does not degrade a feature — it **logs a user
+out**, indistinguishably from a session that expired on its own. Nothing else
+can report it: the recovery swallows the exception, writes no log, and the next
+read simply misses.
+
+```dart
+final storage = SecureStorageService(
+  onBeforeRecoveryDelete: (event) => Sentry.captureMessage(
+    'secure storage purge: ${event.operation.name} '
+    '${event.isFullWipe ? "(whole store)" : event.key}',
+    level: SentryLevel.warning,
+  ),
+);
+final tokenProvider = SecureTokenProvider(storage: storage);
+```
+
+Fires **before** the deletion, so you can snapshot what is about to go.
+`isFullWipe` separates one lost key from a lost session without parsing
+anything, and `event.error` carries the exception whose message triggered the
+decision — worth capturing verbatim, since those recognised substrings are the
+real contract of this component.
+
+Requested by a consumer, whose support desk receives "it logged me out" with no
+way to reach a string in a platform message.
+
 ---
 
 ### 🔄 Retry with Exponential Backoff
