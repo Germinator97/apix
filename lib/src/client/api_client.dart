@@ -289,6 +289,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
     required R Function(Response<dynamic> response) decode,
     bool assertJson = false,
   }) async {
@@ -298,6 +300,8 @@ class ApiClient {
         data: data,
         queryParameters: queryParameters,
         cancelToken: cancelToken,
+        onSendProgress: onSendProgress,
+        onReceiveProgress: onReceiveProgress,
         options: (options ?? Options()).copyWith(method: method),
       ),
     );
@@ -344,6 +348,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'GET',
@@ -351,6 +356,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(response.data),
     );
@@ -363,6 +369,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'GET',
@@ -370,6 +377,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => fromJson(_requireData(response)),
     );
@@ -382,6 +390,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'GET',
@@ -389,6 +398,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(_extractData(response.data)),
     );
@@ -401,6 +411,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'GET',
@@ -408,6 +419,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _mapOrNull(_extractData(response.data), parser),
     );
@@ -420,6 +432,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'GET',
@@ -427,6 +440,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => _asObject(_extractData(response.data), fromJson),
     );
@@ -439,6 +453,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'GET',
@@ -446,6 +461,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectOrNull(_extractData(response.data), fromJson),
@@ -459,6 +475,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'GET',
@@ -466,6 +483,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectList(_extractData(response.data), fromJson),
@@ -479,6 +497,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'GET',
@@ -486,6 +505,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson),
@@ -499,6 +519,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'GET',
@@ -506,6 +527,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
@@ -519,6 +541,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'GET',
@@ -526,6 +549,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asList(_extractData(response.data), parser),
     );
@@ -538,6 +562,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'GET',
@@ -545,6 +570,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asListOrNull(_extractData(response.data), parser),
     );
@@ -557,6 +583,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'GET',
@@ -564,6 +591,7 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
@@ -579,6 +607,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'POST',
@@ -587,6 +617,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(response.data),
     );
@@ -600,6 +632,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'POST',
@@ -608,6 +642,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => fromJson(_requireData(response)),
     );
@@ -621,6 +657,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'POST',
@@ -629,6 +667,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(_extractData(response.data)),
     );
@@ -642,6 +682,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'POST',
@@ -650,6 +692,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _mapOrNull(_extractData(response.data), parser),
     );
@@ -663,6 +707,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'POST',
@@ -671,6 +717,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => _asObject(_extractData(response.data), fromJson),
     );
@@ -684,6 +732,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'POST',
@@ -692,6 +742,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectOrNull(_extractData(response.data), fromJson),
@@ -706,6 +758,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'POST',
@@ -714,6 +768,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectList(_extractData(response.data), fromJson),
@@ -728,6 +784,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'POST',
@@ -736,6 +794,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson),
@@ -750,6 +810,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'POST',
@@ -758,6 +820,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
@@ -772,6 +836,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'POST',
@@ -780,6 +846,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asList(_extractData(response.data), parser),
     );
@@ -793,6 +861,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'POST',
@@ -801,6 +871,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asListOrNull(_extractData(response.data), parser),
     );
@@ -814,6 +886,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'POST',
@@ -822,6 +896,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
@@ -837,6 +913,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PUT',
@@ -845,6 +923,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(response.data),
     );
@@ -858,6 +938,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PUT',
@@ -866,6 +948,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => fromJson(_requireData(response)),
     );
@@ -879,6 +963,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PUT',
@@ -887,6 +973,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(_extractData(response.data)),
     );
@@ -900,6 +988,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'PUT',
@@ -908,6 +998,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _mapOrNull(_extractData(response.data), parser),
     );
@@ -921,6 +1013,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PUT',
@@ -929,6 +1023,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => _asObject(_extractData(response.data), fromJson),
     );
@@ -942,6 +1038,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'PUT',
@@ -950,6 +1048,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectOrNull(_extractData(response.data), fromJson),
@@ -964,6 +1064,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PUT',
@@ -972,6 +1074,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectList(_extractData(response.data), fromJson),
@@ -986,6 +1090,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'PUT',
@@ -994,6 +1100,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson),
@@ -1008,6 +1116,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PUT',
@@ -1016,6 +1126,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
@@ -1030,6 +1142,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PUT',
@@ -1038,6 +1152,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asList(_extractData(response.data), parser),
     );
@@ -1051,6 +1167,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'PUT',
@@ -1059,6 +1177,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asListOrNull(_extractData(response.data), parser),
     );
@@ -1072,6 +1192,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PUT',
@@ -1080,6 +1202,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
@@ -1095,6 +1219,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PATCH',
@@ -1103,6 +1229,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(response.data),
     );
@@ -1116,6 +1244,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PATCH',
@@ -1124,6 +1254,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => fromJson(_requireData(response)),
     );
@@ -1137,6 +1269,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PATCH',
@@ -1145,6 +1279,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(_extractData(response.data)),
     );
@@ -1158,6 +1294,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'PATCH',
@@ -1166,6 +1304,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _mapOrNull(_extractData(response.data), parser),
     );
@@ -1179,6 +1319,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'PATCH',
@@ -1187,6 +1329,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => _asObject(_extractData(response.data), fromJson),
     );
@@ -1200,6 +1344,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'PATCH',
@@ -1208,6 +1354,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectOrNull(_extractData(response.data), fromJson),
@@ -1222,6 +1370,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PATCH',
@@ -1230,6 +1380,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectList(_extractData(response.data), fromJson),
@@ -1244,6 +1396,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'PATCH',
@@ -1252,6 +1406,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson),
@@ -1266,6 +1422,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PATCH',
@@ -1274,6 +1432,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
@@ -1288,6 +1448,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PATCH',
@@ -1296,6 +1458,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asList(_extractData(response.data), parser),
     );
@@ -1309,6 +1473,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'PATCH',
@@ -1317,6 +1483,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asListOrNull(_extractData(response.data), parser),
     );
@@ -1330,6 +1498,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'PATCH',
@@ -1338,6 +1508,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
@@ -1353,6 +1525,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'DELETE',
@@ -1361,6 +1535,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(response.data),
     );
@@ -1374,6 +1550,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'DELETE',
@@ -1382,6 +1560,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => fromJson(_requireData(response)),
     );
@@ -1395,6 +1575,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'DELETE',
@@ -1403,6 +1585,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => parser(_extractData(response.data)),
     );
@@ -1416,6 +1600,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'DELETE',
@@ -1424,6 +1610,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _mapOrNull(_extractData(response.data), parser),
     );
@@ -1437,6 +1625,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T>(
       'DELETE',
@@ -1445,6 +1635,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) => _asObject(_extractData(response.data), fromJson),
     );
@@ -1458,6 +1650,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<T?>(
       'DELETE',
@@ -1466,6 +1660,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectOrNull(_extractData(response.data), fromJson),
@@ -1480,6 +1676,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'DELETE',
@@ -1488,6 +1686,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectList(_extractData(response.data), fromJson),
@@ -1502,6 +1702,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'DELETE',
@@ -1510,6 +1712,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson),
@@ -1524,6 +1728,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'DELETE',
@@ -1532,6 +1738,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: true,
       decode: (response) =>
           _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
@@ -1546,6 +1754,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'DELETE',
@@ -1554,6 +1764,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asList(_extractData(response.data), parser),
     );
@@ -1567,6 +1779,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>?>(
       'DELETE',
@@ -1575,6 +1789,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) => _asListOrNull(_extractData(response.data), parser),
     );
@@ -1588,6 +1804,8 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
   }) {
     return _typed<List<T>>(
       'DELETE',
@@ -1596,6 +1814,8 @@ class ApiClient {
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
       assertJson: false,
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
