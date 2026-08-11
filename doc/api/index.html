@@ -1369,8 +1369,97 @@ with <code>actualContentType: null</code>.</p>
 <td>Automatic</td>
 <td>Transforms DioException → ApiException</td>
 </tr>
+<tr>
+<td><code>MultipartInterceptor</code></td>
+<td>Automatic</td>
+<td><code>File</code> in a <code>Map</code> → <code>FormData</code>, rebuilt per attempt</td>
+</tr>
+<tr>
+<td><code>ResponseValidatorInterceptor</code></td>
+<td><code>responseValidator</code></td>
+<td>Fails a 2xx your validator refuses</td>
+</tr>
+<tr>
+<td><code>DeduplicationInterceptor</code></td>
+<td><code>deduplicationConfig</code></td>
+<td>Collapses identical concurrent requests</td>
+</tr>
+<tr>
+<td><code>TracingInterceptor</code></td>
+<td><code>tracingConfig</code></td>
+<td>One performance span per request</td>
+</tr>
 </tbody>
 </table>
+<h3 id="what-your-callbacks-receive">What your callbacks receive</h3>
+<p>You write a lambda; the type of its parameter is what tells you what you can
+read. Named here because the signature alone does not.</p>
+<table>
+<thead>
+<tr>
+<th>You wire</th>
+<th>You receive</th>
+<th>Carries</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>loggerConfig.logHandler</code></td>
+<td><code>LogEntry</code></td>
+<td><code>level</code>, <code>method</code>, <code>url</code>, <code>statusCode</code>, <code>durationMs</code>, <code>headers</code>, <code>body</code>, <code>error</code></td>
+</tr>
+<tr>
+<td><code>metricsConfig.onMetrics</code></td>
+<td><code>RequestMetrics</code></td>
+<td><code>requestId</code>, <code>durationMs</code>, <code>statusCode</code>, <code>success</code>, sizes, <code>toMap()</code></td>
+</tr>
+<tr>
+<td><code>metricsConfig.onBreadcrumb</code></td>
+<td><code>RequestBreadcrumb</code></td>
+<td><code>type</code> (<code>BreadcrumbType</code>), <code>message</code>, <code>category</code>, <code>data</code></td>
+</tr>
+<tr>
+<td><code>onRetry</code></td>
+<td><code>RetryAttempt</code></td>
+<td><code>attempt</code> (0-indexed), <code>delay</code>, <code>cause</code>, <code>statusCode</code></td>
+</tr>
+<tr>
+<td><code>cacheConfig.onCacheHit</code></td>
+<td><code>CacheHit</code></td>
+<td><code>key</code>, <code>method</code>, <code>uri</code>, <code>isStale</code>, <code>statusCode</code></td>
+</tr>
+<tr>
+<td><code>cacheConfig.onCacheError</code></td>
+<td><code>CacheFailure</code></td>
+<td><code>operation</code> (<code>CacheOperation</code>), <code>key</code>, <code>error</code>, <code>stackTrace</code></td>
+</tr>
+<tr>
+<td><code>SecureStorageService.onBeforeRecoveryDelete</code></td>
+<td><code>SecureStorageRecovery</code></td>
+<td><code>operation</code> (<code>SecureStorageOperation</code>), <code>key</code>, <code>error</code>, <code>isFullWipe</code></td>
+</tr>
+<tr>
+<td><code>tracingConfig.startSpan</code></td>
+<td><em>returns</em> <code>ApiSpan?</code></td>
+<td><code>setData()</code>, <code>finish({statusCode})</code> — return <code>null</code> to skip</td>
+</tr>
+<tr>
+<td><code>errorTrackingConfig.onError</code></td>
+<td><code>ApiException</code></td>
+<td>the <strong>typed</strong> exception, never the raw <code>DioException</code></td>
+</tr>
+<tr>
+<td><code>authConfig.onAuthFailure</code></td>
+<td><code>TokenProvider</code>, <code>Object?</code></td>
+<td>the cause: a <code>DioException</code>, a <code>TokenProviderException</code>, or <code>null</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>TokenProviderException.operation</code> is a <code>TokenProviderOperation</code> — <code>read</code> or
+<code>write</code>. <strong>Never <code>clear</code></strong>: apix does not own your logout, so a failure there is
+raised in your own frame. The value exists for a custom <code>TokenProvider</code> to
+raise, and a <code>case TokenProviderOperation.clear</code> around an apix call is a branch
+that cannot be taken.</p>
 <hr>
 <h2 id="example-app">Example App</h2>
 <p>A complete Flutter app demonstrating all ApiX features is available on GitHub:</p>

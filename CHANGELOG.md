@@ -1,176 +1,108 @@
 ## 5.0.0
 
-Two audits of the whole package: 29 defects, then 18 more found on the
-corrected code — two of those living in the corrections themselves. None
-raised, logged or reddened a test; they live at the junctions between
-interceptors.
+Two audits of the package, then the consumer's review of both: 47 defects, 20
+reproduced against the real client. None raised, logged or reddened a test.
 
-**Nothing here breaks your build.** No public type, constructor or method
-signature was removed or narrowed, and `CacheStorage` gained no member — a
-backend you wrote yourself still compiles. The claim is checked rather than
-asserted: `test/migration_4_1_0_compiles_test.dart` is a consumer written
-against the 4.1.0 API, compiled against this release.
+**Nothing breaks your build** — no public symbol removed or narrowed, checked by
+a 4.1.0-era consumer compiled against this release
+(`test/migration_4_1_0_compiles_test.dart`). Everything below is runtime.
 
-**What changes is what happens at runtime.** The list below is the whole of it.
+### Breaking — defaults
 
-### Breaking — a default now decides differently
+Four defaults used to send personal data to a third party out of the box.
 
-A library's defaults are the only decisions a consumer makes without knowing
-it. Four of these used to send personal data to a third party out of the box,
-so they are listed first and separately.
+* `SentrySetupOptions.sendDefaultPii` → **`false`**. It was `true`, against the
+  SDK's own default: an app that configured nothing shipped request headers,
+  cookies and the user's IP to the tracker.
+* `ErrorTrackingConfig.captureResponseBody` → **`false`**.
+* `ErrorTrackingConfig.redactUrls` → **`true`**: query *values* are replaced
+  before a URL reaches the tracker. Names are kept.
+* `LoggerConfig` logs no request or response body, error path included.
+  `LoggerConfig.trace()` still keeps both.
 
-* **`SentrySetupOptions.sendDefaultPii` defaults to `false`.** It was `true`,
-  against the Sentry SDK's own default. Every app that wired `SentrySetup` and
-  configured nothing therefore shipped **request headers, cookies and the
-  user's IP address** to a third-party service. Nothing signalled it, because
-  no option was wrong — an inherited default is not written anywhere in the
-  code that inherits it. If your privacy policy describes what you collect,
-  re-read it against this line.
-* **`ErrorTrackingConfig.captureResponseBody` defaults to `false`**, matching
-  `captureRequestBody`. The response body is the one written by the server, so
-  it can carry fields your client never sent.
-* **Query-parameter values are replaced before a URL reaches the tracker**
-  (`redactUrls`, default `true`). A token in `?token=…` used to travel in
-  clear, past the redaction that already covered headers. Names are kept:
-  `?token=[REDACTED]`.
-* **`LoggerConfig` no longer logs request or response bodies by default** — on
-  the error path too, which kept handing them over after 5.0 had closed the
-  success path. `LoggerConfig.trace()` still keeps both, so a debug-only
-  configuration loses nothing by switching to it.
-
-⚠️ **Two of these remove information you may be relying on.** If you diagnose
-5xx from the response body in Sentry, or read full URLs there, those fields go
-quiet — set `captureResponseBody: true` / `redactUrls: false` deliberately
-rather than discovering the gap through thinner tickets.
+⚠️ The middle two remove a field you may be diagnosing from. Set them back
+deliberately rather than discovering thinner Sentry tickets.
 
 ### Breaking — behaviour
 
-* Cache entries are scoped to the caller — `CacheConfig.varyHeaders`, default
-  `['Authorization']`. Two accounts on one device used to share every entry.
-  A token refresh now invalidates the cache: vary on a stable identity header to
-  avoid it, or `const []` to opt out.
-* Cache entries are also keyed on the request body, so widening
-  `cacheableMethods` past `GET` no longer serves one caller another's results.
-  `GET` keys are unchanged.
-* `CacheStorage.keys()` no longer deletes expired entries. Call
-  `CacheInterceptor.evictExpired()` for that.
-* A failing cache write no longer re-sends the request, so you no longer
-  receive the second response.
-* An unreadable secure-storage entry still triggers a recovery delete, but now
-  announces it first — `SecureStorageService.onBeforeRecoveryDelete`.
-* A failed `SentrySetup.init` starts the app without Sentry instead of not
-  starting it.
-
-### Breaking — expect more events, once
-
-Failures that reached no observer now do. **Expect a one-off rise, concentrated
-in three classes**, all of them real failures that were previously invisible
-rather than new noise:
-
-* **Broken sessions.** A refresh failure — the `401` your caller actually
-  received — reached no log, no metric and no tracker; only the refresh call's
-  own error did. On an authenticated app this is the most frequent incident
-  class there is, so this is where the rise will show.
-* **Business failures dressed as `200`.** A `responseValidator` rejection was
-  recorded as a success and cached. It is now a failure everywhere.
-* **`cacheOnly` misses**, which ended the chain silently.
-
-If your own noise filter classifies by exception name, check it against the
-typed hierarchy first: these arrive as `UnauthorizedException`,
-`ServerException` and the rest, and a filter keyed on names cannot tell them
-from their `dart:io` namesakes.
+* Cache entries are scoped to the caller (`CacheConfig.varyHeaders`, default
+  `['Authorization']`) and keyed on the request body. A token refresh is now a
+  miss — vary on a stable identity header, or `const []` to opt out.
+* `CacheStorage.keys()` no longer deletes expired entries — use
+  `CacheInterceptor.evictExpired()`.
+* A failing cache write no longer re-sends the request.
+* A failed `SentrySetup.init` starts the app without Sentry, not at all.
+* Expect a one-off rise in tracker events, in three classes that reached no
+  observer before: broken sessions, `responseValidator` rejections, `cacheOnly`
+  misses. Real failures, not new noise. A filter keyed on exception *names*
+  cannot tell them from their `dart:io` namesakes.
 
 ### Added
 
-* Every typed-method family on every verb: 12 shapes x 5 verbs, so
-  `putAndDecodeData`, `deleteListAndParseDataOrEmpty` and the rest exist. GET
-  and POST had 12 each, PUT and PATCH 2, DELETE none.
+* Every typed-method family on every verb — 12 shapes x 5 verbs. GET and POST
+  had 12 each, PUT and PATCH 2, DELETE none.
+* `onSendProgress` / `onReceiveProgress` on those methods.
+* `ApiClient.cacheInterceptor` — the invalidation API on the instance in use.
+* `CacheConfig.onCacheHit` / `onCacheError` — a hit reaches no observer, and a
+  storage failure was absorbed in silence.
+* `CacheInterceptor.evictExpired()`.
+* `SecureStorageService.onBeforeRecoveryDelete` — fires before the recovery
+  deletes a credential.
 * `RequestOptions.forceRevalidate()`, `MultipartReplayException`,
-  `CacheBodyEncoding`.
-* `ApiClient.cacheInterceptor` — reaches the invalidation API (`clearCache()`,
-  `invalidateUrl()`, …) on the instance the client uses.
-* `CacheConfig.onCacheHit` / `onCacheError` — a cache hit reaches no observer,
-  and a storage failure was absorbed in silence.
-* `CacheInterceptor.evictExpired()` — the sweep `getCacheKeys()` used to do
-  behind your back.
-* `onSendProgress` / `onReceiveProgress` on every typed method.
-* `ErrorTrackingConfig.redactUrls` — query values no longer leave for the
-  tracker.
+  `CacheBodyEncoding`, `ErrorTrackingConfig.redactUrls`.
 
 ### Fixed
 
 **Cache**
 
-* A failing cache write re-sent the request and returned the second response.
 * Query parameters written into the path were dropped from the key, so
   `/users?page=1` and `?page=2` shared one entry.
-* `clearCache()` under-reported by the expired entries `keys()` had just swept.
-* A cache hit changed the body's type: `text/plain` `12345` returned as an int,
-  a binary download as `List<dynamic>`.
-* A `304` served the body as stale and never restarted the TTL, so
-  `httpCacheAware` revalidated forever.
+* A failing write re-sent the request and returned the second response.
+* A hit changed the body's type: `text/plain` `12345` came back an int.
+* A `304` served the body as stale and never restarted the TTL.
 * `no-cache` and `must-revalidate` were parsed and ignored.
 * `invalidateUrl('/users')` also removed `/users-archived` and `/users/123`.
-* Concurrent `FileCacheStorage` writes to one key raced on a shared temp file;
-  eviction scanned the whole directory on every write.
+* `clearCache()` under-reported by the entries `keys()` had just swept.
+* Concurrent `FileCacheStorage` writes to one key raced on a shared temp file.
 
 **Multipart**
 
-* Nested fields and files were dropped — `{'a': {'b': {'file': File}}}` sent an
-  empty body and returned `200`.
-* An upload failed outright after a token refresh or a retry (`FormData` is
-  single-use), and its `StateError` replaced the server's status.
+* Nested fields and files were dropped: `{'a': {'b': {'file': File}}}` sent an empty body, and returned `200`.
+* An upload died after a token refresh or a retry, and its `StateError` replaced the server's status.
 
 **Observability**
 
-* A refresh failure reached no log and no tracker, and leaked its in-flight
-  metric; only the internal refresh call was reported.
-* A `responseValidator` rejection was recorded as a success, cached, then served
-  unvalidated on the next hit.
-* `ErrorMapperInterceptor` rewrote an already-typed exception unless it arrived
-  with type `unknown`.
-* A reused `RequestOptions` was observed only on its first execution.
-* `profilesSampleRate` and both replay sample rates were accepted and ignored;
-  `customBeforeSendTransaction` got an empty `Hint`; a failed `SentrySetup.init`
-  blocked every later attempt.
-* A failed `SentrySetup.init` could stop the app from starting at all.
-* Every retry stranded an in-flight metric until the five-minute sweep.
+* A refresh failure reached no log and no tracker, and leaked its metric.
+* A `responseValidator` rejection was recorded as a success, cached, then served unvalidated.
+* An error body reached the log sink whatever `logResponseBody` said.
+* `ErrorMapperInterceptor` rewrote an already-typed exception.
+* A reused `RequestOptions` was observed once; every retry stranded a metric.
+* `profilesSampleRate` and both replay rates were accepted and ignored;
+  `customBeforeSendTransaction` got an empty `Hint`.
 
 **Client**
 
-* A bare `[]` where an envelope was expected broke the `...OrEmpty` and
-  `...OrNull` variants.
-* `ApiException.code` no longer returns the HTTP status disguised as a business
-  code — a value equal to the status is dropped, in either spelling. Reported by
-  a consumer as a review point.
-* `RetryConfig` broke the `==`/`hashCode` contract.
+* The `…OrEmpty` / `…OrNull` variants broke on a bare `[]`. They tolerate every
+  shape of empty now, including an absent `data` key; the strict ones name the
+  key they wanted.
+* `ApiException.code` returned the HTTP status disguised as a business code.
+* `RetryConfig` broke the `==` / `hashCode` contract.
 * `RetryInterceptor` swallowed failures of its own retry machinery.
 * A post-refresh token read did not raise `TokenProviderException`.
 * A hanging `onAuthFailure` froze the refresh queue.
 
 ### Docs
 
-* The README showed two per-request cache options — `extra: {'cacheTtl': …}`
-  and `extra: {'forceRefresh': true}` — that **have never existed in the code**
-  and were silently ignored. Use `defaultTtl` and `forceRevalidate()`.
-* A cache hit reaches no logger, no metric and no span — documented, and now
-  reportable through `CacheConfig.onCacheHit`.
-* An interceptor passed through `ApiClientConfig.interceptors` sees a raw
-  `DioException`, never the typed `ApiException`.
-* `TokenProviderOperation.clear` is never raised by apix; it exists for your own
-  `TokenProvider` to raise.
+* The README showed `extra: {'cacheTtl': …}` and `extra: {'forceRefresh': true}`,
+  which **never existed in the code**. Use `defaultTtl` and `forceRevalidate()`.
+* A cache hit reaches no logger, metric or span; an interceptor passed through
+  `ApiClientConfig.interceptors` sees a raw `DioException`;
+  `TokenProviderOperation.clear` is never raised by apix.
 * `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
   `CacheBodyEncoding` are documented at last.
 
 ### Notes
 
-  was fixed here instead. Nothing to wait for on pub.dev.
-* The `OrNull` and `OrEmpty` variants tolerate every shape of an empty payload:
-  a bare `[]`, `"data": null`, a **`data` key absent from the envelope**, and no
-  body at all. The third one matters if your serialiser drops empty
-  collections — Jackson's `default-property-inclusion: non_empty` does — and it
-  is now pinned rather than incidental. The strict variants still refuse, and
-  say which key was missing and which variant would have accepted it.
 
 ## 4.1.0
 

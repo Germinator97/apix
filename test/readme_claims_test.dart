@@ -195,6 +195,62 @@ void main() {
       );
     });
 
+    // The generalisation of the two lists above, and the reason they keep
+    // going stale: a per-release relevé has to be extended by hand, so it
+    // records the releases someone remembered. This one is derived from the
+    // barrel, so it covers what is exported rather than what was recalled.
+    //
+    // Scoped to classes and enums. A typedef is a signature you write as a
+    // lambda, and an extension is a name you never write at all — demanding
+    // that `NoRetryExtension` appear in prose would train the reader to ignore
+    // this test, which is how a guard gets silenced.
+    test('every exported class and enum is named in the README', () {
+      final barrel = File('lib/apix.dart').readAsStringSync();
+      final exported = RegExp(r"^export '(src/[^']+)';", multiLine: true)
+          .allMatches(barrel)
+          .map((match) => match.group(1)!)
+          .toList();
+
+      expect(exported, isNotEmpty,
+          reason: 'no relative export found in lib/apix.dart — this parsing is '
+              'stale, not the barrel');
+
+      final undocumented = <String>[];
+      for (final relative in exported) {
+        final source = File('lib/$relative')
+            .readAsStringSync()
+            .replaceAll(RegExp(r'^\s*///.*$', multiLine: true), '');
+        final declared = [
+          ...RegExp(r'^(?:abstract |final |sealed |base )*class (\w+)',
+                  multiLine: true)
+              .allMatches(source),
+          ...RegExp(r'^enum (\w+)', multiLine: true).allMatches(source),
+        ].map((match) => match.group(1)!).where((n) => !n.startsWith('_'));
+
+        undocumented.addAll(declared.where((name) => !readme.contains(name)));
+      }
+
+      // Equality, not containment. A type that stops being documented has to
+      // fail here, and so does one that starts being documented without this
+      // list shrinking — otherwise the exception list outlives its reasons and
+      // becomes a standing permission, which is exactly what happened to the
+      // "every 4.0.0 addition" relevé above.
+      expect(
+        undocumented.toSet(),
+        {
+          // Returned by CacheInterceptor's internal parsing. A consumer never
+          // constructs one and never receives one.
+          'CacheControlHeader',
+          // Wired by CacheInterceptor and DeduplicationInterceptor for you;
+          // reachable, but there is nothing a consumer does with it directly.
+          'RequestDeduplicator',
+        },
+        reason: 'a type a consumer can be handed, and cannot find in the '
+            'README, is a type they will not use — or will use from its name '
+            'alone. Document it, or justify it here.',
+      );
+    });
+
     // The counterpart, and the half that was missing. Containment lets the
     // list survive what it describes; equality makes a removed API fail here
     // too, which is the only way a relevé keeps meaning anything.

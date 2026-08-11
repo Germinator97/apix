@@ -1202,6 +1202,34 @@ with `actualContentType: null`.
 | `ErrorTrackingInterceptor` | `errorTrackingConfig` | Error tracking |
 | `MetricsInterceptor` | `metricsConfig` | Request metrics |
 | `ErrorMapperInterceptor` | Automatic | Transforms DioException → ApiException |
+| `MultipartInterceptor` | Automatic | `File` in a `Map` → `FormData`, rebuilt per attempt |
+| `ResponseValidatorInterceptor` | `responseValidator` | Fails a 2xx your validator refuses |
+| `DeduplicationInterceptor` | `deduplicationConfig` | Collapses identical concurrent requests |
+| `TracingInterceptor` | `tracingConfig` | One performance span per request |
+
+### What your callbacks receive
+
+You write a lambda; the type of its parameter is what tells you what you can
+read. Named here because the signature alone does not.
+
+| You wire | You receive | Carries |
+|----------|-------------|---------|
+| `loggerConfig.logHandler` | `LogEntry` | `level`, `method`, `url`, `statusCode`, `durationMs`, `headers`, `body`, `error` |
+| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes, `toMap()` |
+| `metricsConfig.onBreadcrumb` | `RequestBreadcrumb` | `type` (`BreadcrumbType`), `message`, `category`, `data` |
+| `onRetry` | `RetryAttempt` | `attempt` (0-indexed), `delay`, `cause`, `statusCode` |
+| `cacheConfig.onCacheHit` | `CacheHit` | `key`, `method`, `uri`, `isStale`, `statusCode` |
+| `cacheConfig.onCacheError` | `CacheFailure` | `operation` (`CacheOperation`), `key`, `error`, `stackTrace` |
+| `SecureStorageService.onBeforeRecoveryDelete` | `SecureStorageRecovery` | `operation` (`SecureStorageOperation`), `key`, `error`, `isFullWipe` |
+| `tracingConfig.startSpan` | *returns* `ApiSpan?` | `setData()`, `finish({statusCode})` — return `null` to skip |
+| `errorTrackingConfig.onError` | `ApiException` | the **typed** exception, never the raw `DioException` |
+| `authConfig.onAuthFailure` | `TokenProvider`, `Object?` | the cause: a `DioException`, a `TokenProviderException`, or `null` |
+
+`TokenProviderException.operation` is a `TokenProviderOperation` — `read` or
+`write`. **Never `clear`**: apix does not own your logout, so a failure there is
+raised in your own frame. The value exists for a custom `TokenProvider` to
+raise, and a `case TokenProviderOperation.clear` around an apix call is a branch
+that cannot be taken.
 
 ---
 
