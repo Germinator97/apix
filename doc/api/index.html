@@ -757,9 +757,12 @@ field named <code>code</code> with the HTTP status (<code>{"code": 401, ...}</co
 Reported as a business code, it would restore the coupling this field exists
 to remove — disguised, since <code>switch (e.code)</code> would look like business logic.
 apix drops any value equal to the response status, in either spelling. Real
-codes are untouched: <code>4001</code> under a <code>400</code> comes through. If your API publishes
-codes under another name, prefer <code>errorCodeKey: 'errorCode'</code> over relying on
-the guard.</p>
+codes are untouched: <code>4001</code> under a <code>400</code> comes through.</p>
+<p>Point <code>errorCodeKey</code> at another field only if your API genuinely publishes
+codes there — <strong>not</strong> as a way to dodge the trap. One API in the wild fills
+the same <code>code</code> field with a status on one handler and a real code on another
+(<code>{"code": 400, ...}</code> vs <code>{"code": "VALIDATION_ERROR", "status": 400, ...}</code>);
+pointing elsewhere to avoid the first would have silently lost the second.</p>
 </blockquote>
 <h3 id="rate-limits">Rate limits</h3>
 <pre class="language-dart"><code class="language-dart">on TooManyRequestsException catch (e) {

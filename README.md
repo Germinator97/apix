@@ -720,9 +720,13 @@ generic `5xx` — or when no code is guaranteed.
 > Reported as a business code, it would restore the coupling this field exists
 > to remove — disguised, since `switch (e.code)` would look like business logic.
 > apix drops any value equal to the response status, in either spelling. Real
-> codes are untouched: `4001` under a `400` comes through. If your API publishes
-> codes under another name, prefer `errorCodeKey: 'errorCode'` over relying on
-> the guard.
+> codes are untouched: `4001` under a `400` comes through.
+>
+> Point `errorCodeKey` at another field only if your API genuinely publishes
+> codes there — **not** as a way to dodge the trap. One API in the wild fills
+> the same `code` field with a status on one handler and a real code on another
+> (`{"code": 400, ...}` vs `{"code": "VALIDATION_ERROR", "status": 400, ...}`);
+> pointing elsewhere to avoid the first would have silently lost the second.
 
 ### Rate limits
 

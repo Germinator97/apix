@@ -621,6 +621,37 @@ void main() {
           }
         });
 
+        // The case that settles why the guard cannot be replaced by "trust the
+        // configured key": a consumer's API uses the SAME field, `code`, for two
+        // different things depending on which handler answered. Configuring a
+        // key says "read this field" — it cannot say "this field always holds a
+        // real code", because the ambiguity is in the data, not in the name.
+        test('separates two envelopes that share the same key', () {
+          final business = ErrorMapperInterceptor.mapDioException(
+            badResponse({
+              'code': 400,
+              'status': 'error',
+              'message': 'Erreur de déchiffrement…',
+            }, statusCode: 400),
+          );
+          final apiError = ErrorMapperInterceptor.mapDioException(
+            badResponse({
+              'code': 'VALIDATION_ERROR',
+              'status': 400,
+              'path': '/api/mobile/v1/auth/login',
+              'message': 'One or more fields have validation errors',
+            }, statusCode: 400),
+          );
+
+          expect(business.code, isNull, reason: 'that one is the status');
+          expect(
+            apiError.code,
+            equals('VALIDATION_ERROR'),
+            reason: 'and that one is a real code, under the very same key — '
+                'no amount of configuration can tell them apart',
+          );
+        });
+
         test('applies to the nested shape as well', () {
           final result = ErrorMapperInterceptor.mapDioException(
             badResponse({
