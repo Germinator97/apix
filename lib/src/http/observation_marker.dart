@@ -61,6 +61,21 @@ class ObservationMarker {
   /// Key set by `AuthInterceptor` before it replays a request post-refresh.
   static const String _authRetryKey = 'apix_is_auth_retry';
 
+  /// Whether [options] is being replayed by apix rather than started fresh.
+  ///
+  /// True for a `RetryInterceptor` replay and for an `AuthInterceptor` replay
+  /// after a token refresh — the two things that re-enter the chain through
+  /// `onRequest` carrying the same `extra` map.
+  ///
+  /// Public because more than one observer needs the same answer, and each
+  /// deciding for itself is how they drift: [beginAttempt] uses it to know
+  /// whether to clear its marks, and `MetricsInterceptor` uses it to know
+  /// whether it is already measuring this request.
+  static bool isReplay(RequestOptions options) {
+    final extra = options.extra;
+    return extra[_retryAttemptKey] != null || extra[_authRetryKey] == true;
+  }
+
   /// Clears the marks at the start of a genuinely new attempt.
   ///
   /// The marks live on `RequestOptions.extra`, which outlives a single
@@ -79,11 +94,8 @@ class ObservationMarker {
   /// retry storm as three separate failures. One logical request stays one
   /// event; the attempts are what `RetryConfig`'s `onRetry` callback is for.
   static void beginAttempt(RequestOptions options) {
-    final extra = options.extra;
-    if (extra[_retryAttemptKey] != null || extra[_authRetryKey] == true) {
-      return;
-    }
-    extra.removeWhere((key, _) => key.startsWith(_prefix));
+    if (isReplay(options)) return;
+    options.extra.removeWhere((key, _) => key.startsWith(_prefix));
   }
 }
 
