@@ -73,6 +73,25 @@ class FileCacheStorage implements CacheStorage {
   /// or something else entirely — at the same directory.
   static final RegExp _ownedFile = RegExp(r'^[0-9a-f]{64}\.json$');
 
+  /// Half-written files left behind by an interrupted [set].
+  static final RegExp _ownedTemp = RegExp(r'^[0-9a-f]{64}\.\d+\.tmp$');
+
+  /// Distinguishes the temporary file of one in-flight write from another's.
+  ///
+  /// Both used to be `<digest>.tmp`, so two concurrent writes to the same key
+  /// raced: the second overwrote the first's temporary file, one `rename` then
+  /// failed on a file that was no longer there, and the exception was swallowed
+  /// by the interceptor's storage guard — a write that reported nothing and
+  /// stored nothing.
+  int _writeCounter = 0;
+
+  /// Number of entries seen at the last full scan, or null when unknown.
+  ///
+  /// Lets [set] skip the directory listing on most writes: eviction only has to
+  /// look when the count could plausibly have passed [maxEntries]. The listing
+  /// plus one read per file used to run on **every** cached response.
+  int? _knownCount;
+
   File _fileFor(String key) {
     final digest = sha256.convert(utf8.encode(key)).toString();
     return File('${directory.path}${Platform.pathSeparator}$digest.json');
@@ -116,11 +135,19 @@ class FileCacheStorage implements CacheStorage {
     final payload = jsonEncode({'key': key, 'entry': entry.toJson()});
 
     // Write then rename, so a concurrent reader sees either the old entry or
-    // the new one — never a truncated file.
-    final temp = File('${file.path}.tmp');
+    // the new one — never a truncated file. The counter keeps two concurrent
+    // writes to the same key off each other's temporary file.
+    final digest = file.uri.pathSegments.last.replaceAll('.json', '');
+    final temp = File(
+      '${directory.path}${Platform.pathSeparator}$digest.${_writeCounter++}.tmp',
+    );
     await temp.writeAsString(payload, flush: true);
     await temp.rename(file.path);
 
+    // Counted optimistically: overwriting an existing key inflates this, which
+    // only costs an extra scan. Under-counting would be the dangerous
+    // direction, since it would skip an eviction that was due.
+    if (_knownCount != null) _knownCount = _knownCount! + 1;
     await _evictIfNeeded();
   }
 
@@ -133,10 +160,17 @@ class FileCacheStorage implements CacheStorage {
     final limit = maxEntries;
     if (limit == null) return;
 
+    // Skip the scan while the running count says there is nothing to do. Only
+    // an unknown count (first write of the process) or one at the limit is
+    // worth walking the directory for.
+    final known = _knownCount;
+    if (known != null && known <= limit) return;
+
     final files = <File>[];
     await for (final file in _ownedFiles()) {
       files.add(file);
     }
+    _knownCount = files.length;
     if (files.length <= limit) return;
 
     var excess = files.length - limit;
@@ -151,7 +185,10 @@ class FileCacheStorage implements CacheStorage {
         excess--;
       }
     }
-    if (excess == 0) return;
+    if (excess == 0) {
+      _knownCount = limit;
+      return;
+    }
 
     // Then the oldest written. `lastModified` is what the filesystem knows;
     // the entry's own createdAt would need a read per file for no better
@@ -169,11 +206,15 @@ class FileCacheStorage implements CacheStorage {
     for (final entry in byAge.take(excess)) {
       await _discard(entry.key);
     }
+
+    // Whichever pass did the work, the directory is back at the limit.
+    _knownCount = limit;
   }
 
   @override
   Future<void> remove(String key) async {
     await _discard(_fileFor(key));
+    _knownCount = null;
   }
 
   @override
@@ -181,6 +222,12 @@ class FileCacheStorage implements CacheStorage {
     await for (final file in _ownedFiles()) {
       await _discard(file);
     }
+    // Temporary files from writes interrupted by a crash or a kill: nothing
+    // else ever removes them, and they are ours by name.
+    await for (final file in _ownedFiles(pattern: _ownedTemp)) {
+      await _discard(file);
+    }
+    _knownCount = 0;
   }
 
   @override
@@ -205,6 +252,7 @@ class FileCacheStorage implements CacheStorage {
       }
       result.add(record.key);
     }
+    _knownCount = result.length;
     return result;
   }
 
@@ -219,6 +267,7 @@ class FileCacheStorage implements CacheStorage {
         removed++;
       }
     }
+    if (_knownCount != null) _knownCount = _knownCount! - removed;
     return removed;
   }
 
@@ -228,12 +277,13 @@ class FileCacheStorage implements CacheStorage {
   }
 
   /// Lists the files this storage owns, tolerating a missing directory.
-  Stream<File> _ownedFiles() async* {
+  Stream<File> _ownedFiles({RegExp? pattern}) async* {
     if (!directory.existsSync()) return;
+    final match = pattern ?? _ownedFile;
     await for (final entity in directory.list()) {
       if (entity is! File) continue;
       final name = entity.uri.pathSegments.last;
-      if (_ownedFile.hasMatch(name)) yield entity;
+      if (match.hasMatch(name)) yield entity;
     }
   }
 

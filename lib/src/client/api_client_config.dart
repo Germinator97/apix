@@ -109,6 +109,12 @@ class ApiClientConfig {
   });
 
   /// Creates a copy of this config with the given fields replaced.
+  ///
+  /// **A `null` argument means "keep the current value", never "clear it".**
+  /// Passing `null` explicitly cannot remove a callback or an optional field —
+  /// build a fresh config for that. The usual Dart limitation, stated because
+  /// the alternative is discovering it from a callback that kept firing after
+  /// you thought you had removed it.
   ApiClientConfig copyWith({
     String? baseUrl,
     Duration? connectTimeout,
