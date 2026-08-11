@@ -466,10 +466,23 @@ class ApiClient {
 
   /// Extracts the payload from an envelope response.
   ///
-  /// Expects `responseData` to be a `Map<String, dynamic>` containing
-  /// the configured data key. Throws [ApiException] with a clear message if
-  /// the response format is unexpected.
+  /// The normal shape is a `Map` carrying [ApiClientConfig.dataKey], and that
+  /// is what this returns.
+  ///
+  /// **A bare `List` or `null` at the root is accepted as the payload itself.**
+  /// Backends routinely serialise an empty collection as `[]` rather than
+  /// `{"data": []}` — the envelope is built by a serialiser that has nothing to
+  /// wrap — and rejecting that made the `…OrEmpty` and `…OrNull` variants break
+  /// on the commonest empty shape there is. They promise to tolerate "no data";
+  /// refusing the way most servers spell it made the promise hollow, and the
+  /// resulting crash arrived under HTTP 200, on the user who simply had nothing
+  /// yet.
+  ///
+  /// Anything else — a `String`, a number — is still a shape nobody can guess
+  /// at, and still throws.
   dynamic _extractData(dynamic responseData) {
+    if (responseData == null) return null;
+    if (responseData is List) return responseData;
     if (responseData is! Map<String, dynamic>) {
       throw ApiException(
         message: 'Expected envelope response (Map with '
