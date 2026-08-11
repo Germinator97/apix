@@ -437,7 +437,10 @@ class CacheInterceptor extends Interceptor {
       return;
     }
 
-    // No usable cache available, reject
+    // No usable cache available, reject — with `true`, so the failure still
+    // travels the rest of the error chain. Without it a `cacheOnly` miss was
+    // invisible to logging, metrics and error tracking, and left the metrics
+    // in-flight entry for this request dangling.
     handler.reject(
       DioException(
         requestOptions: options,
@@ -448,6 +451,7 @@ class CacheInterceptor extends Interceptor {
         ),
         type: DioExceptionType.unknown,
       ),
+      true,
     );
   }
 

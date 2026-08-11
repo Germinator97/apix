@@ -67,6 +67,9 @@ class AuthInterceptor extends Interceptor {
       try {
         token = await config.tokenProvider.getAccessToken();
       } catch (e, st) {
+        // `true` so the observers still see it: a keychain that will not open
+        // is a failure worth a log and a tracker event, not a silent 0-byte
+        // request.
         handler.reject(
           DioException(
             requestOptions: options,
@@ -78,6 +81,7 @@ class AuthInterceptor extends Interceptor {
             ),
             type: DioExceptionType.unknown,
           ),
+          true,
         );
         return;
       }
@@ -94,10 +98,36 @@ class AuthInterceptor extends Interceptor {
           error: e,
           type: DioExceptionType.unknown,
         ),
+        true,
       );
     }
   }
 
+  /// Handles a failure, refreshing the token and replaying the request when the
+  /// status calls for it.
+  ///
+  /// ## Every exit uses `handler.next`, never `handler.reject`
+  ///
+  /// `reject` ends the error chain where it is called. This interceptor sits
+  /// second, so rejecting here skipped tracing, logging, error tracking,
+  /// metrics *and* the error mapper — every observer apix installs. The result
+  /// was that a broken session, the single most consequential failure an
+  /// authenticated app has, was the one failure nobody could see: no log, no
+  /// tracker event, and a `MetricsInterceptor` in-flight entry that was never
+  /// completed and lingered until the five-minute orphan sweep.
+  ///
+  /// What made it look fine is that the *refresh* call is a request of its own:
+  /// its own `400` was logged and captured normally, so the dashboards were
+  /// never empty — they just never showed the `401` the caller actually
+  /// received.
+  ///
+  /// `next` carries the same typed exception to the rest of the chain, which
+  /// ends at `ErrorMapperInterceptor` — and that one returns an `ApiException`
+  /// unchanged, so the type callers catch is exactly what it was.
+  ///
+  /// It also has to be `next`: `ErrorInterceptorHandler.reject` gained its
+  /// `callFollowingErrorInterceptor` flag after dio 5.4, which apix still
+  /// supports, so `reject(err, true)` would not compile on the declared floor.
   @override
   void onError(
     DioException err,
@@ -137,9 +167,10 @@ class AuthInterceptor extends Interceptor {
           case _RefreshNetworkFailure(exception: final networkException):
             // Refresh hit a network error — propagate as-is, do NOT log the
             // user out. onAuthFailure was already skipped in _handleRefresh.
-            handler.reject(
+            handler.next(
               DioException(
                 requestOptions: err.requestOptions,
+                response: err.response,
                 message: networkException.message,
                 error: networkException,
                 type: DioExceptionType.unknown,
@@ -157,9 +188,10 @@ class AuthInterceptor extends Interceptor {
                     'Token refresh failed',
                     originalError: cause,
                   );
-            handler.reject(
+            handler.next(
               DioException(
                 requestOptions: err.requestOptions,
+                response: err.response,
                 message: finalError.message,
                 error: finalError,
                 type: DioExceptionType.unknown,
@@ -171,9 +203,10 @@ class AuthInterceptor extends Interceptor {
 
       handler.next(err);
     } catch (e) {
-      handler.reject(
+      handler.next(
         DioException(
           requestOptions: err.requestOptions,
+          response: err.response,
           error: e,
           type: DioExceptionType.unknown,
         ),
