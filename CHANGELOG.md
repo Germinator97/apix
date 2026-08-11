@@ -13,6 +13,19 @@ their composition.
 Entries land here as they are fixed. The fix is
 folded in below.
 
+### Added
+
+* **Every typed-method family is now available on every verb.** Twelve shapes
+  × five verbs, so `putAndDecodeData`, `patchListAndDecodeDataOrEmpty`,
+  `deleteAndParseDataOrNull` and the rest all exist. `GET` and `POST` had
+  twelve variants each, `PUT` and `PATCH` had two, `DELETE` none — because
+  filling the gaps meant copying five hundred lines of identical
+  request-then-parse plumbing, so nobody did, and the README's summary table
+  claimed "all verbs" regardless. They now share one core, so a verb cannot
+  fall behind again.
+
+* **`RequestOptions.forceRevalidate()`**, see below.
+
 ### Changed — BREAKING
 
 * **Cache entries are now scoped to whoever fetched them.** `CacheConfig` gains

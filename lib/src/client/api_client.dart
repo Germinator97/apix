@@ -235,203 +235,1343 @@ class ApiClient {
   }
 
   // ========== Typed Response Methods ==========
+  //
+  // Twelve shapes, five verbs, sixty methods — every one of them a signature
+  // and a single call into [_typed]. They used to be sixty lines each of
+  // identical request-then-parse plumbing, which is how GET and POST ended up
+  // with twelve variants apiece while PUT and PATCH had two and DELETE none:
+  // filling the gaps meant copying five hundred lines, so nobody did, and the
+  // README claimed "all verbs" regardless.
+  //
+  // The twelve shapes answer three questions independently:
+  //   * whole body, or the payload under `dataKey`?
+  //   * one value (`Decode` = JSON object, `Parse` = anything)?
+  //   * a list, and what does an absent payload mean — throw, null, or empty?
 
-  /// Sends a GET request and parses the response using [parser].
+  /// Runs one typed request: send, then decode, with every failure of the
+  /// decode step turned into a [ParsingException].
   ///
-  /// Formats `response.data` directly. Use for any response type.
-  ///
-  /// Example:
-  /// ```dart
-  /// final count = await client.getAndParse('/users/count', (data) => data as int);
-  /// ```
+  /// [assertJson] enables the `Content-Type` check when
+  /// [ApiClientConfig.strictContentType] is on; it is set for the `Decode`
+  /// shapes, which genuinely require JSON, and left off for the `Parse` ones,
+  /// which accept any payload by design.
+  Future<R> _typed<R>(
+    String method,
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    required R Function(Response<dynamic> response) decode,
+    bool assertJson = false,
+  }) async {
+    final response = await _execute(
+      () => _dio.request<dynamic>(
+        path,
+        data: data,
+        queryParameters: queryParameters,
+        cancelToken: cancelToken,
+        options: (options ?? Options()).copyWith(method: method),
+      ),
+    );
+    return _parseOrThrow(response, () => decode(response),
+        assertJson: assertJson);
+  }
+
+  // ---------- Shared payload readers ----------
+
+  static R? _mapOrNull<R>(dynamic payload, R Function(dynamic) parse) =>
+      payload == null ? null : parse(payload);
+
+  static R _asObject<R>(
+          dynamic payload, R Function(Map<String, dynamic>) from) =>
+      from(payload as Map<String, dynamic>);
+
+  static R? _asObjectOrNull<R>(
+          dynamic payload, R Function(Map<String, dynamic>) from) =>
+      payload == null ? null : from(payload as Map<String, dynamic>);
+
+  static List<R> _asObjectList<R>(
+          dynamic payload, R Function(Map<String, dynamic>) from) =>
+      (payload as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(from)
+          .toList();
+
+  static List<R>? _asObjectListOrNull<R>(
+          dynamic payload, R Function(Map<String, dynamic>) from) =>
+      payload == null ? null : _asObjectList(payload, from);
+
+  static List<R> _asList<R>(dynamic payload, R Function(dynamic) parse) =>
+      (payload as List<dynamic>).map(parse).toList();
+
+  static List<R>? _asListOrNull<R>(
+          dynamic payload, R Function(dynamic) parse) =>
+      payload == null ? null : _asList(payload, parse);
+
+  // ---------- GET ----------
+  /// Parses the whole body with [parser].
   Future<T> getAndParse<T>(
     String path,
     T Function(dynamic data) parser, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
+  }) {
+    return _typed<T>(
+      'GET',
       path,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(response.data),
     );
-    return _parseOrThrow(response, () => parser(response.data));
   }
 
-  /// Sends a GET request and deserializes a JSON object response.
-  ///
-  /// Formats `response.data` as `Map<String, dynamic>`.
-  ///
-  /// Example:
-  /// ```dart
-  /// final user = await client.getAndDecode('/users/1', User.fromJson);
-  /// ```
+  /// Deserialises the whole body as a JSON object.
   Future<T> getAndDecode<T>(
     String path,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
+  }) {
+    return _typed<T>(
+      'GET',
       path,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_requireData(response)),
       assertJson: true,
+      decode: (response) => fromJson(_requireData(response)),
     );
   }
 
-  /// Sends a POST request and parses the response using [parser].
-  ///
-  /// Formats `response.data` directly.
+  /// Parses `body[dataKey]` with [parser].
+  Future<T> getAndParseData<T>(
+    String path,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(_extractData(response.data)),
+    );
+  }
+
+  /// Parses `body[dataKey]`, or null when it is absent.
+  Future<T?> getAndParseDataOrNull<T>(
+    String path,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _mapOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a JSON object.
+  Future<T> getAndDecodeData<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => _asObject(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]`, or null when it is absent.
+  Future<T?> getAndDecodeDataOrNull<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list of JSON objects.
+  Future<List<T>> getListAndDecodeData<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectList(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> getListAndDecodeDataOrNull<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> getListAndDecodeDataOrEmpty<T>(
+    String path,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list with [parser].
+  Future<List<T>> getListAndParseData<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asList(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> getListAndParseDataOrNull<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asListOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> getListAndParseDataOrEmpty<T>(
+    String path,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) =>
+          _asListOrNull(_extractData(response.data), parser) ?? <T>[],
+    );
+  }
+
+  // ---------- POST ----------
+  /// Parses the whole body with [parser].
   Future<T> postAndParse<T>(
     String path,
-    dynamic data,
-    T Function(dynamic responseData) parser, {
+    Object? data,
+    T Function(dynamic data) parser, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
+  }) {
+    return _typed<T>(
+      'POST',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(response.data),
     );
-    return _parseOrThrow(response, () => parser(response.data));
   }
 
-  /// Sends a POST request and deserializes the response.
-  ///
-  /// Formats `response.data` as `Map<String, dynamic>`.
-  ///
-  /// Example:
-  /// ```dart
-  /// final user = await client.postAndDecode(
-  ///   '/users',
-  ///   {'name': 'John'},
-  ///   User.fromJson,
-  /// );
-  /// ```
+  /// Deserialises the whole body as a JSON object.
   Future<T> postAndDecode<T>(
     String path,
-    dynamic data,
+    Object? data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
+  }) {
+    return _typed<T>(
+      'POST',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_requireData(response)),
       assertJson: true,
+      decode: (response) => fromJson(_requireData(response)),
     );
   }
 
-  /// Sends a PUT request and parses the response using [parser].
-  ///
-  /// Formats `response.data` directly.
+  /// Parses `body[dataKey]` with [parser].
+  Future<T> postAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(_extractData(response.data)),
+    );
+  }
+
+  /// Parses `body[dataKey]`, or null when it is absent.
+  Future<T?> postAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _mapOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a JSON object.
+  Future<T> postAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => _asObject(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]`, or null when it is absent.
+  Future<T?> postAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list of JSON objects.
+  Future<List<T>> postListAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectList(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> postListAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> postListAndDecodeDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list with [parser].
+  Future<List<T>> postListAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asList(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> postListAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asListOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> postListAndParseDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) =>
+          _asListOrNull(_extractData(response.data), parser) ?? <T>[],
+    );
+  }
+
+  // ---------- PUT ----------
+  /// Parses the whole body with [parser].
   Future<T> putAndParse<T>(
     String path,
-    dynamic data,
-    T Function(dynamic responseData) parser, {
+    Object? data,
+    T Function(dynamic data) parser, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await put<dynamic>(
+  }) {
+    return _typed<T>(
+      'PUT',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(response.data),
     );
-    return _parseOrThrow(response, () => parser(response.data));
   }
 
-  /// Sends a PUT request and deserializes the response.
-  ///
-  /// Formats `response.data` as `Map<String, dynamic>`.
+  /// Deserialises the whole body as a JSON object.
   Future<T> putAndDecode<T>(
     String path,
-    dynamic data,
+    Object? data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await put<dynamic>(
+  }) {
+    return _typed<T>(
+      'PUT',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_requireData(response)),
       assertJson: true,
+      decode: (response) => fromJson(_requireData(response)),
     );
   }
 
-  /// Sends a PATCH request and parses the response using [parser].
-  ///
-  /// Formats `response.data` directly.
+  /// Parses `body[dataKey]` with [parser].
+  Future<T> putAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(_extractData(response.data)),
+    );
+  }
+
+  /// Parses `body[dataKey]`, or null when it is absent.
+  Future<T?> putAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _mapOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a JSON object.
+  Future<T> putAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => _asObject(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]`, or null when it is absent.
+  Future<T?> putAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list of JSON objects.
+  Future<List<T>> putListAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectList(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> putListAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> putListAndDecodeDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list with [parser].
+  Future<List<T>> putListAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asList(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> putListAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asListOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> putListAndParseDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) =>
+          _asListOrNull(_extractData(response.data), parser) ?? <T>[],
+    );
+  }
+
+  // ---------- PATCH ----------
+  /// Parses the whole body with [parser].
   Future<T> patchAndParse<T>(
     String path,
-    dynamic data,
-    T Function(dynamic responseData) parser, {
+    Object? data,
+    T Function(dynamic data) parser, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await patch<dynamic>(
+  }) {
+    return _typed<T>(
+      'PATCH',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(response.data),
     );
-    return _parseOrThrow(response, () => parser(response.data));
   }
 
-  /// Sends a PATCH request and deserializes the response.
-  ///
-  /// Formats `response.data` as `Map<String, dynamic>`.
+  /// Deserialises the whole body as a JSON object.
   Future<T> patchAndDecode<T>(
     String path,
-    dynamic data,
+    Object? data,
     T Function(Map<String, dynamic> json) fromJson, {
     Map<String, dynamic>? queryParameters,
     Options? options,
     CancelToken? cancelToken,
-  }) async {
-    final response = await patch<dynamic>(
+  }) {
+    return _typed<T>(
+      'PATCH',
       path,
       data: data,
       queryParameters: queryParameters,
       options: options,
       cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_requireData(response)),
       assertJson: true,
+      decode: (response) => fromJson(_requireData(response)),
+    );
+  }
+
+  /// Parses `body[dataKey]` with [parser].
+  Future<T> patchAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(_extractData(response.data)),
+    );
+  }
+
+  /// Parses `body[dataKey]`, or null when it is absent.
+  Future<T?> patchAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _mapOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a JSON object.
+  Future<T> patchAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => _asObject(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]`, or null when it is absent.
+  Future<T?> patchAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list of JSON objects.
+  Future<List<T>> patchListAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectList(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> patchListAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> patchListAndDecodeDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list with [parser].
+  Future<List<T>> patchListAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asList(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> patchListAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asListOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> patchListAndParseDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) =>
+          _asListOrNull(_extractData(response.data), parser) ?? <T>[],
+    );
+  }
+
+  // ---------- DELETE ----------
+  /// Parses the whole body with [parser].
+  Future<T> deleteAndParse<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(response.data),
+    );
+  }
+
+  /// Deserialises the whole body as a JSON object.
+  Future<T> deleteAndDecode<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => fromJson(_requireData(response)),
+    );
+  }
+
+  /// Parses `body[dataKey]` with [parser].
+  Future<T> deleteAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => parser(_extractData(response.data)),
+    );
+  }
+
+  /// Parses `body[dataKey]`, or null when it is absent.
+  Future<T?> deleteAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic data) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _mapOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a JSON object.
+  Future<T> deleteAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) => _asObject(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]`, or null when it is absent.
+  Future<T?> deleteAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<T?>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list of JSON objects.
+  Future<List<T>> deleteListAndDecodeData<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectList(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> deleteListAndDecodeDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson),
+    );
+  }
+
+  /// Deserialises `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> deleteListAndDecodeDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(Map<String, dynamic> json) fromJson, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: true,
+      decode: (response) =>
+          _asObjectListOrNull(_extractData(response.data), fromJson) ?? <T>[],
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list with [parser].
+  Future<List<T>> deleteListAndParseData<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asList(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, or null when it is absent.
+  Future<List<T>?> deleteListAndParseDataOrNull<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>?>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) => _asListOrNull(_extractData(response.data), parser),
+    );
+  }
+
+  /// Parses `body[dataKey]` as a list, empty when it is absent.
+  Future<List<T>> deleteListAndParseDataOrEmpty<T>(
+    String path,
+    Object? data,
+    T Function(dynamic item) parser, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) {
+    return _typed<List<T>>(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      assertJson: false,
+      decode: (response) =>
+          _asListOrNull(_extractData(response.data), parser) ?? <T>[],
     );
   }
 
@@ -490,553 +1630,5 @@ class ApiClient {
       );
     }
     return responseData[config.dataKey];
-  }
-
-  // ---------- GET Data ----------
-
-  /// Sends a GET request and parses `response.data[dataKey]` using [parser].
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": "2024-01-01T00:00:00Z" }
-  /// final date = await client.getAndParseData(
-  ///   '/server/time',
-  ///   (data) => DateTime.parse(data as String),
-  /// );
-  /// ```
-  Future<T> getAndParseData<T>(
-    String path,
-    T Function(dynamic data) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => parser(_extractData(response.data)),
-    );
-  }
-
-  /// Sends a GET request and parses `response.data[dataKey]`, returning null
-  /// if the extracted data is null.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": null }
-  /// final date = await client.getAndParseDataOrNull('/server/time', ...);
-  /// // returns null
-  /// ```
-  Future<T?> getAndParseDataOrNull<T>(
-    String path,
-    T Function(dynamic data) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final data = _extractData(response.data);
-      return data == null ? null : parser(data);
-    });
-  }
-
-  /// Sends a GET request and deserializes `response.data[dataKey]` as a JSON object.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": { "id": 1, "name": "John" } }
-  /// final user = await client.getAndDecodeData('/users/1', User.fromJson);
-  /// ```
-  Future<T> getAndDecodeData<T>(
-    String path,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_extractData(response.data) as Map<String, dynamic>),
-      assertJson: true,
-    );
-  }
-
-  /// Sends a GET request and deserializes `response.data[dataKey]`, returning
-  /// null if the extracted data is null.
-  Future<T?> getAndDecodeDataOrNull<T>(
-    String path,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final data = _extractData(response.data);
-        if (data == null) return null;
-        return fromJson(data as Map<String, dynamic>);
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a GET request and deserializes `response.data[dataKey]` as a list
-  /// of JSON objects.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": [{ "id": 1 }, { "id": 2 }] }
-  /// final users = await client.getListAndDecodeData('/users', User.fromJson);
-  /// ```
-  Future<List<T>> getListAndDecodeData<T>(
-    String path,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => (_extractData(response.data) as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map((json) => fromJson(json))
-          .toList(),
-      assertJson: true,
-    );
-  }
-
-  /// Sends a GET request and deserializes `response.data[dataKey]` as a list,
-  /// returning null if the extracted data is null.
-  Future<List<T>?> getListAndDecodeDataOrNull<T>(
-    String path,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final data = _extractData(response.data);
-        if (data == null) return null;
-        return (data as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map((json) => fromJson(json))
-            .toList();
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a GET request and deserializes `response.data[dataKey]` as a list,
-  /// returning an empty list if the extracted data is null.
-  Future<List<T>> getListAndDecodeDataOrEmpty<T>(
-    String path,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final data = _extractData(response.data);
-        if (data == null) return <T>[];
-        return (data as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map((json) => fromJson(json))
-            .toList();
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a GET request and parses `response.data[dataKey]` as a list
-  /// using [parser].
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": ["admin", "editor"] }
-  /// final roles = await client.getListAndParseData(
-  ///   '/roles',
-  ///   (item) => item as String,
-  /// );
-  /// ```
-  Future<List<T>> getListAndParseData<T>(
-    String path,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => (_extractData(response.data) as List<dynamic>)
-          .map((item) => parser(item))
-          .toList(),
-    );
-  }
-
-  /// Sends a GET request and parses `response.data[dataKey]` as a list,
-  /// returning null if the extracted data is null.
-  Future<List<T>?> getListAndParseDataOrNull<T>(
-    String path,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final data = _extractData(response.data);
-      if (data == null) return null;
-      return (data as List<dynamic>).map((item) => parser(item)).toList();
-    });
-  }
-
-  /// Sends a GET request and parses `response.data[dataKey]` as a list,
-  /// returning an empty list if the extracted data is null.
-  Future<List<T>> getListAndParseDataOrEmpty<T>(
-    String path,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await get<dynamic>(
-      path,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final data = _extractData(response.data);
-      if (data == null) return <T>[];
-      return (data as List<dynamic>).map((item) => parser(item)).toList();
-    });
-  }
-
-  // ---------- POST Data ----------
-
-  /// Sends a POST request and parses `response.data[dataKey]` using [parser].
-  Future<T> postAndParseData<T>(
-    String path,
-    dynamic data,
-    T Function(dynamic responseData) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => parser(_extractData(response.data)),
-    );
-  }
-
-  /// Sends a POST request and parses `response.data[dataKey]`, returning null
-  /// if the extracted data is null.
-  Future<T?> postAndParseDataOrNull<T>(
-    String path,
-    dynamic data,
-    T Function(dynamic responseData) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final extracted = _extractData(response.data);
-      return extracted == null ? null : parser(extracted);
-    });
-  }
-
-  /// Sends a POST request and deserializes `response.data[dataKey]` as a
-  /// JSON object.
-  ///
-  /// Example:
-  /// ```dart
-  /// // Response: { "data": { "id": 1, "name": "John" } }
-  /// final user = await client.postAndDecodeData(
-  ///   '/users',
-  ///   {'name': 'John'},
-  ///   User.fromJson,
-  /// );
-  /// ```
-  Future<T> postAndDecodeData<T>(
-    String path,
-    dynamic data,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => fromJson(_extractData(response.data) as Map<String, dynamic>),
-      assertJson: true,
-    );
-  }
-
-  /// Sends a POST request and deserializes `response.data[dataKey]`, returning
-  /// null if the extracted data is null.
-  Future<T?> postAndDecodeDataOrNull<T>(
-    String path,
-    dynamic data,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final extracted = _extractData(response.data);
-        if (extracted == null) return null;
-        return fromJson(extracted as Map<String, dynamic>);
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a POST request and deserializes `response.data[dataKey]` as a list
-  /// of JSON objects.
-  Future<List<T>> postListAndDecodeData<T>(
-    String path,
-    dynamic data,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => (_extractData(response.data) as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map((json) => fromJson(json))
-          .toList(),
-      assertJson: true,
-    );
-  }
-
-  /// Sends a POST request and deserializes `response.data[dataKey]` as a list,
-  /// returning null if the extracted data is null.
-  Future<List<T>?> postListAndDecodeDataOrNull<T>(
-    String path,
-    dynamic data,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final extracted = _extractData(response.data);
-        if (extracted == null) return null;
-        return (extracted as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map((json) => fromJson(json))
-            .toList();
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a POST request and deserializes `response.data[dataKey]` as a list,
-  /// returning an empty list if the extracted data is null.
-  Future<List<T>> postListAndDecodeDataOrEmpty<T>(
-    String path,
-    dynamic data,
-    T Function(Map<String, dynamic> json) fromJson, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () {
-        final extracted = _extractData(response.data);
-        if (extracted == null) return <T>[];
-        return (extracted as List<dynamic>)
-            .cast<Map<String, dynamic>>()
-            .map((json) => fromJson(json))
-            .toList();
-      },
-      assertJson: true,
-    );
-  }
-
-  /// Sends a POST request and parses `response.data[dataKey]` as a list
-  /// using [parser].
-  Future<List<T>> postListAndParseData<T>(
-    String path,
-    dynamic data,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(
-      response,
-      () => (_extractData(response.data) as List<dynamic>)
-          .map((item) => parser(item))
-          .toList(),
-    );
-  }
-
-  /// Sends a POST request and parses `response.data[dataKey]` as a list,
-  /// returning null if the extracted data is null.
-  Future<List<T>?> postListAndParseDataOrNull<T>(
-    String path,
-    dynamic data,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final extracted = _extractData(response.data);
-      if (extracted == null) return null;
-      return (extracted as List<dynamic>).map((item) => parser(item)).toList();
-    });
-  }
-
-  /// Sends a POST request and parses `response.data[dataKey]` as a list,
-  /// returning an empty list if the extracted data is null.
-  Future<List<T>> postListAndParseDataOrEmpty<T>(
-    String path,
-    dynamic data,
-    T Function(dynamic item) parser, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-    CancelToken? cancelToken,
-  }) async {
-    final response = await post<dynamic>(
-      path,
-      data: data,
-      queryParameters: queryParameters,
-      options: options,
-      cancelToken: cancelToken,
-    );
-    return _parseOrThrow(response, () {
-      final extracted = _extractData(response.data);
-      if (extracted == null) return <T>[];
-      return (extracted as List<dynamic>).map((item) => parser(item)).toList();
-    });
   }
 }
