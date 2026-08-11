@@ -273,9 +273,27 @@ class MetricsInterceptor extends Interceptor {
     ObservationMarker.beginAttempt(options);
     if (config.enabled) {
       _cleanupOrphans();
-      final metrics = _createMetrics(options);
-      _inFlight[metrics.requestId] = metrics;
-      options.extra['_metrics_request_id'] = metrics.requestId;
+
+      // A replay keeps measuring the entry it already has.
+      //
+      // Every attempt comes back through here carrying the same `extra` map,
+      // and an unconditional `_createMetrics` overwrote the id while leaving
+      // the previous entry in `_inFlight` with nobody left to complete it.
+      // Measured on a two-retry request: three attempts, one metric emitted,
+      // **two entries stranded** until the five-minute orphan sweep — so
+      // `inFlightCount` was wrong for five minutes after every retried request.
+      //
+      // Reusing it also makes the duration cover what the caller actually
+      // waited for, backoff included, which is the same reasoning
+      // `TracingInterceptor` states for keeping one span across attempts.
+      // The breadcrumb below still fires per attempt: a retry storm belongs in
+      // the trail even when it is one metric.
+      final replayed = _replayedMetrics(options);
+      if (replayed == null) {
+        final metrics = _createMetrics(options);
+        _inFlight[metrics.requestId] = metrics;
+        options.extra['_metrics_request_id'] = metrics.requestId;
+      }
 
       _emitBreadcrumb(
         type: BreadcrumbType.request,
@@ -375,6 +393,19 @@ class MetricsInterceptor extends Interceptor {
     }
 
     handler.next(err);
+  }
+
+  /// The in-flight entry [options] is already being measured under, when this
+  /// pass is a replay of a request that has one.
+  ///
+  /// Null on a genuinely new request — including a `RequestOptions` a consumer
+  /// re-executes themselves, which [ObservationMarker.isReplay] does not count
+  /// as a replay and which must get a measurement of its own.
+  RequestMetrics? _replayedMetrics(RequestOptions options) {
+    if (!ObservationMarker.isReplay(options)) return null;
+    final id = options.extra['_metrics_request_id'];
+    if (id is! String) return null;
+    return _inFlight[id];
   }
 
   RequestMetrics _createMetrics(RequestOptions options) {
