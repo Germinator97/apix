@@ -51,9 +51,12 @@ void main() {
       expect(config.enabled, isTrue);
       expect(config.level, equals(LogLevel.info));
       expect(config.logRequestHeaders, isTrue);
-      expect(config.logRequestBody, isTrue);
+      // Bodies are off by default since 5.0: a plain LoggerConfig() used to
+      // print the password in a POST /login, and header redaction never
+      // covered bodies.
+      expect(config.logRequestBody, isFalse);
       expect(config.logResponseHeaders, isFalse);
-      expect(config.logResponseBody, isTrue);
+      expect(config.logResponseBody, isFalse);
       expect(config.logErrors, isTrue);
       expect(config.maxBodyLength, equals(1024));
     });
@@ -207,6 +210,11 @@ void main() {
       capturedLogs = [];
       interceptor = LoggerInterceptor(
         config: LoggerConfig(
+          // Explicit, because these tests are about what logging *does* when
+          // asked for bodies. They used to rely on the default being on, so
+          // the ones named "when enabled" enabled nothing.
+          logRequestBody: true,
+          logResponseBody: true,
           logHandler: (entry) => capturedLogs.add(entry),
         ),
       );
@@ -423,6 +431,9 @@ void main() {
       LogEntry? capturedEntry;
       final interceptor = LoggerInterceptor(
         config: LoggerConfig(
+          // Explicit: this test is about the entry carrying the body as an
+          // object rather than a string, so it has to ask for the body.
+          logRequestBody: true,
           logHandler: (entry) => capturedEntry = entry,
         ),
       );
