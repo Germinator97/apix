@@ -63,15 +63,27 @@
     
 <section class="desc markdown">
   <p>Creates a <a href="../../apix/SecureStorageService-class.html">SecureStorageService</a> with biometric protection.</p>
-<p>On iOS, uses <code>KeychainAccessibility.passcode</code> with <code>userPresence</code> flag
-requiring Face ID/Touch ID or passcode.
-On Android, uses biometric-backed encryption (API 28+).</p>
+<p>On iOS, uses <code>KeychainAccessibility.passcode</code> with the <code>userPresence</code>
+flag. On Android, biometric-backed encryption (API 28+) with
+<code>enforceBiometrics: true</code>.</p>
 <p><strong>Flow:</strong></p>
 <ol>
 <li>User logs in → tokens stored securely</li>
 <li>User enables biometrics → protects access to storage</li>
 <li>On app resume → biometric prompt → access to refreshToken</li>
 </ol>
+<h2 id="-it-degrades-silently-when-the-device-has-nothing-to-prompt-for">⚠️ It degrades silently when the device has nothing to prompt for</h2>
+<p>Enforcement belongs to the platform, not to apix, and a device with <strong>no
+enrolled biometric and no lock screen</strong> has nothing to enforce against.
+Measured on an Android 16 emulator with the lock screen disabled: a write
+through this factory <strong>succeeded with no prompt and no error</strong>, and read
+back — behaving exactly like the plain constructor.</p>
+<p>So this is a <em>request</em> for protection, not a guarantee of it. Where the
+guarantee matters, check the device state yourself — <code>local_auth</code>'s
+<code>canCheckBiometrics</code> / <code>isDeviceSupported</code> — and decide what to do when
+the answer is no. Treating a successful write as proof that a prompt
+happened is the mistake this note exists to prevent.</p>
+<p>Pinned by <code>apix_example_app/integration_test/secure_storage_device_test .dart</code>, which is where that measurement comes from.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">final storage = SecureStorageService.withBiometrics();
 final tokenProvider = SecureTokenProvider(storage: storage);
