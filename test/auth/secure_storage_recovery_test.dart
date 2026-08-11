@@ -143,6 +143,115 @@ void main() {
     });
   });
 
+  group('the deletion announces itself before it happens', () {
+    late List<SecureStorageRecovery> announced;
+    late SecureStorageService watched;
+
+    setUp(() {
+      announced = [];
+      watched = SecureStorageService(
+        storage: storage,
+        onBeforeRecoveryDelete: announced.add,
+      );
+    });
+
+    test('a single-key purge is announced with its key', () async {
+      when(() => storage.read(key: any(named: 'key')))
+          .thenThrow(Exception('BadPaddingException'));
+
+      await watched.read('apix_access_token');
+
+      expect(announced, hasLength(1));
+      expect(announced.single.operation, SecureStorageOperation.read);
+      expect(announced.single.key, 'apix_access_token');
+      expect(announced.single.isFullWipe, isFalse);
+      expect(
+        announced.single.error.toString(),
+        contains('BadPaddingException'),
+        reason: 'the message that triggered the decision is the contract of '
+            'this component, so it has to travel with the event',
+      );
+    });
+
+    test('a full wipe is announced as one, with no key', () async {
+      when(() => storage.readAll()).thenThrow(Exception('bad_decrypt'));
+
+      await watched.readAll();
+
+      expect(announced.single.operation, SecureStorageOperation.readAll);
+      expect(announced.single.key, isNull);
+      expect(announced.single.isFullWipe, isTrue,
+          reason: 'a consumer must be able to tell one lost key from a lost '
+              'session without parsing anything');
+    });
+
+    test('containsKey announces too', () async {
+      when(() => storage.containsKey(key: any(named: 'key')))
+          .thenThrow(Exception('pad block corrupted'));
+
+      await watched.containsKey('apix_refresh_token');
+
+      expect(announced.single.operation, SecureStorageOperation.containsKey);
+    });
+
+    test('it fires BEFORE the deletion, not after', () async {
+      final order = <String>[];
+      when(() => storage.read(key: any(named: 'key')))
+          .thenThrow(Exception('BadPaddingException'));
+      when(() => storage.delete(key: any(named: 'key')))
+          .thenAnswer((_) async => order.add('deleted'));
+
+      final service = SecureStorageService(
+        storage: storage,
+        onBeforeRecoveryDelete: (_) => order.add('announced'),
+      );
+      await service.read('apix_access_token');
+
+      expect(order, ['announced', 'deleted'],
+          reason: 'a consumer that wants to snapshot what is about to go needs '
+              'the moment where it still exists');
+    });
+
+    // The direction that matters most: this channel exists to make a false
+    // positive visible, so it must stay silent when there is no purge.
+    test('nothing is announced when nothing is deleted', () async {
+      when(() => storage.read(key: any(named: 'key')))
+          .thenAnswer((_) async => 'token');
+      await watched.read('apix_access_token');
+
+      when(() => storage.read(key: any(named: 'key')))
+          .thenThrow(Exception('PlatformException'));
+      await expectLater(
+        watched.read('apix_access_token'),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(announced, isEmpty,
+          reason: 'a channel that fires on the happy path is noise, and noise '
+              'is how a real report gets ignored');
+    });
+
+    test('a handler that throws does not stop the recovery', () async {
+      when(() => storage.read(key: any(named: 'key')))
+          .thenThrow(Exception('BadPaddingException'));
+
+      final service = SecureStorageService(
+        storage: storage,
+        onBeforeRecoveryDelete: (_) => throw StateError('consumer bug'),
+      );
+
+      expect(await service.read('apix_access_token'), isNull);
+      verify(() => storage.delete(key: 'apix_access_token')).called(1);
+    });
+
+    test('no handler is still a valid configuration', () async {
+      when(() => storage.read(key: any(named: 'key')))
+          .thenThrow(Exception('BadPaddingException'));
+
+      expect(await service.read('apix_access_token'), isNull);
+    });
+  });
+
   group('the happy paths still work', () {
     test('a normal read returns its value and deletes nothing', () async {
       when(() => storage.read(key: any(named: 'key')))

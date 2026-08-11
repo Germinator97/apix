@@ -314,30 +314,54 @@ class ApiClient {
   static R? _mapOrNull<R>(dynamic payload, R Function(dynamic) parse) =>
       payload == null ? null : parse(payload);
 
-  static R _asObject<R>(
-          dynamic payload, R Function(Map<String, dynamic>) from) =>
-      from(payload as Map<String, dynamic>);
+  /// Fails with a message that names the envelope, rather than a raw cast.
+  ///
+  /// The strict variants are supposed to refuse an absent payload — that is
+  /// what separates them from `…OrNull` / `…OrEmpty`. What they were not
+  /// supposed to do is refuse it with `type 'Null' is not a subtype of type
+  /// 'Map<String, dynamic>'`, which names neither the key that was missing nor
+  /// the envelope it was missing from.
+  ///
+  /// Reported by a consumer: a Jackson `default-property-inclusion:
+  /// non_empty` on the server removes the `data` key from every empty
+  /// collection, so the message a consumer meets first has to say which key
+  /// and which variant would tolerate it.
+  Never _missingPayload(String expected) {
+    throw ApiException(
+      message: 'Expected "${config.dataKey}" in the response envelope to be '
+          '$expected, but it was absent or null. Use the OrNull or OrEmpty '
+          'variant of this method if an empty payload is a valid answer here.',
+    );
+  }
+
+  R _asObject<R>(dynamic payload, R Function(Map<String, dynamic>) from) {
+    if (payload == null) _missingPayload('a JSON object');
+    return from(payload as Map<String, dynamic>);
+  }
 
   static R? _asObjectOrNull<R>(
           dynamic payload, R Function(Map<String, dynamic>) from) =>
       payload == null ? null : from(payload as Map<String, dynamic>);
 
-  static List<R> _asObjectList<R>(
-          dynamic payload, R Function(Map<String, dynamic>) from) =>
-      (payload as List<dynamic>)
-          .cast<Map<String, dynamic>>()
-          .map(from)
-          .toList();
+  List<R> _asObjectList<R>(
+      dynamic payload, R Function(Map<String, dynamic>) from) {
+    if (payload == null) _missingPayload('a JSON array');
+    return (payload as List<dynamic>)
+        .cast<Map<String, dynamic>>()
+        .map(from)
+        .toList();
+  }
 
-  static List<R>? _asObjectListOrNull<R>(
+  List<R>? _asObjectListOrNull<R>(
           dynamic payload, R Function(Map<String, dynamic>) from) =>
       payload == null ? null : _asObjectList(payload, from);
 
-  static List<R> _asList<R>(dynamic payload, R Function(dynamic) parse) =>
-      (payload as List<dynamic>).map(parse).toList();
+  List<R> _asList<R>(dynamic payload, R Function(dynamic) parse) {
+    if (payload == null) _missingPayload('a JSON array');
+    return (payload as List<dynamic>).map(parse).toList();
+  }
 
-  static List<R>? _asListOrNull<R>(
-          dynamic payload, R Function(dynamic) parse) =>
+  List<R>? _asListOrNull<R>(dynamic payload, R Function(dynamic) parse) =>
       payload == null ? null : _asList(payload, parse);
 
   // ---------- GET ----------
