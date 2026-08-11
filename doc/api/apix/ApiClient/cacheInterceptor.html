@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the interceptors property from the ApiClientConfig class, for the Dart programming language.">
-  <title>interceptors property - ApiClientConfig class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the cacheInterceptor property from the ApiClient class, for the Dart programming language.">
+  <title>cacheInterceptor property - ApiClient class - apix library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
-    <li><a href="../../apix/ApiClientConfig-class.html">ApiClientConfig</a></li>
-    <li class="self-crumb">interceptors property</li>
+    <li><a href="../../apix/ApiClient-class.html">ApiClient</a></li>
+    <li class="self-crumb">cacheInterceptor property</li>
   </ol>
-  <div class="self-name">interceptors</div>
+  <div class="self-name">cacheInterceptor</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,51 +46,57 @@
 <div
     id="dartdoc-main-content"
     class="main-content"
-    data-above-sidebar="apix&#47;ApiClientConfig-class-sidebar.html"
+    data-above-sidebar="apix&#47;ApiClient-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">interceptors</span> property 
+<h1><span class="kind-property">cacheInterceptor</span> property 
 </h1></div>
 
     
-      <section class="multi-line-signature">
-        
-        <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?
-        <span class="name ">interceptors</span>
-        <div class="features"><span class="feature">final</span></div>
-
-      </section>
-      
-<section class="desc markdown">
-  <p>Custom Dio interceptors to add.</p>
-<p>Appended <strong>after</strong> everything the factory installs — auth, retry,
-deduplication, cache, and every observer — and before the error mapper.
-That is the right place for a custom interceptor: it sees the final
-request and the final response, after apix has done its work.</p>
-<h2 id="one-caveat-for-re-entrant-interceptors">One caveat, for <em>re-entrant</em> interceptors</h2>
-<p><code>CacheInterceptor</code> and <code>DeduplicationInterceptor</code> are re-entrant: they
-call <code>dio.fetch(...)</code> internally, which restarts the whole chain for the
-request they actually send. The factory places them <strong>before</strong> the
-observers so that inner pass is not logged a second time.</p>
-<p>Passing one here puts it after the observers instead, and the inner pass
-is observed too. Measured, so it is not a guess: one call becomes two
-<code>→ Request</code> log lines and one extra request breadcrumb. Network traffic,
-metrics and response logs are unchanged — it is log noise, not doubled
-telemetry.</p>
-<p>So prefer <code>cacheConfig</code> / <code>deduplicationConfig</code>, and reach for the
-instance through <code>ApiClient.cacheInterceptor</code> when you need the
-invalidation API. Wiring one here still works, and is worth it if you
-need a placement the factory does not offer.</p>
-</section>
-
-      
-<section class="summary source-code" id="source">
-  <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final List&lt;Interceptor&gt;? interceptors;</code></pre>
-</section>
-
 
     
+        
+  <section id="getter">
+    <section class="multi-line-signature">
+      
+      <span class="returntype"><a href="../../apix/CacheInterceptor-class.html">CacheInterceptor</a>?</span>
+      get
+      <span class="name ">cacheInterceptor</span>
+      
+
+    </section>
+    
+<section class="desc markdown">
+  <p>The <a href="../../apix/CacheInterceptor-class.html">CacheInterceptor</a> in this client's chain, or <code>null</code> when no cache is
+installed.</p>
+<p>This is how you reach the invalidation API — <code>clearCache()</code>,
+<code>invalidateUrl()</code>, <code>invalidatePath()</code> — on the instance the client is
+actually using:</p>
+<pre class="language-dart"><code class="language-dart">await client.cacheInterceptor?.clearCache();
+</code></pre>
+<p>It was always reachable through <code>client.dio.interceptors.whereType&lt;…&gt;()</code>,
+which is not something anyone should have to discover. Not knowing it
+pushed consumers to build a <code>CacheInterceptor</code> by hand and pass it through
+<code>ApiClientConfig.interceptors</code> purely to keep a reference — see the note
+there for why that position costs a duplicate log line.</p>
+<p>Found by type rather than remembered at construction, so it works whether
+the cache came from <code>cacheConfig</code> or was wired in by hand.</p>
+</section>
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">CacheInterceptor? get cacheInterceptor {
+  for (final interceptor in _dio.interceptors) {
+    if (interceptor is CacheInterceptor) return interceptor;
+  }
+  return null;
+}</code></pre>
+</section>
+
+  </section>
+
+
 </div> <!-- /.main-content -->
 <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
   <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
@@ -102,11 +108,11 @@ need a placement the factory does not offer.</p>
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
-    <li><a href="../../apix/ApiClientConfig-class.html">ApiClientConfig</a></li>
-    <li class="self-crumb">interceptors property</li>
+    <li><a href="../../apix/ApiClient-class.html">ApiClient</a></li>
+    <li class="self-crumb">cacheInterceptor property</li>
 </ol>
 
-  <h5>ApiClientConfig class</h5>
+  <h5>ApiClient class</h5>
   <div id="dartdoc-sidebar-left-content"></div>
 </div><!--/.sidebar-offcanvas-->
 <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
