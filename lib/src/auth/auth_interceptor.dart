@@ -333,12 +333,22 @@ class AuthInterceptor extends Interceptor {
   /// requests are queued behind the same refresh.
   /// [error] contains the failure reason, or `null` if the refresh
   /// returned `false` without throwing.
+  /// Notifies the consumer that the session is genuinely broken.
+  ///
+  /// Failures of the callback are swallowed, and that is load-bearing rather
+  /// than lazy: this runs *before* `_refreshCompleter.complete(...)`, so a
+  /// throwing `onAuthFailure` would leave every queued request waiting on a
+  /// completer that is never completed — a deadlock, not a lost notification.
+  ///
+  /// Same contract as every other consumer callback (see `guardObserver`), and
+  /// the same reason for not reporting the failure anywhere: there is no
+  /// channel left that is known to work.
   Future<void> _notifyAuthFailure(Object? error) async {
     if (config.onAuthFailure != null) {
       try {
         await config.onAuthFailure!(config.tokenProvider, error);
       } catch (_) {
-        // Don't let callback errors disrupt the interceptor flow
+        // Swallowing here keeps the refresh queue from deadlocking.
       }
     }
   }

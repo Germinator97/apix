@@ -25,7 +25,7 @@ void main() {
   });
 
   group('README claims', () {
-    test('the install snippet matches the package version', () {
+    test('the install snippet resolves to the published version', () {
       final declared = RegExp(r'^version:\s*(\S+)', multiLine: true)
           .firstMatch(pubspec)
           ?.group(1);
@@ -40,11 +40,26 @@ void main() {
             'this regex if the snippet was reworded',
       );
 
+      // Caret compatibility, not equality. `^4.0.0` correctly installs any
+      // later 4.x, so demanding equality would fail on every patch release and
+      // push toward editing the README for no reader-visible reason — a guard
+      // that cries wolf gets silenced. What must never happen is the snippet
+      // pointing somewhere nobody can reach: a different major, or a version
+      // ahead of what is published.
+      final want = advertised!.split('.').map(int.parse).toList();
+      final have = declared!.split('.').map(int.parse).toList();
+
       expect(
-        advertised,
-        equals(declared),
-        reason: 'the README tells people to install a version that is not the '
-            'one being published',
+        want[0],
+        equals(have[0]),
+        reason: 'README advertises ^$advertised, package is $declared — a '
+            'different major resolves to something else entirely',
+      );
+      expect(
+        want[1] * 1000 + want[2],
+        lessThanOrEqualTo(have[1] * 1000 + have[2]),
+        reason: 'README advertises ^$advertised, ahead of the published '
+            '$declared — nobody can install that',
       );
     });
 

@@ -94,13 +94,20 @@ void onRequest(
     final response = await _deduplicator.deduplicate(
       options,
       () =&gt; _dio!.fetch&lt;dynamic&gt;(options.copyWith(
-        extra: {...options.extra, _skipKey: true},
+        extra: {
+          ...options.extra,
+          _skipKey: true,
+        },
       )),
     );
     handler.resolve(response);
   } on DioException catch (e) {
     &#47;&#47; Every waiter on a collapsed request gets the same failure — which is
     &#47;&#47; the point: they would each have got it separately anyway.
+    &#47;&#47;
+    &#47;&#47; The inner request already travelled the whole chain, so it has been
+    &#47;&#47; logged, measured and captured. Rejecting here runs the following
+    &#47;&#47; onError handlers a second time; the mark stops them doubling up.
     handler.reject(e);
   } catch (e) {
     &#47;&#47; A non-Dio failure would otherwise escape as an unhandled async error
@@ -137,7 +144,7 @@ void onRequest(
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>

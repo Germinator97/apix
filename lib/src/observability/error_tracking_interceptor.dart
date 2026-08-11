@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import '../errors/api_exception.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../errors/http_exception.dart';
+import 'observer_guard.dart';
+import '../http/observation_marker.dart';
 
 /// Signature for capturing exceptions to an error tracking service.
 typedef CaptureException = Future<void> Function(
@@ -194,6 +196,14 @@ class ErrorTrackingInterceptor extends Interceptor {
     DioException err,
     ErrorInterceptorHandler handler,
   ) {
+    // Deduplication sends the same request through the error chain twice.
+    // Claim it once so a single logical failure is not logged, measured and
+    // reported twice.
+    if (!ObservationMarker.claim(err.requestOptions, Observers.errorTracking)) {
+      handler.next(err);
+      return;
+    }
+
     if (config.enabled && config.onError != null) {
       final statusCode = err.response?.statusCode;
 
@@ -209,32 +219,33 @@ class ErrorTrackingInterceptor extends Interceptor {
   }
 
   void _addRequestBreadcrumb(RequestOptions options) {
-    config.onBreadcrumb!({
-      'message': '${options.method} ${options.uri}',
-      'category': 'http',
-      'type': 'http',
-      'data': {
-        'method': options.method,
-        'url': options.uri.toString(),
-        if (config.captureRequestBody && options.data != null)
-          'request_body': config.truncateBody(options.data),
-      },
-    });
+    guardObserver(() => config.onBreadcrumb!({
+          'message': '${options.method} ${options.uri}',
+          'category': 'http',
+          'type': 'http',
+          'data': {
+            'method': options.method,
+            'url': options.uri.toString(),
+            if (config.captureRequestBody && options.data != null)
+              'request_body': config.truncateBody(options.data),
+          },
+        }));
   }
 
   void _addResponseBreadcrumb(Response<dynamic> response) {
     final options = response.requestOptions;
-    config.onBreadcrumb!({
-      'message': '${options.method} ${options.uri} [${response.statusCode}]',
-      'category': 'http',
-      'type': 'http',
-      'data': {
-        'method': options.method,
-        'url': options.uri.toString(),
-        'status_code': response.statusCode,
-        'reason': response.statusMessage,
-      },
-    });
+    guardObserver(() => config.onBreadcrumb!({
+          'message':
+              '${options.method} ${options.uri} [${response.statusCode}]',
+          'category': 'http',
+          'type': 'http',
+          'data': {
+            'method': options.method,
+            'url': options.uri.toString(),
+            'status_code': response.statusCode,
+            'reason': response.statusMessage,
+          },
+        }));
   }
 
   void _captureHttpError(Response<dynamic> response) {
@@ -248,16 +259,16 @@ class ErrorTrackingInterceptor extends Interceptor {
       responseBody: response.data,
     );
 
-    config.onError!(
-      exception,
-      // No DioException reached this path — the response was a success as far
-      // as dio is concerned — so there is no original trace to forward.
-      // Capture the current one instead: without it these events arrive in the
-      // tracker with no stack at all, while the onError path always had one.
-      stackTrace: StackTrace.current,
-      extra: _buildErrorContext(options, response),
-      tags: _buildTags(options, response.statusCode),
-    );
+    guardAsyncObserver(() => config.onError!(
+          exception,
+          // No DioException reached this path — the response was a success as far
+          // as dio is concerned — so there is no original trace to forward.
+          // Capture the current one instead: without it these events arrive in the
+          // tracker with no stack at all, while the onError path always had one.
+          stackTrace: StackTrace.current,
+          extra: _buildErrorContext(options, response),
+          tags: _buildTags(options, response.statusCode),
+        ));
   }
 
   void _captureException(DioException err) {
@@ -279,12 +290,12 @@ class ErrorTrackingInterceptor extends Interceptor {
     //
     // `mapDioException` is a pure static; the original DioException stays
     // reachable through `ApiException.originalError`.
-    config.onError!(
-      ErrorMapperInterceptor.mapDioException(err),
-      stackTrace: err.stackTrace,
-      extra: _buildErrorContext(options, err.response),
-      tags: _buildTags(options, err.response?.statusCode),
-    );
+    guardAsyncObserver(() => config.onError!(
+          ErrorMapperInterceptor.mapDioException(err),
+          stackTrace: err.stackTrace,
+          extra: _buildErrorContext(options, err.response),
+          tags: _buildTags(options, err.response?.statusCode),
+        ));
   }
 
   Map<String, dynamic> _buildErrorContext(

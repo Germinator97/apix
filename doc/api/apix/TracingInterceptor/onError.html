@@ -78,6 +78,14 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
 void onError(DioException err, ErrorInterceptorHandler handler) {
+  &#47;&#47; Deduplication sends the same request through the error chain twice.
+  &#47;&#47; Claim it once so a single logical failure is not logged, measured and
+  &#47;&#47; reported twice.
+  if (!ObservationMarker.claim(err.requestOptions, Observers.tracing)) {
+    handler.next(err);
+    return;
+  }
+
   _finish(err.requestOptions, err.response?.statusCode);
   handler.next(err);
 }</code></pre>
@@ -108,7 +116,7 @@ void onError(DioException err, ErrorInterceptorHandler handler) {
 <footer>
   <span class="no-break">
     apix
-      4.0.0
+      4.1.0
   </span>
   
 </footer>
