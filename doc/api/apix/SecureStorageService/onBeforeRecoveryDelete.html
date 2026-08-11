@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the containsKey method from the SecureStorageService class, for the Dart programming language.">
-  <title>containsKey method - SecureStorageService class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the onBeforeRecoveryDelete property from the SecureStorageService class, for the Dart programming language.">
+  <title>onBeforeRecoveryDelete property - SecureStorageService class - apix library - Dart API</title>
 
 
   
@@ -27,9 +27,9 @@
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
     <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
-    <li class="self-crumb">containsKey method</li>
+    <li class="self-crumb">onBeforeRecoveryDelete property</li>
   </ol>
-  <div class="self-name">containsKey</div>
+  <div class="self-name">onBeforeRecoveryDelete</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -49,48 +49,54 @@
     data-above-sidebar="apix&#47;SecureStorageService-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-method">containsKey</span> method 
+<h1><span class="kind-property">onBeforeRecoveryDelete</span> property 
 </h1></div>
 
-    <section class="multi-line-signature">
-      
-<span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>&gt;</span></span>
-<span class="name ">containsKey</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="containsKey-param-key"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">key</span></span></li>
-</ol>)
-
-      
-
-    </section>
     
+      <section class="multi-line-signature">
+        
+        void Function<span class="signature">(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)</span>?
+        <span class="name ">onBeforeRecoveryDelete</span>
+        <div class="features"><span class="feature">final</span></div>
+
+      </section>
+      
 <section class="desc markdown">
-  <p>Checks if a value exists for the given <code>key</code>.</p>
-<p>Returns <code>true</code> if a value exists, <code>false</code> otherwise.
-If a bad padding exception occurs (corrupted data), only the affected
-key is deleted.</p>
+  <p>Called just <strong>before</strong> this service deletes anything to recover from
+unreadable data.</p>
+<p>The one place in apix that destroys a user's credentials without being
+asked to. It does so on purpose — encrypted bytes that cannot be decrypted
+will never become readable, and re-reading them forever is worse — but the
+decision rests on matching substrings against an exception's <code>toString()</code>,
+and a false positive does not degrade a feature: it <strong>logs a user out</strong>,
+indistinguishably from a session that expired on its own.</p>
+<p>Nothing else can report that. There is no exception left to catch (the
+recovery swallows it), no log, and the next read simply misses. a consumer
+asked for this channel first, ahead of the tests, for exactly that reason:
+their support desk receives "it logged me out" and has no way to connect
+it to a string in a platform message.</p>
+<pre class="language-dart"><code class="language-dart">SecureStorageService(
+  onBeforeRecoveryDelete: (event) =&gt; Sentry.captureMessage(
+    'secure storage purge: ${event.operation} ${event.key ?? "(all)"}',
+    level: SentryLevel.warning,
+  ),
+);
+</code></pre>
+<p>Guarded like every consumer callback: a handler that throws cannot stop
+the recovery it was only meant to observe.</p>
 </section>
 
-
-    
+      
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">Future&lt;bool&gt; containsKey(String key) async {
-  try {
-    return await _storage.containsKey(key: key);
-  } catch (e) {
-    if (_isBadPaddingException(e)) {
-      _announce(SecureStorageOperation.containsKey, e, key: key);
-      await delete(key);
-      return false;
-    }
-    rethrow;
-  }
-}</code></pre>
+  <pre class="language-dart"><code class="language-dart">final void Function(SecureStorageRecovery event)? onBeforeRecoveryDelete;</code></pre>
 </section>
 
 
-  </div> <!-- /.main-content -->
-  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
-    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+    
+</div> <!-- /.main-content -->
+<div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+  <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
 <header id="header-search-sidebar" class="hidden-l">
   <form class="search-sidebar" role="search">
     <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
@@ -100,13 +106,13 @@ key is deleted.</p>
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
     <li><a href="../../apix/SecureStorageService-class.html">SecureStorageService</a></li>
-    <li class="self-crumb">containsKey method</li>
+    <li class="self-crumb">onBeforeRecoveryDelete property</li>
 </ol>
 
-    <h5>SecureStorageService class</h5>
-    <div id="dartdoc-sidebar-left-content"></div>
-  </div><!--/.sidebar-offcanvas-->
-  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  <h5>SecureStorageService class</h5>
+  <div id="dartdoc-sidebar-left-content"></div>
+</div><!--/.sidebar-offcanvas-->
+<div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
 </div><!--/.sidebar-offcanvas-->
 </main>
 <footer>
