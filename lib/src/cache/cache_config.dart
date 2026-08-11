@@ -76,6 +76,36 @@ class CacheConfig {
   /// HTTP methods that should be deduplicated.
   final List<String> deduplicateMethods;
 
+  /// Request headers whose value scopes a cache entry to whoever sent it.
+  ///
+  /// **Defaults to `['Authorization']`, and that default is load-bearing.**
+  /// Without it the cache key is `method + url + query` and nothing else, so
+  /// two different users on the same device share every entry: log out, log
+  /// back in as someone else, and `GET /me` is served the previous account's
+  /// body. With `FileCacheStorage` that survives process restarts, so the leak
+  /// outlives the session that created it.
+  ///
+  /// Values are never stored — only a truncated digest of them reaches the key
+  /// (see `varyFingerprint`), because cache keys are deliberately left in clear
+  /// text even by `EncryptedCacheStorage`.
+  ///
+  /// Set to `const []` to opt out and restore the pre-5.0 key. Do that only
+  /// where responses genuinely do not depend on the caller — a public price
+  /// list, a static catalogue.
+  ///
+  /// ## Two consequences worth knowing
+  ///
+  /// A **token refresh changes the fingerprint**, so entries cached under the
+  /// old access token stop being hit. That is a cache miss, never a wrong
+  /// answer. Where it matters, vary on a header carrying a stable identity
+  /// (`['X-User-Id']`) instead of the bearer token.
+  ///
+  /// The header must already be **on the request** when the cache reads it.
+  /// `ApiClientFactory` installs `AuthInterceptor` before `CacheInterceptor`
+  /// precisely so it is. Wiring the cache by hand *before* auth would scope
+  /// nothing — and scoping nothing looks exactly like working.
+  final List<String> varyHeaders;
+
   /// Creates a [CacheConfig] with the given parameters.
   CacheConfig({
     CacheStorage? storage,
@@ -85,6 +115,7 @@ class CacheConfig {
     this.cacheableMethods = const ['GET'],
     this.enableDeduplication = true,
     this.deduplicateMethods = const ['GET'],
+    this.varyHeaders = const ['Authorization'],
   }) : storage = storage ?? InMemoryCacheStorage();
 
   /// Returns true if the given HTTP method should be cached.
@@ -104,6 +135,7 @@ class CacheConfig {
     List<String>? cacheableMethods,
     bool? enableDeduplication,
     List<String>? deduplicateMethods,
+    List<String>? varyHeaders,
   }) {
     return CacheConfig(
       storage: storage ?? this.storage,
@@ -113,6 +145,7 @@ class CacheConfig {
       cacheableMethods: cacheableMethods ?? this.cacheableMethods,
       enableDeduplication: enableDeduplication ?? this.enableDeduplication,
       deduplicateMethods: deduplicateMethods ?? this.deduplicateMethods,
+      varyHeaders: varyHeaders ?? this.varyHeaders,
     );
   }
 
@@ -122,6 +155,7 @@ class CacheConfig {
         'defaultTtl: $defaultTtl, '
         'cacheErrors: $cacheErrors, '
         'cacheableMethods: $cacheableMethods, '
-        'enableDeduplication: $enableDeduplication)';
+        'enableDeduplication: $enableDeduplication, '
+        'varyHeaders: $varyHeaders)';
   }
 }

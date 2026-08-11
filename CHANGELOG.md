@@ -13,6 +13,33 @@ their composition.
 Entries land here as they are fixed. The fix is
 folded in below.
 
+### Changed — BREAKING
+
+* **Cache entries are now scoped to whoever fetched them.** `CacheConfig` gains
+  `varyHeaders`, defaulting to `['Authorization']`, and a digest of those
+  headers goes into the cache key.
+
+  Until now the key described only *what* was asked — method, URL, query — and
+  never *who* asked. Two accounts on one device therefore shared every entry:
+  log out, log back in as someone else, and `GET /me` returned the previous
+  account's body. `FileCacheStorage` persists, so the leak outlived the session
+  that created it, and the logout documented in the README only dropped the
+  tokens.
+
+  Only a truncated digest reaches the key, never the header value:
+  `EncryptedCacheStorage` deliberately leaves keys in clear text, so embedding
+  a bearer token would write it to disk in the one storage chosen for sensitive
+  data.
+
+  `DeduplicationConfig.varyHeaders` does the same for the narrower window where
+  two concurrent requests sit either side of an identity change.
+
+  **What changes for you:** a token refresh changes the fingerprint, so entries
+  cached under the previous access token stop being hit — a miss, never a wrong
+  answer, but expect more network calls. Vary on a stable identity header
+  (`['X-User-Id']`) to avoid it, or `varyHeaders: const []` to restore the old
+  key where responses genuinely do not depend on the caller.
+
 ### Fixed
 
 * **`ApiException.code` no longer hands back the HTTP status disguised as a
