@@ -32,6 +32,11 @@ deliberately rather than discovering thinner Sentry tickets.
   `CacheInterceptor.evictExpired()`.
 * A failing cache write no longer re-sends the request.
 * A failed `SentrySetup.init` starts the app without Sentry, not at all.
+* `SecureStorageService` stops the Android plugin repairing unreadable entries
+  behind it (`resetOnError: false`). Under the plugin's default the read still
+  answered `null` — after destroying a credential without `onBeforeRecoveryDelete`
+  ever firing. A failed initialisation now raises instead of resetting: inject
+  your own `FlutterSecureStorage` to keep the old behaviour.
 * Expect a one-off rise in tracker events, in three classes that reached no
   observer before: broken sessions, `responseValidator` rejections, `cacheOnly`
   misses. Real failures, not new noise. A filter keyed on exception *names*
@@ -100,6 +105,10 @@ deliberately rather than discovering thinner Sentry tickets.
   `TokenProviderOperation.clear` is never raised by apix.
 * `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
   `CacheBodyEncoding` are documented at last.
+* `SecureStorageService.withBiometrics()` **refuses** on a device with no PIN,
+  pattern, password or enrolled biometric — it does not degrade silently, as
+  this file previously claimed. Do not catch that refusal and keep writing: the
+  plugin is left without a cipher for the rest of the process.
 
 ### Notes
 

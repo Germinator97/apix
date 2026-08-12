@@ -68,12 +68,54 @@ class SecureStorageService {
   /// with secure defaults (RSA OAEP + AES-GCM on Android).
   /// On iOS, the accessibility is set to `KeychainAccessibility.first_unlock`
   /// to ensure the data is accessible only when the device is unlocked.
+  ///
+  /// ## Why `resetOnError: false`, against the plugin's own default
+  ///
+  /// `AndroidOptions` defaults to `resetOnError: true`, and under that default
+  /// the Android plugin handles unreadable data **itself**: it deletes the
+  /// entry and retries the read, so nothing reaches the `catch` blocks below.
+  /// The read still answers `null`, which is the right answer — but it answers
+  /// it after destroying a credential that nobody was told about, and
+  /// [onBeforeRecoveryDelete] never fires. A channel that exists to report the
+  /// one place apix destroys data cannot be silent in the configuration
+  /// everybody gets.
+  ///
+  /// The same default has a second effect, measured on an Android 16 emulator:
+  /// when the plugin is left in a broken state (see
+  /// [SecureStorageService.withBiometrics]), `resetOnError: true` turns a failed
+  /// write into `deleteAll()` **reported as a success**. With it off, that
+  /// surfaces as an exception instead of silently emptying the store.
+  ///
+  /// The trade-off, stated plainly: the plugin no longer repairs itself when its
+  /// own initialisation fails — a failed migration after an algorithm change now
+  /// raises instead of resetting. Pass your own [FlutterSecureStorage] with
+  /// `resetOnError: true` if you prefer the old behaviour.
+  ///
+  /// ## ⚠️ On plugin 10.3+, this option is only yours if apix asks first
+  ///
+  /// From **10.3.0** the Android plugin keeps one instance per preferences
+  /// store, and binds that store's options on the **first call for it** — later
+  /// callers naming the same store are served the first one's settings, in
+  /// silence. This service names no store, so it uses the default one. If
+  /// anything else in your app reaches `flutter_secure_storage` on that same
+  /// default store before this service does, it is that call's `resetOnError`
+  /// that applies, and the channel above goes quiet again. Give your own
+  /// storage a `sharedPreferencesName` to keep the two apart.
+  ///
+  /// At the declared floor (10.0.0) the config is re-read on every call, so this
+  /// cannot happen — only the cipher is cached there.
+  ///
+  /// Measured against **both bounds** by the device probes in
+  /// `apix_example_app/integration_test/`, which stage a real decryption failure
+  /// rather than a mocked one: `secure_storage_device_test.dart` for this
+  /// default, and `secure_storage_reset_on_error_device_test.dart` for what it
+  /// costs to give it up.
   SecureStorageService({
     FlutterSecureStorage? storage,
     this.onBeforeRecoveryDelete,
   }) : _storage = storage ??
             const FlutterSecureStorage(
-              aOptions: AndroidOptions(),
+              aOptions: AndroidOptions(resetOnError: false),
               iOptions:
                   IOSOptions(accessibility: KeychainAccessibility.first_unlock),
             );
@@ -89,22 +131,48 @@ class SecureStorageService {
   /// 2. User enables biometrics → protects access to storage
   /// 3. On app resume → biometric prompt → access to refreshToken
   ///
-  /// ## ⚠️ It degrades silently when the device has nothing to prompt for
+  /// ## ⚠️ On a device with nothing to prompt for, it **refuses**
   ///
-  /// Enforcement belongs to the platform, not to apix, and a device with **no
-  /// enrolled biometric and no lock screen** has nothing to enforce against.
-  /// Measured on an Android 16 emulator with the lock screen disabled: a write
-  /// through this factory **succeeded with no prompt and no error**, and read
-  /// back — behaving exactly like the plain constructor.
+  /// Measured on an Android 16 emulator with no lock screen and no enrolled
+  /// biometric: the first storage call raises
   ///
-  /// So this is a *request* for protection, not a guarantee of it. Where the
-  /// guarantee matters, check the device state yourself — `local_auth`'s
-  /// `canCheckBiometrics` / `isDeviceSupported` — and decide what to do when
-  /// the answer is no. Treating a successful write as proof that a prompt
-  /// happened is the mistake this note exists to prevent.
+  /// ```text
+  /// BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no
+  /// PIN, pattern, password, or biometric enrolled. Cannot generate secure key.
+  /// ```
   ///
-  /// Pinned by `apix_example_app/integration_test/secure_storage_device_test
-  /// .dart`, which is where that measurement comes from.
+  /// That is `enforceBiometrics: true` doing its job. Decide what your app does
+  /// about it — send the user to secure their device, or fall back to the plain
+  /// constructor knowing what you are giving up — but decide, because the state
+  /// the plugin is left in afterwards is worse than the refusal.
+  ///
+  /// ## ⚠️ Do not catch that refusal and keep writing
+  ///
+  /// The Android plugin assigns its preferences field **before** the cipher it
+  /// failed to build, so every later call in the process short-circuits
+  /// initialisation and finds no cipher. Measured, and confirmed in logcat:
+  ///
+  /// ```text
+  /// NullPointerException: StorageCipher.encrypt(byte[]) on a null object
+  ///   at FlutterSecureStorage.writeUnsafe(:130)
+  ///   at FlutterSecureStorage.initialize(:151)   ← the cached early return
+  /// ```
+  ///
+  /// Under the plugin's own `resetOnError: true` that failure becomes
+  /// `deleteAll()` **reported to Dart as a success** — an app that swallows the
+  /// refusal and carries on empties its entire secure store while believing it
+  /// wrote. apix passes `resetOnError: false` precisely so this surfaces as an
+  /// exception instead. Restarting the process is what clears the broken state.
+  ///
+  /// Where the guarantee matters, check the device state yourself first —
+  /// `local_auth`'s `canCheckBiometrics` / `isDeviceSupported` — rather than
+  /// discovering it from a thrown write.
+  ///
+  /// Pinned by `apix_example_app/integration_test/
+  /// secure_storage_biometric_device_test.dart`, which is where those
+  /// measurements come from. It lives in a file of its own because one process
+  /// gets one plugin initialisation, and a biometric probe sharing a file with
+  /// other storage calls measures somebody else's cipher.
   ///
   /// Example:
   /// ```dart
@@ -121,6 +189,7 @@ class SecureStorageService {
       storage: FlutterSecureStorage(
         aOptions: AndroidOptions.biometric(
           enforceBiometrics: true,
+          resetOnError: false,
           biometricPromptTitle: biometricPromptTitle,
           biometricPromptSubtitle: biometricPromptSubtitle,
         ),
