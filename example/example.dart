@@ -449,6 +449,10 @@ void main() async {
   // positive logs a user out indistinguishably from a normal expiry, and
   // nothing else can report it: the recovery swallows the exception and the
   // next read simply misses.
+  //
+  // This callback only fires because apix passes `resetOnError: false`. Inject
+  // a FlutterSecureStorage without it and the Android plugin deletes the entry
+  // itself: the read still answers null, and this stays silent.
   final watchedStorage = SecureStorageService(
     onBeforeRecoveryDelete: (event) => debugPrint(
       'secure storage purge (${event.operation.name}): '

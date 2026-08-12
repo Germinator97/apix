@@ -225,6 +225,22 @@ anything, and `event.error` carries the exception whose message triggered the
 decision — worth capturing verbatim, since those recognised substrings are the
 real contract of this component.
 
+Those substrings have now been checked against the platform rather than assumed.
+A genuine decryption failure, staged on an Android 16 emulator by flipping one
+byte of the stored ciphertext, raises:
+
+```text
+javax.crypto.AEADBadTagException:
+  error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT
+```
+
+which two of them match. **This is also why apix passes `resetOnError: false`.**
+Left at the plugin's own default, the Android plugin deletes the entry and
+retries the read itself: you still get `null`, and the callback above never
+fires while the credential is destroyed. If you inject your own
+`FlutterSecureStorage`, keep `resetOnError: false` or this channel goes quiet.
+The trade-off is that a failed initialisation raises instead of resetting.
+
 Requested by a consumer, whose support desk receives "it logged me out" with no
 way to reach a string in a platform message.
 
