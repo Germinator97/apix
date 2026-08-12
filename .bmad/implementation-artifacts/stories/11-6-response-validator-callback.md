@@ -10,7 +10,7 @@ so that legacy APIs returning `{"success": false, "error": "..."}` with HTTP 200
 
 ## Context (why)
 
-Some legacy backends (especially banking and telecom APIs — relevant to the internal consumer apps) return HTTP 200 even when the business operation failed, with the error encoded in the response body:
+Some legacy backends (especially banking and telecom APIs) return HTTP 200 even when the business operation failed, with the error encoded in the response body:
 
 ```json
 { "success": false, "error_code": "INSUFFICIENT_FUNDS", "message": "Solde insuffisant" }

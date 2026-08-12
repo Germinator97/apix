@@ -5,8 +5,8 @@ import 'audit_harness.dart';
 
 /// Regression guards on **every shape a backend uses to say "nothing"**.
 ///
-/// M9 closed one of them — a bare `[]` where an envelope was expected. Ma
-/// Pension's a review point pointed out that there are three, and that which one you get is
+/// M9 closed one of them — a bare `[]` where an envelope was expected. A
+/// consumer pointed out that there are three, and that which one you get is
 /// not a property of your API but of a serialiser flag: Jackson's
 /// `default-property-inclusion: non_empty` removes the `data` key entirely from
 /// every empty collection, where `non_null` keeps `"data":[]`.

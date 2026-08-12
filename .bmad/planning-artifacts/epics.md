@@ -937,7 +937,7 @@ Détail machine dans `.bmad/implementation-artifacts/sprint-status.yaml`
 
 ## Epic 12: Production Hardening (v2.4.0)
 
-Ajoute des capacités production critiques pour les apps fintech (the internal consumer apps) et améliore la robustesse face aux backends hostiles ou misconfigurés.
+Ajoute des capacités production critiques pour les apps fintech internes et améliore la robustesse face aux backends hostiles ou misconfigurés.
 
 > **Cible corrigée.** Cet epic était étiqueté « (v2.2.0) » ; 2.2.0 **et** 2.3.0
 > sont sorties sans lui (voir la section ci-dessus). Prochaine cible réelle :

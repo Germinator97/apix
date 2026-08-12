@@ -264,7 +264,7 @@ retries the read itself: you still get <code>null</code>, and the callback above
 fires while the credential is destroyed. If you inject your own
 <code>FlutterSecureStorage</code>, keep <code>resetOnError: false</code> or this channel goes quiet.
 The trade-off is that a failed initialisation raises instead of resetting.</p>
-<p>Requested by a consumer, whose support desk receives "it logged me out" with no
+<p>Requested by a consumer whose support desk receives "it logged me out" with no
 way to reach a string in a platform message.</p>
 <hr>
 <h3 id="-retry-with-exponential-backoff">🔄 Retry with Exponential Backoff</h3>

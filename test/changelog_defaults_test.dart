@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Guards the section of the CHANGELOG that a consumer acts on: the defaults.
 ///
-/// a consumer asked for "the rule rather than the fix" after noticing
+/// A consumer asked for "the rule rather than the fix" after noticing
 /// that a table addressed to consumers had stopped following the corrections it
 /// described. Their reasoning is the one already written into
 /// `readme_claims_test`: a relevé that outlives what it describes stays green

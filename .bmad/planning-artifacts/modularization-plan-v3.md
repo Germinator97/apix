@@ -206,7 +206,7 @@ Hors scope 3.x. À évaluer après stabilisation de la 3.x et selon le besoin r�
 | 2.1.0 | Fixes contrat 2.0.0 (6 items) | ~3 j | — |
 | 2.2.0 | Production hardening (5 items) | ~5 j | 2.1.0 livré |
 | **3.0.0-rc.1** | Split monorepo + umbrella | ~8 j | 2.2.0 livré |
-| **3.0.0** | Stable monorepo | ~2 j | rc validés en interne (the internal consumer apps) |
+| **3.0.0** | Stable monorepo | ~2 j | rc validés en interne sur les apps consommatrices |
 | 3.1.0 | `apix_mock` | ~5 j | 3.0 stable |
 | 3.2.0 | `apix_generator` (MVP : @GET, @POST, path params, query params, body) | ~15 j | 3.0 stable |
 | 3.3.0 | `apix_offline` | ~12 j | 3.0 stable |
@@ -297,7 +297,7 @@ apix/                                 (racine du repo, devient workspace)
 | Désynchronisation des versions inter-packages | Faible | Moyen | Melos lockstep pour la 3.0.0, matrice de compat pour la suite |
 | Charge mentale pour la maintenance | Moyenne | Faible | Standardiser via Melos scripts. Une seule CI |
 | Dépréciation prématurée de l'umbrella | Faible | Élevé | Engagement écrit : umbrella maintenu ≥ 12 mois après 3.0 |
-| Apps internes (the internal consumer apps) cassées | Faible | Élevé | RC validée en interne sur ces 3 apps avant publication 3.0.0 |
+| Apps internes cassées | Faible | Élevé | RC validée en interne sur ces 3 apps avant publication 3.0.0 |
 
 ---
 
@@ -309,7 +309,7 @@ apix/                                 (racine du repo, devient workspace)
 2. **`apix_core` ou `apix_dart`** : quel nom pour le core Dart-pur ? `apix_core` est plus parlant, `apix_dart` rappelle l'absence de Flutter.
 3. **Versioning indépendant ou lockstep** : recommandation = lockstep pour 3.0.0, indépendant ensuite. À valider.
 4. **`ErrorTrackingInterceptor` reste dans `apix_core`** : confirmé — le pattern callback est suffisamment générique pour rester en core. À valider lors du split.
-5. **Migration des consommateurs internes** : pré-tester sur the internal consumer apps en local avant publication. Qui s'en occupe et quand ?
+5. **Migration des consommateurs internes** : pré-tester sur les apps internes en local avant publication. Qui s'en occupe et quand ?
 
 ---
 

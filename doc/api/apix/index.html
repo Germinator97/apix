@@ -170,11 +170,11 @@ and handles token refresh on configured status codes.
 </dd>
 
           <dt id="CancelToken">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/CancelToken-class.html">CancelToken</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/CancelToken-class.html">CancelToken</a></span> 
 
 </dt>
 <dd>
-  Controls cancellation of <a href="https://pub.dev/documentation/dio/5.11.0/dio/Dio-class.html">Dio</a>'s requests.
+  Controls cancellation of <a href="https://pub.dev/documentation/dio/5.4.0/dio/Dio-class.html">Dio</a>'s requests.
 </dd>
 
           <dt id="DeduplicationConfig">
@@ -203,7 +203,7 @@ without storing anything.
 </dd>
 
           <dt id="ErrorInterceptorHandler">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> 
 
 </dt>
 <dd>
@@ -215,7 +215,7 @@ without storing anything.
 
 </dt>
 <dd>
-  Interceptor that transforms <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> into typed <a href="../apix/ApiException-class.html">ApiException</a>.
+  Interceptor that transforms <a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a> into typed <a href="../apix/ApiException-class.html">ApiException</a>.
 </dd>
 
           <dt id="ErrorTrackingConfig">
@@ -252,7 +252,7 @@ per entry.
 </dd>
 
           <dt id="FormData">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/FormData-class.html">FormData</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/FormData-class.html">FormData</a></span> 
 
 </dt>
 <dd>
@@ -261,7 +261,7 @@ It can be used to submit forms and file uploads to http server.
 </dd>
 
           <dt id="Headers">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Headers-class.html">Headers</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/Headers-class.html">Headers</a></span> 
 
 </dt>
 <dd>
@@ -277,12 +277,12 @@ It can be used to submit forms and file uploads to http server.
 </dd>
 
           <dt id="Interceptor">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor-class.html">Interceptor</a></span> 
 
 </dt>
 <dd>
-  <a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a> helps to deal with <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a>, <a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a>,
-and <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> during the lifecycle of a request
+  <a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor-class.html">Interceptor</a> helps to deal with <a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a>, <a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a>,
+and <a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a> during the lifecycle of a request
 before it reaches users.
 </dd>
 
@@ -327,12 +327,12 @@ before it reaches users.
 </dd>
 
           <dt id="MultipartFile">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/MultipartFile-class.html">MultipartFile</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/MultipartFile-class.html">MultipartFile</a></span> 
 
 </dt>
 <dd>
-  An upload content that is a part of <code>MultipartRequest</code>.
-This doesn't need to correspond to a physical file.
+  A file to be uploaded as part of a <a href="https://pub.dev/documentation/http/1.6.0/http/MultipartRequest-class.html">MultipartRequest</a>. This doesn't need to
+correspond to a physical file.
 </dd>
 
           <dt id="MultipartInterceptor">
@@ -344,13 +344,11 @@ This doesn't need to correspond to a physical file.
 </dd>
 
           <dt id="Options">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/Options-class.html">Options</a></span> 
 
 </dt>
 <dd>
-  The configuration for a single request.
-<a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a> will be merged into one <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a> before
-sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options/compose.html">Options.compose</a>.
+  Every request can pass an <a href="https://pub.dev/documentation/dio/5.4.0/dio/Options-class.html">Options</a> object which will be merged with <a href="https://pub.dev/documentation/dio/5.4.0/dio/Dio/options.html">Dio.options</a>
 </dd>
 
           <dt id="RequestBreadcrumb">
@@ -370,7 +368,7 @@ sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/
 </dd>
 
           <dt id="RequestInterceptorHandler">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> 
 
 </dt>
 <dd>
@@ -386,25 +384,25 @@ sending the requests. See <a href="https://pub.dev/documentation/dio/5.11.0/dio/
 </dd>
 
           <dt id="RequestOptions">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a></span> 
 
 </dt>
 <dd>
   The internal request option class that is the eventual result after
-<a href="https://pub.dev/documentation/dio/5.11.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.11.0/dio/Options-class.html">Options</a> are composed.
+<a href="https://pub.dev/documentation/dio/5.4.0/dio/BaseOptions-class.html">BaseOptions</a> and <a href="https://pub.dev/documentation/dio/5.4.0/dio/Options-class.html">Options</a> are composed.
 </dd>
 
           <dt id="Response">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span></span> 
 
 </dt>
 <dd>
-  The <a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a> class contains the payload (could be transformed)
+  The <a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a> class contains the payload (could be transformed)
 that respond from the request, and other information of the response.
 </dd>
 
           <dt id="ResponseInterceptorHandler">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> 
 
 </dt>
 <dd>
@@ -565,7 +563,7 @@ therefore how it must be turned back.
 </dd>
 
           <dt id="DioExceptionType">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioExceptionType.html">DioExceptionType</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/DioExceptionType.html">DioExceptionType</a></span> 
 
 </dt>
 <dd>
@@ -582,7 +580,7 @@ has happened during requests.
 </dd>
 
           <dt id="ResponseType">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseType.html">ResponseType</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/ResponseType.html">ResponseType</a></span> 
 
 </dt>
 <dd>
@@ -615,7 +613,7 @@ has happened during requests.
       <dl>
           <dt id="CacheRequestExtension">
   <span class="name "><a href="../apix/CacheRequestExtension.html">CacheRequestExtension</a></span>
-  on <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a>
+  on <a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a>
   
 
 </dt>
@@ -625,7 +623,7 @@ has happened during requests.
 
           <dt id="CacheResponseExtension">
   <span class="name "><a href="../apix/CacheResponseExtension.html">CacheResponseExtension</a></span>
-  on <a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a>
+  on <a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a>
   
 
 </dt>
@@ -635,7 +633,7 @@ has happened during requests.
 
           <dt id="LoggerRequestExtension">
   <span class="name "><a href="../apix/LoggerRequestExtension.html">LoggerRequestExtension</a></span>
-  on <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a>
+  on <a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a>
   
 
 </dt>
@@ -655,7 +653,7 @@ has happened during requests.
 
           <dt id="NoRetryExtension">
   <span class="name "><a href="../apix/NoRetryExtension.html">NoRetryExtension</a></span>
-  on <a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a>
+  on <a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a>
   
 
 </dt>
@@ -877,7 +875,7 @@ has happened during requests.
           
   <dt id="OnTokenRefreshedCallback" class="callable">
     <span class="name"><a href="../apix/OnTokenRefreshedCallback.html">OnTokenRefreshedCallback</a></span><span class="signature">
-      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
+      <span class="returntype parameter">= <a href="https://api.flutter.dev/flutter/dart-core/Future-class.html">Future</a><span class="signature">&lt;<wbr><span class="type-parameter">void</span>&gt;</span> Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
     </span>
     
 
@@ -905,7 +903,7 @@ has happened during requests.
           
   <dt id="ResponseValidator" class="callable">
     <span class="name"><a href="../apix/ResponseValidator.html">ResponseValidator</a></span><span class="signature">
-      <span class="returntype parameter">= <a href="../apix/ApiException-class.html">ApiException</a>? Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
+      <span class="returntype parameter">= <a href="../apix/ApiException-class.html">ApiException</a>? Function<span class="signature">(<span class="parameter" id="param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span></span>)</span></span>
     </span>
     
 
@@ -979,11 +977,11 @@ have the request fail with that exception.
 </dd>
 
           <dt id="DioException">
-  <span class="name "><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> 
+  <span class="name "><a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a></span> 
 
 </dt>
 <dd>
-  <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> describes the exception info when a request failed.
+  <a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a> describes the exception info when a request failed.
 </dd>
 
           <dt id="ForbiddenException">

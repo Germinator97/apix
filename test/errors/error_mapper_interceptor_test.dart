@@ -622,7 +622,7 @@ void main() {
         });
 
         // The case that settles why the guard cannot be replaced by "trust the
-        // configured key": a consumer's API uses the SAME field, `code`, for two
+        // configured key": that consumer's API uses the SAME field, `code`, for two
         // different things depending on which handler answered. Configuring a
         // key says "read this field" — it cannot say "this field always holds a
         // real code", because the ambiguity is in the data, not in the name.

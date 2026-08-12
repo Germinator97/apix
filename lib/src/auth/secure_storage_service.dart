@@ -44,7 +44,7 @@ class SecureStorageService {
   /// indistinguishably from a session that expired on its own.
   ///
   /// Nothing else can report that. There is no exception left to catch (the
-  /// recovery swallows it), no log, and the next read simply misses. a consumer
+  /// recovery swallows it), no log, and the next read simply misses. A consumer
   /// asked for this channel first, ahead of the tests, for exactly that reason:
   /// their support desk receives "it logged me out" and has no way to connect
   /// it to a string in a platform message.
