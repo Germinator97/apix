@@ -72,18 +72,36 @@ flag. On Android, biometric-backed encryption (API 28+) with
 <li>User enables biometrics → protects access to storage</li>
 <li>On app resume → biometric prompt → access to refreshToken</li>
 </ol>
-<h2 id="-it-degrades-silently-when-the-device-has-nothing-to-prompt-for">⚠️ It degrades silently when the device has nothing to prompt for</h2>
-<p>Enforcement belongs to the platform, not to apix, and a device with <strong>no
-enrolled biometric and no lock screen</strong> has nothing to enforce against.
-Measured on an Android 16 emulator with the lock screen disabled: a write
-through this factory <strong>succeeded with no prompt and no error</strong>, and read
-back — behaving exactly like the plain constructor.</p>
-<p>So this is a <em>request</em> for protection, not a guarantee of it. Where the
-guarantee matters, check the device state yourself — <code>local_auth</code>'s
-<code>canCheckBiometrics</code> / <code>isDeviceSupported</code> — and decide what to do when
-the answer is no. Treating a successful write as proof that a prompt
-happened is the mistake this note exists to prevent.</p>
-<p>Pinned by <code>apix_example_app/integration_test/secure_storage_device_test .dart</code>, which is where that measurement comes from.</p>
+<h2 id="-on-a-device-with-nothing-to-prompt-for-it-refuses">⚠️ On a device with nothing to prompt for, it <strong>refuses</strong></h2>
+<p>Measured on an Android 16 emulator with no lock screen and no enrolled
+biometric: the first storage call raises</p>
+<pre class="language-text"><code class="language-text">BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no
+PIN, pattern, password, or biometric enrolled. Cannot generate secure key.
+</code></pre>
+<p>That is <code>enforceBiometrics: true</code> doing its job. Decide what your app does
+about it — send the user to secure their device, or fall back to the plain
+constructor knowing what you are giving up — but decide, because the state
+the plugin is left in afterwards is worse than the refusal.</p>
+<h2 id="-do-not-catch-that-refusal-and-keep-writing">⚠️ Do not catch that refusal and keep writing</h2>
+<p>The Android plugin assigns its preferences field <strong>before</strong> the cipher it
+failed to build, so every later call in the process short-circuits
+initialisation and finds no cipher. Measured, and confirmed in logcat:</p>
+<pre class="language-text"><code class="language-text">NullPointerException: StorageCipher.encrypt(byte[]) on a null object
+  at FlutterSecureStorage.writeUnsafe(:130)
+  at FlutterSecureStorage.initialize(:151)   ← the cached early return
+</code></pre>
+<p>Under the plugin's own <code>resetOnError: true</code> that failure becomes
+<code>deleteAll()</code> <strong>reported to Dart as a success</strong> — an app that swallows the
+refusal and carries on empties its entire secure store while believing it
+wrote. apix passes <code>resetOnError: false</code> precisely so this surfaces as an
+exception instead. Restarting the process is what clears the broken state.</p>
+<p>Where the guarantee matters, check the device state yourself first —
+<code>local_auth</code>'s <code>canCheckBiometrics</code> / <code>isDeviceSupported</code> — rather than
+discovering it from a thrown write.</p>
+<p>Pinned by <code>apix_example_app/integration_test/ secure_storage_biometric_device_test.dart</code>, which is where those
+measurements come from. It lives in a file of its own because one process
+gets one plugin initialisation, and a biometric probe sharing a file with
+other storage calls measures somebody else's cipher.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">final storage = SecureStorageService.withBiometrics();
 final tokenProvider = SecureTokenProvider(storage: storage);
@@ -104,6 +122,7 @@ final tokenProvider = SecureTokenProvider(storage: storage);
     storage: FlutterSecureStorage(
       aOptions: AndroidOptions.biometric(
         enforceBiometrics: true,
+        resetOnError: false,
         biometricPromptTitle: biometricPromptTitle,
         biometricPromptSubtitle: biometricPromptSubtitle,
       ),
