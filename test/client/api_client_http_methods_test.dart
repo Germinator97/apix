@@ -274,18 +274,16 @@ void main() {
   // ========== Typed Response Methods ==========
 
   group('ApiClient Parse/Decode Methods', () {
-    void stubGet(dynamic data) {
-      when(() => mockDio.get<dynamic>(
-            any(),
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-            cancelToken: any(named: 'cancelToken'),
-            onReceiveProgress: any(named: 'onReceiveProgress'),
-          )).thenAnswer((_) async => createResponse(data));
-    }
-
-    void stubPost(dynamic data) {
-      when(() => mockDio.post<dynamic>(
+    /// Stubs the one call every typed method makes.
+    ///
+    /// The twelve typed shapes share a single core that goes through
+    /// `Dio.request`, not through `Dio.get`/`post`/... — which is what let the
+    /// same twelve exist for every verb instead of being copied five times.
+    /// Stubbing the verb methods here would leave `request` unstubbed and the
+    /// mock would answer null, which reads as a bug in the client rather than a
+    /// gap in the double.
+    void stubRequest(dynamic data) {
+      when(() => mockDio.request<dynamic>(
             any(),
             data: any(named: 'data'),
             queryParameters: any(named: 'queryParameters'),
@@ -295,6 +293,9 @@ void main() {
             onReceiveProgress: any(named: 'onReceiveProgress'),
           )).thenAnswer((_) async => createResponse(data));
     }
+
+    void stubGet(dynamic data) => stubRequest(data);
+    void stubPost(dynamic data) => stubRequest(data);
 
     group('getAndParse', () {
       test('parses response.data with parser', () async {
@@ -352,18 +353,10 @@ void main() {
   // ========== Data Extraction Methods ==========
 
   group('ApiClient Data Methods (envelope unwrapping)', () {
-    void stubGet(dynamic data) {
-      when(() => mockDio.get<dynamic>(
-            any(),
-            queryParameters: any(named: 'queryParameters'),
-            options: any(named: 'options'),
-            cancelToken: any(named: 'cancelToken'),
-            onReceiveProgress: any(named: 'onReceiveProgress'),
-          )).thenAnswer((_) async => createResponse(data));
-    }
-
-    void stubPost(dynamic data) {
-      when(() => mockDio.post<dynamic>(
+    /// Same reason as the group above: the typed methods share one core that
+    /// calls `Dio.request`.
+    void stubRequest(dynamic data) {
+      when(() => mockDio.request<dynamic>(
             any(),
             data: any(named: 'data'),
             queryParameters: any(named: 'queryParameters'),
@@ -373,6 +366,9 @@ void main() {
             onReceiveProgress: any(named: 'onReceiveProgress'),
           )).thenAnswer((_) async => createResponse(data));
     }
+
+    void stubGet(dynamic data) => stubRequest(data);
+    void stubPost(dynamic data) => stubRequest(data);
 
     // ---------- GET Data ----------
 

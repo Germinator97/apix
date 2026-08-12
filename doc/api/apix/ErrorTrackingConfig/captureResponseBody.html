@@ -62,7 +62,16 @@
       </section>
       
 <section class="desc markdown">
-  <p>Whether to capture response body in error context.</p>
+  <p>Whether to capture the response body in the error context.</p>
+<p><strong>Defaults to <code>false</code> since 5.0.</strong> It used to default to <code>true</code> while
+<a href="../../apix/ErrorTrackingConfig/captureRequestBody.html">captureRequestBody</a> — declared on the line above — defaulted to <code>false</code>,
+so the body most likely to describe the user who failed was the one sent
+to a third-party tracker without anyone choosing it. The asymmetry was
+the whole tell: whatever argument justified withholding the request body
+applies at least as strongly here, since this one is written by the
+server and can carry fields the client never sent.</p>
+<p>Turn it on where you have decided you want it, as you already do for the
+request side.</p>
 </section>
 
       
@@ -97,7 +106,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

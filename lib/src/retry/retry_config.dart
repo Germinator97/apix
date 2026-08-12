@@ -232,7 +232,12 @@ class RetryConfig {
       maxDelayMs.hashCode ^
       respectRetryAfter.hashCode ^
       jitter.hashCode ^
-      retryStatusCodes.hashCode ^
+      // Hashed by content, and order-dependently, because `==` compares these
+      // element by element. `retryStatusCodes.hashCode` is the *identity* hash
+      // of the list, so two configs that compared equal had different hash
+      // codes — `{a, b}` kept both, and a `Map<RetryConfig, …>` lost lookups.
+      // The trap was seen for the set just below and missed for the list.
+      retryStatusCodes.fold<int>(17, (h, code) => h * 31 + code.hashCode) ^
       // Order-independent so two equal sets share a hash code.
       retryableMethods.fold<int>(0, (h, m) => h ^ m.hashCode);
 }

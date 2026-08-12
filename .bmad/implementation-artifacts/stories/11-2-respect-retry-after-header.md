@@ -10,7 +10,7 @@ so that my client doesn't hammer rate-limited backends and respects RFC 7231.
 
 ## Context (why)
 
-Today `retry_interceptor.dart:65` uses `config.getDelay(currentAttempt)` (exponential backoff) regardless of headers. When a backend explicitly sends `Retry-After: 60`, we still retry after ~1s. This is a real bug for fintech endpoints (an internal app, payment providers) that ban clients ignoring rate limits.
+Today `retry_interceptor.dart:65` uses `config.getDelay(currentAttempt)` (exponential backoff) regardless of headers. When a backend explicitly sends `Retry-After: 60`, we still retry after ~1s. This is a real bug for fintech endpoints (mobile wallets, payment providers) that ban clients ignoring rate limits.
 
 ## Acceptance Criteria
 

@@ -66,7 +66,7 @@
 <li><span class="parameter" id="fromConfig-param-errorTrackingConfig"><span class="type-annotation"><a href="../../apix/ErrorTrackingConfig-class.html">ErrorTrackingConfig</a>?</span> <span class="parameter-name">errorTrackingConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-metricsConfig"><span class="type-annotation"><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a>?</span> <span class="parameter-name">metricsConfig</span>, </span></li>
 <li><span class="parameter" id="fromConfig-param-tracingConfig"><span class="type-annotation"><a href="../../apix/TracingConfig-class.html">TracingConfig</a>?</span> <span class="parameter-name">tracingConfig</span>, </span></li>
-<li><span class="parameter" id="fromConfig-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
+<li><span class="parameter" id="fromConfig-param-httpClientAdapter"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/HttpClientAdapter-class.html">HttpClientAdapter</a>?</span> <span class="parameter-name">httpClientAdapter</span>, </span></li>
 </ol>})
 
       
@@ -139,6 +139,22 @@ final client = ApiClientFactory.fromConfig(config);
     dio.interceptors.add(dedupInterceptor);
   }
 
+  &#47;&#47; Add the response validator BEFORE the cache and before every observer.
+  &#47;&#47;
+  &#47;&#47; Before the cache, because a 2xx body the validator refuses must never be
+  &#47;&#47; stored: a later cache hit resolves from `onRequest` and skips response
+  &#47;&#47; interceptors, so a stored business failure would come back unvalidated,
+  &#47;&#47; as a success.
+  &#47;&#47;
+  &#47;&#47; Before the observers, because `MetricsInterceptor.onResponse` would
+  &#47;&#47; otherwise have already recorded `success: true` and released its
+  &#47;&#47; in-flight entry — counting as fine the exact failures this feature
+  &#47;&#47; exists to surface — and error tracking would never see them at all.
+  if (config.responseValidator != null) {
+    dio.interceptors
+        .add(ResponseValidatorInterceptor(config.responseValidator!));
+  }
+
   &#47;&#47; Add cache interceptor if configured
   if (cacheConfig != null) {
     &#47;&#47; When standalone deduplication is wired in, the cache must not
@@ -153,10 +169,24 @@ final client = ApiClientFactory.fromConfig(config);
     dio.interceptors.add(cacheInterceptor);
   }
 
-  &#47;&#47; Add tracing AFTER the cache, deliberately: a cache hit resolves the
-  &#47;&#47; chain early and would leave a span opened before it dangling forever.
-  &#47;&#47; Sitting here, a cached response never opens one at all — which is also
-  &#47;&#47; the truth, since it spent no time on the network.
+  &#47;&#47; Everything below sits AFTER the cache, deliberately — and the same
+  &#47;&#47; sentence has to be read for all three of them, not just for tracing.
+  &#47;&#47;
+  &#47;&#47; A cache hit resolves from `onRequest`, which ends the chain here. A span
+  &#47;&#47; opened before the cache would therefore never be closed, leaking on
+  &#47;&#47; exactly the requests that were fastest; that is why tracing is placed
+  &#47;&#47; below. But the logger and the metrics inherit the other half of the same
+  &#47;&#47; fact: **a cache hit produces no log line and no metric at all.** Measured,
+  &#47;&#47; not assumed — `isFromCache: true`, zero logs, zero metrics.
+  &#47;&#47;
+  &#47;&#47; That is defensible for tracing, where there is no network time to report.
+  &#47;&#47; It is a genuine gap for the other two: the fastest requests are missing
+  &#47;&#47; from the latency figures, and the cache&#39;s own hit rate is invisible from
+  &#47;&#47; the observability this package ships. Moving them above the cache would
+  &#47;&#47; trade that for a worse defect — a metric recorded and never completed,
+  &#47;&#47; and a span never closed — so the reporting goes through
+  &#47;&#47; `CacheConfig.onCacheHit` instead, which fires where the hit is actually
+  &#47;&#47; served.
   if (tracingConfig != null) {
     dio.interceptors.add(TracingInterceptor(config: tracingConfig));
   }
@@ -175,13 +205,6 @@ final client = ApiClientFactory.fromConfig(config);
   &#47;&#47; Add metrics interceptor if configured
   if (metricsConfig != null) {
     dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
-  }
-
-  &#47;&#47; Add response validator if configured (fires on 2xx; rejected
-  &#47;&#47; responses fall through to ErrorMapperInterceptor below)
-  if (config.responseValidator != null) {
-    dio.interceptors
-        .add(ResponseValidatorInterceptor(config.responseValidator!));
   }
 
   &#47;&#47; Add custom interceptors
@@ -227,7 +250,7 @@ final client = ApiClientFactory.fromConfig(config);
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

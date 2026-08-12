@@ -162,6 +162,22 @@ class ApiClientFactory {
       dio.interceptors.add(dedupInterceptor);
     }
 
+    // Add the response validator BEFORE the cache and before every observer.
+    //
+    // Before the cache, because a 2xx body the validator refuses must never be
+    // stored: a later cache hit resolves from `onRequest` and skips response
+    // interceptors, so a stored business failure would come back unvalidated,
+    // as a success.
+    //
+    // Before the observers, because `MetricsInterceptor.onResponse` would
+    // otherwise have already recorded `success: true` and released its
+    // in-flight entry — counting as fine the exact failures this feature
+    // exists to surface — and error tracking would never see them at all.
+    if (config.responseValidator != null) {
+      dio.interceptors
+          .add(ResponseValidatorInterceptor(config.responseValidator!));
+    }
+
     // Add cache interceptor if configured
     if (cacheConfig != null) {
       // When standalone deduplication is wired in, the cache must not
@@ -176,10 +192,24 @@ class ApiClientFactory {
       dio.interceptors.add(cacheInterceptor);
     }
 
-    // Add tracing AFTER the cache, deliberately: a cache hit resolves the
-    // chain early and would leave a span opened before it dangling forever.
-    // Sitting here, a cached response never opens one at all — which is also
-    // the truth, since it spent no time on the network.
+    // Everything below sits AFTER the cache, deliberately — and the same
+    // sentence has to be read for all three of them, not just for tracing.
+    //
+    // A cache hit resolves from `onRequest`, which ends the chain here. A span
+    // opened before the cache would therefore never be closed, leaking on
+    // exactly the requests that were fastest; that is why tracing is placed
+    // below. But the logger and the metrics inherit the other half of the same
+    // fact: **a cache hit produces no log line and no metric at all.** Measured,
+    // not assumed — `isFromCache: true`, zero logs, zero metrics.
+    //
+    // That is defensible for tracing, where there is no network time to report.
+    // It is a genuine gap for the other two: the fastest requests are missing
+    // from the latency figures, and the cache's own hit rate is invisible from
+    // the observability this package ships. Moving them above the cache would
+    // trade that for a worse defect — a metric recorded and never completed,
+    // and a span never closed — so the reporting goes through
+    // `CacheConfig.onCacheHit` instead, which fires where the hit is actually
+    // served.
     if (tracingConfig != null) {
       dio.interceptors.add(TracingInterceptor(config: tracingConfig));
     }
@@ -198,13 +228,6 @@ class ApiClientFactory {
     // Add metrics interceptor if configured
     if (metricsConfig != null) {
       dio.interceptors.add(MetricsInterceptor(config: metricsConfig));
-    }
-
-    // Add response validator if configured (fires on 2xx; rejected
-    // responses fall through to ErrorMapperInterceptor below)
-    if (config.responseValidator != null) {
-      dio.interceptors
-          .add(ResponseValidatorInterceptor(config.responseValidator!));
     }
 
     // Add custom interceptors

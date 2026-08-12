@@ -55,7 +55,7 @@
     <section class="multi-line-signature">
       
 <span class="returntype"><a href="../../apix/ApiException-class.html">ApiException</a></span>
-<span class="name ">mapDioException</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="mapDioException-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, {</span></li>
+<span class="name ">mapDioException</span>(<wbr><ol class="parameter-list"> <li><span class="parameter" id="mapDioException-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, {</span></li>
 <li><span class="parameter" id="mapDioException-param-errorCodeKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">errorCodeKey</span> = <span class="default-value">defaultErrorCodeKey</span>, </span></li>
 </ol>})
 
@@ -64,7 +64,7 @@
     </section>
     
 <section class="desc markdown">
-  <p>Maps a <a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a> to the appropriate <a href="../../apix/ApiException-class.html">ApiException</a> subtype.</p>
+  <p>Maps a <a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a> to the appropriate <a href="../../apix/ApiException-class.html">ApiException</a> subtype.</p>
 <p><code>errorCodeKey</code> names the body field carrying the application-level error
 code (see <a href="../../apix/ApiException/code.html">ApiException.code</a>). It is a parameter rather than read off an
 instance because this is also called statically from
@@ -80,6 +80,18 @@ reference to the mapper's configuration.</p>
   DioException err, {
   String errorCodeKey = defaultErrorCodeKey,
 }) {
+  &#47;&#47; Already typed by whoever raised it — a `responseValidator`, the auth
+  &#47;&#47; interceptor, the multipart replay guard. Re-mapping would discard the
+  &#47;&#47; exact subclass they chose and hand the caller a generic one built from
+  &#47;&#47; the HTTP status, which for a validator rejection is `200`: the caller
+  &#47;&#47; would catch `HttpException(status: 200)` where the validator returned
+  &#47;&#47; `InsufficientFundsException`.
+  &#47;&#47;
+  &#47;&#47; This check used to live only in the `default` arm, so it protected the
+  &#47;&#47; interceptors that reject with type `unknown` and silently failed the
+  &#47;&#47; ones that reject with any other type.
+  if (err.error is ApiException) return err.error! as ApiException;
+
   switch (err.type) {
     case DioExceptionType.connectionTimeout:
       return TimeoutException(
@@ -135,10 +147,6 @@ reference to the mapper's configuration.</p>
     &#47;&#47; named `unknown` case is intentionally omitted so this default stays
     &#47;&#47; reachable on older dio where every value is otherwise covered.
     default:
-      &#47;&#47; Check if the inner error is already an ApiException
-      if (err.error is ApiException) {
-        return err.error as ApiException;
-      }
       return ApiException(
         message: err.message ?? &#39;Unknown error&#39;,
         originalError: err.error ?? err,
@@ -173,7 +181,7 @@ reference to the mapper's configuration.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

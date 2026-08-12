@@ -43,6 +43,17 @@ class ApiException implements Exception {
   /// object, or the value was neither a string nor a number — and null on every
   /// non-HTTP failure (timeout, connection loss), which has no body to read.
   ///
+  /// **Also null when the body's code merely repeats the HTTP status.** Many
+  /// envelopes fill a field named `code` with the status itself
+  /// (`{"code": 401, ...}` on a `401`); handing that back here would restore
+  /// the very coupling this field removes, disguised as a business code. It is
+  /// dropped rather than reported, so `code` stays a promise you can trust: a
+  /// non-null value means the backend published something the status does not
+  /// already tell you.
+  ///
+  /// One case pays for that guard — an API whose genuine code equals its own
+  /// status — and it is indistinguishable from the disguise by construction.
+  ///
   /// Which key is read is configurable through `ApiClientConfig.errorCodeKey`.
   final String? code;
 

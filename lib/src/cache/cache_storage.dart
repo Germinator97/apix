@@ -51,7 +51,17 @@ abstract class CacheStorage {
   /// boolean.
   Future<bool> has(String key);
 
-  /// Returns all cached keys.
+  /// Returns every stored key, **expired or not**, and removes nothing.
+  ///
+  /// Reading must not delete. Both built-in backends used to purge expired
+  /// entries while walking, which made a listing destructive in a way its name
+  /// gave no hint of — and destructive of the wrong thing: an expired entry is
+  /// exactly what `networkFirst` serves when the network is gone, and what
+  /// `cacheFirst` serves while it revalidates. Calling `getCacheKeys()` to see
+  /// what was cached therefore threw away the offline fallback, silently,
+  /// leaving a cache miss where there had been data.
+  ///
+  /// Use `CacheInterceptor.evictExpired()` when removing them is the intent.
   Future<List<String>> keys();
 
   /// Removes all entries matching the given pattern.
@@ -139,8 +149,7 @@ class InMemoryCacheStorage implements CacheStorage {
 
   @override
   Future<List<String>> keys() async {
-    // Filter out expired entries
-    _cache.removeWhere((_, entry) => entry.isExpired);
+    // Returns expired entries and removes nothing — see [CacheStorage.keys].
     return _cache.keys.toList();
   }
 

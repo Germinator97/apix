@@ -210,6 +210,11 @@ void main() async {
     // (v4.0.0+) Body key holding your API's application error code, surfaced
     // as `ApiException.code`. Defaults to 'code'; set it if your envelope
     // names the field differently (e.g. 'error_code').
+    //
+    // (v5.0.0+) If your envelope puts the HTTP STATUS in this field — a very
+    // common shape, `{"code": 401, ...}` on a 401 — apix drops it rather than
+    // passing a status off as a business code. Real codes (4001 under a 400)
+    // are untouched.
     errorCodeKey: 'code',
     // Metrics configuration (v1.0.1+)
     metricsConfig: MetricsConfig(
@@ -381,8 +386,82 @@ void main() async {
   );
 
   // ============================================================
+  // CACHE — FORCING A ROUND TRIP, AND WATCHING IT WORK
+  // ============================================================
+
+  // A pull-to-refresh under httpCacheAware: the user asked for the current
+  // answer, so revalidate even though the entry is still fresh. An unchanged
+  // resource costs a 304 with no body and the entry's lifetime restarts —
+  // cheaper than noCache(), which throws the body away and downloads it again.
+  final refreshed = await client.get<Map<String, dynamic>>(
+    '/orders',
+    options: Options(extra: {forceRevalidateKey: true}),
+  );
+  debugPrint(
+      'from cache: ${refreshed.isFromCache}, stale: ${refreshed.isStale}');
+
+  // A cache hit resolves before the logger, the metrics and the tracer, so
+  // none of them ever sees one. These two callbacks are the only way to know
+  // the cache is working — or that it has silently stopped.
+  final observedCache = CacheConfig(
+    strategy: CacheStrategy.cacheFirst,
+    onCacheHit: (hit) => debugPrint(
+      'cache ${hit.isStale ? 'stale' : 'fresh'}: ${hit.method} ${hit.uri.path}',
+    ),
+    onCacheError: (failure) => debugPrint(
+      'cache ${failure.operation.name} refused: ${failure.error}',
+    ),
+  );
+  debugPrint('observed cache configured: ${observedCache.strategy}');
+
+  // getCacheKeys() only reads. This is the sweep.
+  final evicted = await client.cacheInterceptor?.evictExpired() ?? 0;
+  debugPrint('evicted $evicted expired entries');
+
+  // ============================================================
+  // UPLOADS — PROGRESS, AND THE ONE FAILURE YOU CAN ACT ON
+  // ============================================================
+
+  try {
+    // A Map of Files, not a FormData: apix keeps the map and rebuilds the body
+    // for each attempt, so an auth refresh or a retry replays cleanly.
+    final receipt = await client.postAndDecodeData<User>(
+      '/documents',
+      {'file': File('/path/to/passport.png'), 'label': 'passport'},
+      User.fromJson,
+      onSendProgress: (sent, total) =>
+          debugPrint('upload ${(100 * sent / total).round()}%'),
+    );
+    debugPrint('uploaded for ${receipt.name}');
+  } on MultipartReplayException catch (e) {
+    // Raised only when the body arrived as a FormData apix did not build and
+    // cannot rebuild. Without this type, a replay failed as
+    // "ApiException: Unknown error" — replacing the status that caused it.
+    debugPrint('cannot replay this upload: ${e.message}');
+  }
+
+  // ============================================================
   // TOKEN MANAGEMENT
   // ============================================================
+
+  // The keychain deletes a session it cannot decrypt — after a reinstall, a
+  // key rotation, a restored backup. That is the right call, but a false
+  // positive logs a user out indistinguishably from a normal expiry, and
+  // nothing else can report it: the recovery swallows the exception and the
+  // next read simply misses.
+  //
+  // This callback only fires because apix passes `resetOnError: false`. Inject
+  // a FlutterSecureStorage without it and the Android plugin deletes the entry
+  // itself: the read still answers null, and this stays silent.
+  final watchedStorage = SecureStorageService(
+    onBeforeRecoveryDelete: (event) => debugPrint(
+      'secure storage purge (${event.operation.name}): '
+      '${event.isFullWipe ? "whole store" : event.key} — ${event.error}',
+    ),
+  );
+  final watchedTokens = SecureTokenProvider(storage: watchedStorage);
+  debugPrint('watched provider ready: ${watchedTokens.accessTokenKey}');
+
   // After login, save tokens
   await tokenProvider.saveTokens('access_token_here', 'refresh_token_here');
 

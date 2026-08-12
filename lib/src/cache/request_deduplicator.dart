@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+
+import '../http/body_fingerprint.dart';
+import '../http/cache_vary.dart';
 
 /// Deduplicates identical concurrent requests.
 ///
@@ -22,6 +23,21 @@ import 'package:dio/dio.dart';
 /// ]);
 /// ```
 class RequestDeduplicator {
+  /// Creates a deduplicator.
+  ///
+  /// [varyHeaders] scopes the key to whoever is asking, exactly as it does for
+  /// the cache. The window is narrower here — two *concurrent* requests, one
+  /// sent before an identity change and one after — but the outcome is the
+  /// same one the cache had: the second caller receives the first caller's
+  /// body. Collapsing across identities is never what a caller asked for.
+  RequestDeduplicator({this.varyHeaders = const []});
+
+  /// Request headers whose value scopes the deduplication key.
+  ///
+  /// Empty means no scoping, which is the right default for a deduplicator
+  /// wired by hand: `ApiClientFactory` threads the configured value in.
+  final List<String> varyHeaders;
+
   final Map<String, _PendingRequest> _pending = {};
 
   /// Deduplicates the request if an identical one is already in flight.
@@ -85,35 +101,25 @@ class RequestDeduplicator {
   }
 
   /// Generates a unique key for the request based on method, URL, and body.
+  ///
+  /// Scoped by [varyHeaders] when any are configured — see the constructor.
   String generateKey(RequestOptions options) {
     final buffer = StringBuffer()
       ..write(options.method)
       ..write(':')
       ..write(options.uri.toString());
 
-    // Include body hash for requests with body
-    if (options.data != null) {
-      final bodyHash = _hashBody(options.data);
-      buffer.write(':$bodyHash');
-    }
+    // The body, through the same helper the cache key uses. It was a private
+    // `_hashBody` here and nothing at all there, which is how `cacheableMethods`
+    // could be widened to `POST` and serve one caller another's results. One
+    // implementation is what keeps the two keys from disagreeing again.
+    final body = bodyFingerprint(options.data);
+    if (body != null) buffer.write('|b:$body');
+
+    final vary = varyFingerprint(options, varyHeaders);
+    if (vary != null) buffer.write('|v:$vary');
 
     return buffer.toString();
-  }
-
-  /// Hashes the request body for deduplication key.
-  String _hashBody(dynamic data) {
-    String content;
-    if (data is String) {
-      content = data;
-    } else if (data is Map || data is List) {
-      content = jsonEncode(data);
-    } else {
-      content = data.toString();
-    }
-
-    final bytes = utf8.encode(content);
-    final digest = md5.convert(bytes);
-    return digest.toString();
   }
 
   /// Returns the number of pending requests.

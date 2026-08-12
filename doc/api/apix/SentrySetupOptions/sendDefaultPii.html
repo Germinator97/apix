@@ -63,6 +63,14 @@
       
 <section class="desc markdown">
   <p>Whether to send default PII (Personally Identifiable Information).</p>
+<p><strong>Defaults to <code>false</code></strong>, matching Sentry's own default. It used to default
+to <code>true</code>, so every app wiring <code>SentrySetup</code> shipped request headers,
+cookies and IP addresses to the tracker unless it thought to say
+otherwise — a choice worth making deliberately, in a package whose users
+are often working on financial data, and one that a privacy policy has to
+be able to describe truthfully.</p>
+<p>Set it to <code>true</code> when you have decided you want that, and said so where
+your users can read it.</p>
 </section>
 
       
@@ -97,7 +105,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

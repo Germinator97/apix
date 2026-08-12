@@ -33,6 +33,16 @@ class SentrySetupOptions {
   final double replaySessionSampleRate;
 
   /// Whether to send default PII (Personally Identifiable Information).
+  ///
+  /// **Defaults to `false`**, matching Sentry's own default. It used to default
+  /// to `true`, so every app wiring `SentrySetup` shipped request headers,
+  /// cookies and IP addresses to the tracker unless it thought to say
+  /// otherwise — a choice worth making deliberately, in a package whose users
+  /// are often working on financial data, and one that a privacy policy has to
+  /// be able to describe truthfully.
+  ///
+  /// Set it to `true` when you have decided you want that, and said so where
+  /// your users can read it.
   final bool sendDefaultPii;
 
   /// Whether to capture failed HTTP requests.
@@ -81,7 +91,7 @@ class SentrySetupOptions {
     this.profilesSampleRate = 0.1,
     this.replayOnErrorSampleRate = 1.0,
     this.replaySessionSampleRate = 0.1,
-    this.sendDefaultPii = true,
+    this.sendDefaultPii = false,
     this.captureFailedRequests = true,
     this.anrEnabled = false,
     this.filterNetworkNoise = true,
@@ -145,6 +155,13 @@ class SentrySetup {
   static bool get isInitialized => _isInitialized;
 
   /// Initializes Sentry with the given options.
+  ///
+  /// **The app starts even if this fails.** `SentryFlutter.init` runs
+  /// [appRunner] itself, so anything that threw before it got there — a
+  /// malformed DSN, a plugin missing on a platform, a `configureOptions`
+  /// touching an option the installed SDK no longer has — took the whole app
+  /// down with it. Crash reporting is a side channel; a side channel that can
+  /// prevent startup is a worse liability than the reports it collects.
   static Future<void> init({
     required SentrySetupOptions options,
     required Future<void> Function() appRunner,
@@ -159,8 +176,52 @@ class SentrySetup {
       return;
     }
 
-    _isInitialized = true;
+    await guardedStart(
+      appRunner: appRunner,
+      initialize: (runner) => _initialize(options, runner),
+    );
+  }
 
+  /// Runs [initialize], and guarantees the app starts exactly once.
+  ///
+  /// Split out so the failure path is reachable from a test: exercising it
+  /// through `SentryFlutter.init` would need a live platform channel, which is
+  /// how it came to have none.
+  ///
+  /// Two things have to hold together, and each is easy to get right while
+  /// breaking the other: the app must start even when initialization throws,
+  /// and it must not start **twice** — `SentryFlutter.init` may well have run
+  /// the runner already before failing on something after it.
+  @visibleForTesting
+  static Future<void> guardedStart({
+    required Future<void> Function() appRunner,
+    required Future<void> Function(Future<void> Function() runner) initialize,
+  }) async {
+    var started = false;
+    Future<void> runOnce() async {
+      if (started) return;
+      started = true;
+      await appRunner();
+    }
+
+    try {
+      await initialize(runOnce);
+      _isInitialized = true;
+    } catch (e, st) {
+      // Never rethrown: there is no caller above `main` to handle it, and the
+      // one thing worse than an app with no crash reporting is no app.
+      debugPrint('⚠️ [Sentry] init failed, continuing without it: $e\n$st');
+    }
+
+    // The flag stays false on failure, so a later, legitimate retry is not
+    // silently skipped — the same reason it is only set once init returns.
+    await runOnce();
+  }
+
+  static Future<void> _initialize(
+    SentrySetupOptions options,
+    Future<void> Function() appRunner,
+  ) async {
     await SentryFlutter.init(
       (sentryOptions) {
         sentryOptions.dsn = options.dsn;
@@ -172,13 +233,31 @@ class SentrySetup {
         // Disable tracing in debug mode
         sentryOptions.tracesSampleRate =
             kDebugMode ? 0.0 : options.tracesSampleRate;
-        // Note: profilesSampleRate is experimental and may be removed
-        // sentryOptions.profilesSampleRate =
-        //     kDebugMode ? 0.0 : options.profilesSampleRate;
 
-        // Note: Replay options available in newer versions
-        // sentryOptions.replay.onErrorSampleRate = options.replayOnErrorSampleRate;
-        // sentryOptions.replay.sessionSampleRate = options.replaySessionSampleRate;
+        // Profiling and replay are now actually wired.
+        //
+        // These three were accepted by `SentrySetupOptions`, documented, and
+        // set by both of its factories — while the lines that applied them sat
+        // commented out behind "available in newer versions". That note was
+        // stale: the pubspec requires sentry_flutter >=9.0.0, which exposes
+        // `profilesSampleRate` and `replay.*`. So
+        // `SentrySetupOptions.production()` configured three things that did
+        // nothing, and nothing anywhere said so — the worst kind of option,
+        // one that looks set.
+        // `@meta.experimental` on sentry_flutter's side, and deliberately used
+        // anyway: the alternative is an option apix documents and never
+        // applies, which is the defect this block exists to close. Newer Dart
+        // SDKs warn on it (`experimental_member_use`), so the choice is stated
+        // here rather than left to whoever next sees the CI go red. Revisit if
+        // sentry_flutter changes the signature — that is what the annotation
+        // reserves the right to do.
+        // ignore: experimental_member_use
+        sentryOptions.profilesSampleRate =
+            kDebugMode ? 0.0 : options.profilesSampleRate;
+        sentryOptions.replay.onErrorSampleRate =
+            kDebugMode ? 0.0 : options.replayOnErrorSampleRate;
+        sentryOptions.replay.sessionSampleRate =
+            kDebugMode ? 0.0 : options.replaySessionSampleRate;
 
         sentryOptions.debug = kDebugMode;
         sentryOptions.captureFailedRequests = options.captureFailedRequests;
@@ -198,6 +277,7 @@ class SentrySetup {
         sentryOptions.beforeSendTransaction =
             (transaction, hint) => _beforeSendTransaction(
                   transaction,
+                  hint,
                   options,
                 );
 
@@ -214,6 +294,47 @@ class SentrySetup {
       },
       appRunner: appRunner,
     );
+  }
+
+  /// Resets the one-shot guard. Test-only.
+  ///
+  /// `init` is idempotent by design, which makes it impossible to exercise
+  /// twice in a suite without this.
+  @visibleForTesting
+  static void resetForTesting() {
+    _isInitialized = false;
+  }
+
+  /// Decides whether [event] is sent. Exposed for testing.
+  ///
+  /// This is a component whose entire job is to **drop** events, wired into
+  /// the channel that would otherwise report its own mistakes. Over-filtering
+  /// here produces an absence, and an absence looks exactly like a quiet day —
+  /// which is how `isNetworkNoiseError` came to discard every server error
+  /// ApiX reported without anyone noticing. It has to be exercised directly.
+  @visibleForTesting
+  static FutureOr<SentryEvent?> beforeSendForTesting(
+    SentryEvent event,
+    Hint hint,
+    SentrySetupOptions options,
+  ) =>
+      _beforeSend(event, hint, options);
+
+  /// Whether a transaction running from [start] to [end] is too short to be
+  /// worth reporting, per [SentrySetupOptions.minTransactionDurationMs].
+  ///
+  /// Extracted so the rule can be tested without building a real
+  /// `SentryTransaction`, which needs an `@internal` `SentryTracer` — importing
+  /// sentry's internals from a test would couple this suite to a private shape
+  /// across the whole declared `>=9.0.0 <10.0.0` range, and turn a CI red
+  /// without a line of apix changing.
+  ///
+  /// A null [end] means the transaction has no measurable duration, which is
+  /// not a reason to drop it.
+  @visibleForTesting
+  static bool isTooShort(DateTime start, DateTime? end, int minDurationMs) {
+    if (end == null) return false;
+    return end.difference(start).inMilliseconds < minDurationMs;
   }
 
   static FutureOr<SentryEvent?> _beforeSend(
@@ -244,20 +365,28 @@ class SentrySetup {
 
   static FutureOr<SentryTransaction?> _beforeSendTransaction(
     SentryTransaction transaction,
+    Hint hint,
     SentrySetupOptions options,
   ) {
-    // Filter short transactions
-    final duration = transaction.timestamp?.difference(
+    // Filter short transactions. The rule lives in [isTooShort] so it can be
+    // exercised without constructing a SentryTransaction.
+    if (isTooShort(
       transaction.startTimestamp,
-    );
-    if (duration != null &&
-        duration.inMilliseconds < options.minTransactionDurationMs) {
+      transaction.timestamp,
+      options.minTransactionDurationMs,
+    )) {
       return null;
     }
 
-    // Call custom beforeSendTransaction if provided
+    // Call custom beforeSendTransaction if provided.
+    //
+    // Forwarding the real hint, not a fresh one: this used to build `Hint()`
+    // on the spot, so every attachment and every piece of context Sentry had
+    // gathered for the transaction was dropped before the consumer's callback
+    // ever saw it — and a callback reading an empty hint looks exactly like one
+    // reading a hint that happens to be empty.
     if (options.customBeforeSendTransaction != null) {
-      return options.customBeforeSendTransaction!(transaction, Hint());
+      return options.customBeforeSendTransaction!(transaction, hint);
     }
 
     return transaction;
@@ -329,8 +458,16 @@ class SentrySetup {
       return true;
     }
 
+    // Both spellings are matched on purpose.
+    //
+    // For a Dart throwable, `SentryException.type` is `runtimeType.toString()`
+    // — a bare class name with no library prefix — which made the qualified
+    // form look like dead code. It is not guaranteed to be: an event can also
+    // arrive from a native integration or be constructed directly, and nothing
+    // in the SDK promises the bare form for those. A test pins the qualified
+    // case, and removing the clause is a behaviour change that buys nothing.
     for (final t in dartOnlyTypes) {
-      if (type == t || type.startsWith('dart:') && type.contains(t)) {
+      if (type == t || (type.startsWith('dart:') && type.contains(t))) {
         return true;
       }
     }

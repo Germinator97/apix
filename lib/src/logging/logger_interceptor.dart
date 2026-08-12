@@ -26,6 +26,7 @@ class LoggerInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
+    ObservationMarker.beginAttempt(options);
     options.recordStartTime();
 
     if (config.shouldLog(LogLevel.info)) {
@@ -127,7 +128,14 @@ class LoggerInterceptor extends Interceptor {
       statusCode: err.response?.statusCode,
       durationMs: durationMs,
       error: err.message ?? err.error?.toString(),
-      body: err.response?.data,
+      // Behind `logResponseBody`, like the success path — this line used to
+      // carry the body unconditionally. An error body is still a response
+      // body: it holds whatever the endpoint chose to return about the user
+      // who failed. Leaving it out of the switch made 5.0's "no bodies by
+      // default" true for `onResponse` and false for `onError`, and emptied
+      // `LoggerConfig.minimal()` on the one path where a body is most likely
+      // to carry server-side context.
+      body: config.logResponseBody ? err.response?.data : null,
       extra: {
         'type': err.type.name,
       },
@@ -221,7 +229,8 @@ class LoggerInterceptor extends Interceptor {
       // ignore: avoid_print
       print('  Message: ${err.message}');
     }
-    if (err.response?.data != null) {
+    // Same guard as `_printResponseDetails`, which had it and this one did not.
+    if (config.logResponseBody && err.response?.data != null) {
       // ignore: avoid_print
       print('  Response: ${config.truncateBody(err.response?.data)}');
     }

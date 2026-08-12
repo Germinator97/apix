@@ -67,6 +67,9 @@ class AuthInterceptor extends Interceptor {
       try {
         token = await config.tokenProvider.getAccessToken();
       } catch (e, st) {
+        // `true` so the observers still see it: a keychain that will not open
+        // is a failure worth a log and a tracker event, not a silent 0-byte
+        // request.
         handler.reject(
           DioException(
             requestOptions: options,
@@ -78,6 +81,7 @@ class AuthInterceptor extends Interceptor {
             ),
             type: DioExceptionType.unknown,
           ),
+          true,
         );
         return;
       }
@@ -94,10 +98,36 @@ class AuthInterceptor extends Interceptor {
           error: e,
           type: DioExceptionType.unknown,
         ),
+        true,
       );
     }
   }
 
+  /// Handles a failure, refreshing the token and replaying the request when the
+  /// status calls for it.
+  ///
+  /// ## Every exit uses `handler.next`, never `handler.reject`
+  ///
+  /// `reject` ends the error chain where it is called. This interceptor sits
+  /// second, so rejecting here skipped tracing, logging, error tracking,
+  /// metrics *and* the error mapper — every observer apix installs. The result
+  /// was that a broken session, the single most consequential failure an
+  /// authenticated app has, was the one failure nobody could see: no log, no
+  /// tracker event, and a `MetricsInterceptor` in-flight entry that was never
+  /// completed and lingered until the five-minute orphan sweep.
+  ///
+  /// What made it look fine is that the *refresh* call is a request of its own:
+  /// its own `400` was logged and captured normally, so the dashboards were
+  /// never empty — they just never showed the `401` the caller actually
+  /// received.
+  ///
+  /// `next` carries the same typed exception to the rest of the chain, which
+  /// ends at `ErrorMapperInterceptor` — and that one returns an `ApiException`
+  /// unchanged, so the type callers catch is exactly what it was.
+  ///
+  /// It also has to be `next`: `ErrorInterceptorHandler.reject` gained its
+  /// `callFollowingErrorInterceptor` flag after dio 5.4, which apix still
+  /// supports, so `reject(err, true)` would not compile on the declared floor.
   @override
   void onError(
     DioException err,
@@ -137,9 +167,10 @@ class AuthInterceptor extends Interceptor {
           case _RefreshNetworkFailure(exception: final networkException):
             // Refresh hit a network error — propagate as-is, do NOT log the
             // user out. onAuthFailure was already skipped in _handleRefresh.
-            handler.reject(
+            handler.next(
               DioException(
                 requestOptions: err.requestOptions,
+                response: err.response,
                 message: networkException.message,
                 error: networkException,
                 type: DioExceptionType.unknown,
@@ -157,9 +188,10 @@ class AuthInterceptor extends Interceptor {
                     'Token refresh failed',
                     originalError: cause,
                   );
-            handler.reject(
+            handler.next(
               DioException(
                 requestOptions: err.requestOptions,
+                response: err.response,
                 message: finalError.message,
                 error: finalError,
                 type: DioExceptionType.unknown,
@@ -171,9 +203,10 @@ class AuthInterceptor extends Interceptor {
 
       handler.next(err);
     } catch (e) {
-      handler.reject(
+      handler.next(
         DioException(
           requestOptions: err.requestOptions,
+          response: err.response,
           error: e,
           type: DioExceptionType.unknown,
         ),
@@ -327,18 +360,31 @@ class AuthInterceptor extends Interceptor {
     return true;
   }
 
-  /// Notifies the developer that auth has failed.
+  /// How long `_notifyAuthFailure` waits for the consumer's callback.
   ///
-  /// Called exactly once per refresh attempt, even when multiple
-  /// requests are queued behind the same refresh.
-  /// [error] contains the failure reason, or `null` if the refresh
-  /// returned `false` without throwing.
+  /// Swallowing a *throwing* callback was never enough: one that simply never
+  /// returns — an `await` on a navigation that needs a frame, a dialog waiting
+  /// for a tap that never comes — blocks the notification, which runs *before*
+  /// `_refreshCompleter.complete(...)`. Every queued request then waits on a
+  /// completer nobody will ever complete. The queue does not fail; it stops,
+  /// which is harder to notice and impossible to recover from.
+  ///
+  /// Five seconds is long enough for any reasonable cleanup and short enough
+  /// that a hung one is a hiccup rather than a dead session.
+  static const Duration _authFailureNotificationTimeout = Duration(seconds: 5);
+
   /// Notifies the consumer that the session is genuinely broken.
+  ///
+  /// Called exactly once per refresh attempt, even when multiple requests are
+  /// queued behind the same refresh. [error] carries the failure reason, or
+  /// `null` if the refresh returned `false` without throwing.
   ///
   /// Failures of the callback are swallowed, and that is load-bearing rather
   /// than lazy: this runs *before* `_refreshCompleter.complete(...)`, so a
   /// throwing `onAuthFailure` would leave every queued request waiting on a
   /// completer that is never completed — a deadlock, not a lost notification.
+  /// [_authFailureNotificationTimeout] closes the same hole for a callback that
+  /// hangs instead of throwing.
   ///
   /// Same contract as every other consumer callback (see `guardObserver`), and
   /// the same reason for not reporting the failure anywhere: there is no
@@ -346,9 +392,11 @@ class AuthInterceptor extends Interceptor {
   Future<void> _notifyAuthFailure(Object? error) async {
     if (config.onAuthFailure != null) {
       try {
-        await config.onAuthFailure!(config.tokenProvider, error);
+        await config.onAuthFailure!(config.tokenProvider, error)
+            .timeout(_authFailureNotificationTimeout);
       } catch (_) {
-        // Swallowing here keeps the refresh queue from deadlocking.
+        // Swallowing here keeps the refresh queue from deadlocking, and the
+        // timeout keeps a callback that never returns from doing the same.
       }
     }
   }
@@ -358,9 +406,23 @@ class AuthInterceptor extends Interceptor {
   /// Marks the request with [isAuthRetryKey] so that if it fails again
   /// with a refresh-triggering status code, no further refresh is attempted.
   Future<Response<dynamic>> _retryRequest(RequestOptions requestOptions) async {
-    final token = await config.tokenProvider.getAccessToken();
+    String? token;
+    try {
+      token = await config.tokenProvider.getAccessToken();
+    } catch (e, st) {
+      // Same wrapping as `onRequest`, which had it and this path did not: a
+      // caller catching `TokenProviderException` to detect a broken keychain
+      // would have missed it here, on the one read that happens *after* a
+      // successful refresh.
+      throw TokenProviderException(
+        operation: TokenProviderOperation.read,
+        message: 'Token retrieval failed after refresh: $e',
+        originalError: e,
+        stackTrace: st,
+      );
+    }
 
-    if (token != null) {
+    if (token != null && token.isNotEmpty) {
       requestOptions.headers[config.headerName] =
           config.formatHeaderValue(token);
     }

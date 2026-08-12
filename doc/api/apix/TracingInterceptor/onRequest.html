@@ -60,8 +60,8 @@
     </ol>
   </div>
 <span class="returntype">void</span>
-<span class="name ">onRequest</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span></li>
-<li><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
+<span class="name ">onRequest</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span></li>
+<li><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
 </ol>)
 
       <div class="features"><span class="feature">override</span></div>
@@ -78,6 +78,7 @@
   <h2><span>Implementation</span></h2>
   <pre class="language-dart"><code class="language-dart">@override
 void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+  ObservationMarker.beginAttempt(options);
   &#47;&#47; A retried request re-enters the chain carrying the same `extra` map, so
   &#47;&#47; an unconditional start would open one span per attempt while only the
   &#47;&#47; last one ever reached onError — the earlier ones leaking, silently. One
@@ -132,7 +133,7 @@ void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

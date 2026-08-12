@@ -55,7 +55,7 @@
     <section class="multi-line-signature">
       
 <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
-<span class="name ">generateKey</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="generateKey-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span></span></li>
+<span class="name ">generateKey</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="generateKey-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span></span></li>
 </ol>)
 
       
@@ -64,6 +64,7 @@
     
 <section class="desc markdown">
   <p>Generates a unique key for the request based on method, URL, and body.</p>
+<p>Scoped by <a href="../../apix/RequestDeduplicator/varyHeaders.html">varyHeaders</a> when any are configured — see the constructor.</p>
 </section>
 
 
@@ -76,11 +77,15 @@
     ..write(&#39;:&#39;)
     ..write(options.uri.toString());
 
-  &#47;&#47; Include body hash for requests with body
-  if (options.data != null) {
-    final bodyHash = _hashBody(options.data);
-    buffer.write(&#39;:$bodyHash&#39;);
-  }
+  &#47;&#47; The body, through the same helper the cache key uses. It was a private
+  &#47;&#47; `_hashBody` here and nothing at all there, which is how `cacheableMethods`
+  &#47;&#47; could be widened to `POST` and serve one caller another&#39;s results. One
+  &#47;&#47; implementation is what keeps the two keys from disagreeing again.
+  final body = bodyFingerprint(options.data);
+  if (body != null) buffer.write(&#39;|b:$body&#39;);
+
+  final vary = varyFingerprint(options, varyHeaders);
+  if (vary != null) buffer.write(&#39;|v:$vary&#39;);
 
   return buffer.toString();
 }</code></pre>
@@ -111,7 +116,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

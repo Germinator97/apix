@@ -88,13 +88,13 @@ final storage = SecureStorageService(storage: customStorage);
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="SecureStorageService.new" class="callable">
-          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span></span>})</span>
+          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span><span class="parameter" id="-param-onBeforeRecoveryDelete"><span class="type-annotation">void</span> <span class="parameter-name">onBeforeRecoveryDelete</span>(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)?</span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.
         </dd>
         <dt id="SecureStorageService.withBiometrics" class="callable">
-          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a></span><span class="signature">({<span class="parameter" id="withBiometrics-param-biometricPromptTitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptTitle</span> = <span class="default-value">&#39;Authentication required&#39;</span>, </span><span class="parameter" id="withBiometrics-param-biometricPromptSubtitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptSubtitle</span> = <span class="default-value">&#39;Authenticate to access your account&#39;</span></span>})</span>
+          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a></span><span class="signature">({<span class="parameter" id="withBiometrics-param-biometricPromptTitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptTitle</span> = <span class="default-value">&#39;Authentication required&#39;</span>, </span><span class="parameter" id="withBiometrics-param-biometricPromptSubtitle"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">biometricPromptSubtitle</span> = <span class="default-value">&#39;Authenticate to access your account&#39;</span>, </span><span class="parameter" id="withBiometrics-param-onBeforeRecoveryDelete"><span class="type-annotation">void</span> <span class="parameter-name">onBeforeRecoveryDelete</span>(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)?</span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> with biometric protection.
@@ -104,7 +104,7 @@ final storage = SecureStorageService(storage: customStorage);
   </section>
     
   <section
-      class="summary offset-anchor inherited"
+      class="summary offset-anchor"
       id="instance-properties">
     <h2>Properties</h2>
     <dl class="properties">
@@ -117,6 +117,19 @@ final storage = SecureStorageService(storage: customStorage);
 <dd class="inherited">
   The hash code for this object.
   <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="onBeforeRecoveryDelete" class="property">
+  <span class="name"><a href="../apix/SecureStorageService/onBeforeRecoveryDelete.html">onBeforeRecoveryDelete</a></span>
+  <span class="signature">&#8594; void Function<span class="signature">(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)</span>?</span>
+  
+
+</dt>
+<dd>
+  Called just <strong>before</strong> this service deletes anything to recover from
+unreadable data.
+  <div class="features"><span class="feature">final</span></div>
 
 </dd>
 
@@ -295,7 +308,7 @@ final storage = SecureStorageService(storage: customStorage);
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

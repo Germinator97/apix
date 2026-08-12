@@ -109,7 +109,7 @@ void _assertJsonContentType(Response<dynamic> response) {
 
 ### Why opt-in
 
-Some APIs return `text/plain` for valid JSON, or omit `Content-Type`. Forcing strict mode by default would break existing integrations. Opt-in keeps backward compat and lets developers tighten security in fintech contexts (an internal app, a consumer).
+Some APIs return `text/plain` for valid JSON, or omit `Content-Type`. Forcing strict mode by default would break existing integrations. Opt-in keeps backward compat and lets developers tighten security in fintech contexts.
 
 ### References
 

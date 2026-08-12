@@ -143,7 +143,7 @@ void main() {
   });
 
   group('through a real client', () {
-    // a consumer hit this with a CancelToken on a search field: every keystroke
+    // A consumer hit this with a CancelToken on a search field: every keystroke
     // cancelled the in-flight GET, turning a rare failure path into one taken
     // on every character typed.
     test('a cancelled request leaks nothing — standalone deduplication',
@@ -194,13 +194,14 @@ void main() {
         await expectLater(inFlight, throwsA(isA<ApiException>()));
       });
 
-      expect(escaped, isEmpty, reason: 'the 3.0.0 path a consumer reported on');
+      expect(escaped, isEmpty,
+          reason: 'the 3.0.0 path the consumer reported on');
     });
   });
 }
 
 /// Answers slowly enough that a cancellation lands while the request is still
-/// in flight — the condition a consumer had to create by throttling their API
+/// in flight — the condition the consumer had to create by throttling their API
 /// to 8 s before the defect would show at all.
 class _SlowAdapter implements HttpClientAdapter {
   @override

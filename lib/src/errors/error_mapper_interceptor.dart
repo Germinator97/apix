@@ -62,6 +62,18 @@ class ErrorMapperInterceptor extends Interceptor {
     DioException err, {
     String errorCodeKey = defaultErrorCodeKey,
   }) {
+    // Already typed by whoever raised it — a `responseValidator`, the auth
+    // interceptor, the multipart replay guard. Re-mapping would discard the
+    // exact subclass they chose and hand the caller a generic one built from
+    // the HTTP status, which for a validator rejection is `200`: the caller
+    // would catch `HttpException(status: 200)` where the validator returned
+    // `InsufficientFundsException`.
+    //
+    // This check used to live only in the `default` arm, so it protected the
+    // interceptors that reject with type `unknown` and silently failed the
+    // ones that reject with any other type.
+    if (err.error is ApiException) return err.error! as ApiException;
+
     switch (err.type) {
       case DioExceptionType.connectionTimeout:
         return TimeoutException(
@@ -117,10 +129,6 @@ class ErrorMapperInterceptor extends Interceptor {
       // named `unknown` case is intentionally omitted so this default stays
       // reachable on older dio where every value is otherwise covered.
       default:
-        // Check if the inner error is already an ApiException
-        if (err.error is ApiException) {
-          return err.error as ApiException;
-        }
         return ApiException(
           message: err.message ?? 'Unknown error',
           originalError: err.error ?? err,
@@ -133,7 +141,7 @@ class ErrorMapperInterceptor extends Interceptor {
     final response = err.response;
     final statusCode = response?.statusCode ?? 0;
     final message = _extractMessage(response);
-    final code = _extractCode(response, errorCodeKey);
+    final code = _extractCode(response, errorCodeKey, statusCode);
 
     return switch (statusCode) {
       401 => UnauthorizedException(
@@ -223,18 +231,49 @@ class ErrorMapperInterceptor extends Interceptor {
   /// call sites can `switch` on a single type without knowing which of the two
   /// the server sent. Any other type yields null rather than a `toString()`
   /// that would turn a malformed body into a plausible-looking code.
-  static String? _extractCode(Response<dynamic>? response, String key) {
+  ///
+  /// **A value equal to [statusCode] is discarded**, whatever its type. Plenty
+  /// of envelopes put the HTTP status in a field literally named `code`:
+  ///
+  /// ```json
+  /// {"code": 401, "status": "error", "message": "Authentification requise."}
+  /// ```
+  ///
+  /// Read as-is, `ApiException.code` would be `'401'` — and this field exists
+  /// precisely to free callers from branching on the status. Handing it back
+  /// under another name would restore that coupling *in disguise*: a
+  /// `switch (e.code)` looks like business logic while it keys on a status that
+  /// can drift between server revisions. Nothing would signal it either, since
+  /// the value is perfectly plausible.
+  ///
+  /// The guard is deliberately narrow. Refusing every numeric code — the first
+  /// remedy suggested — would also drop the legitimate case (`4001` under a
+  /// `400`), which is the one this field was built for. Equality with the
+  /// status is the only mechanically detectable signal, and it costs one real
+  /// case: an API whose genuine business code happens to equal its own status.
+  /// That case is indistinguishable from the disguise by construction.
+  ///
+  /// Reported by a consumer, against the field these codes are read from.
+  static String? _extractCode(
+    Response<dynamic>? response,
+    String key,
+    int statusCode,
+  ) {
     final data = response?.data;
     if (data is! Map) return null;
 
     final nested = data['error'];
     final code = data[key] ?? (nested is Map ? nested[key] : null);
 
-    return switch (code) {
+    final normalised = switch (code) {
       final String value => value,
       final num value => value.toString(),
       _ => null,
     };
+
+    // Compared after normalising, so `"401"` as a string is caught too — the
+    // reported remedy only covered the numeric spelling.
+    return normalised == statusCode.toString() ? null : normalised;
   }
 
   static String _extractMessage(Response<dynamic>? response) {

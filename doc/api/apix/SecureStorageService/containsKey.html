@@ -78,6 +78,7 @@ key is deleted.</p>
     return await _storage.containsKey(key: key);
   } catch (e) {
     if (_isBadPaddingException(e)) {
+      _announce(SecureStorageOperation.containsKey, e, key: key);
       await delete(key);
       return false;
     }
@@ -111,7 +112,7 @@ key is deleted.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

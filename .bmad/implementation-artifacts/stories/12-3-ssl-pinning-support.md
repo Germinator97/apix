@@ -10,7 +10,7 @@ so that MITM attacks are blocked in fintech apps where Dio's default OS trust st
 
 ## Context (why)
 
-an internal app, a consumer and an internal app all process sensitive financial data. The OS trust store includes ~150 root CAs — any compromised CA can issue valid certs for our domain. SSL pinning shrinks the trust set to a known list of public-key fingerprints we control.
+The consuming apps all process sensitive financial data. The OS trust store includes ~150 root CAs — any compromised CA can issue valid certs for our domain. SSL pinning shrinks the trust set to a known list of public-key fingerprints we control.
 
 Implementing this manually with `dio.httpClientAdapter` requires boilerplate that's easy to get wrong (wrong hash algorithm, comparing the wrong certificate in the chain, forgetting to handle key rotation). Built-in support reduces the surface for mistakes.
 

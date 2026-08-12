@@ -10,7 +10,7 @@ so that retries (after app crash, network blip, or `RetryInterceptor`) don't acc
 
 ## Context (why)
 
-Stripe, Square, Mollie and most modern payment APIs require an `Idempotency-Key` header. For the internal consumer apps backends, this is critical: a double-charge or double-transfer caused by a retry is a real-money bug. Today, developers must remember to set this header manually on every write call. ApiX should make it ergonomic.
+Stripe, Square, Mollie and most modern payment APIs require an `Idempotency-Key` header. For the fintech backends this package targets, this is critical: a double-charge or double-transfer caused by a retry is a real-money bug. Today, developers must remember to set this header manually on every write call. ApiX should make it ergonomic.
 
 Brainstorming reference: `[Fail #15] App killed mid-POST → Idempotency keys (doc)`. We go beyond doc — we provide a helper.
 

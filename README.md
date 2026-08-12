@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^4.1.0
+  apix: ^5.0.0
 ```
 
 ```bash
@@ -174,15 +174,75 @@ final client = ApiClientFactory.create(
 // After login
 await tokenProvider.saveTokens(accessToken, refreshToken);
 
-// Logout
+// Logout — drop the tokens AND the responses they fetched
 await tokenProvider.clearTokens();
+await client.cacheInterceptor?.clearCache();
 ```
+
+> **Clearing the cache on logout is not optional.** Cache entries are scoped by
+> `CacheConfig.varyHeaders` (default `['Authorization']`), so the next account
+> cannot *read* the previous one's entries — but they are still on the device
+> until something removes them, and `FileCacheStorage` keeps them across
+> restarts. Clear them where you clear the tokens.
+>
+> `client.cacheInterceptor` is how you reach the invalidation API —
+> `clearCache()`, `invalidateUrl()`, `invalidatePath()` — on the instance the
+> client actually uses. It returns `null` when no `cacheConfig` was given.
 
 **Refresh token queue**: If multiple requests fail with 401, only one refresh is triggered and all requests wait then retry automatically. If refresh fails, `onAuthFailure` is called **once** (not per queued request).
 
 **Network resilience**: When the refresh request itself fails with a connection or timeout error, the original request is rejected with `NetworkException` (typed: `ConnectionException`, `TimeoutException`) — `onAuthFailure` is **not** invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger `AuthException` and call `onAuthFailure`.
 
 **Token storage failures**: Errors raised by your `TokenProvider` (corrupted keychain, missing entitlements, ...) surface as `TokenProviderException` — see [Error Handling](#error-handling).
+
+#### When the keychain deletes your user's session
+
+`SecureStorageService` recovers from data it cannot decrypt — after a reinstall,
+a key rotation, a restored backup — by **deleting it**: the affected key on a
+`read`, and the whole store on a `readAll`. That is the right call, since
+undecryptable bytes never become readable and re-reading them forever is worse.
+
+But the decision rests on matching substrings against a platform exception's
+message, and a false positive here does not degrade a feature — it **logs a user
+out**, indistinguishably from a session that expired on its own. Nothing else
+can report it: the recovery swallows the exception, writes no log, and the next
+read simply misses.
+
+```dart
+final storage = SecureStorageService(
+  onBeforeRecoveryDelete: (event) => Sentry.captureMessage(
+    'secure storage purge: ${event.operation.name} '
+    '${event.isFullWipe ? "(whole store)" : event.key}',
+    level: SentryLevel.warning,
+  ),
+);
+final tokenProvider = SecureTokenProvider(storage: storage);
+```
+
+Fires **before** the deletion, so you can snapshot what is about to go.
+`isFullWipe` separates one lost key from a lost session without parsing
+anything, and `event.error` carries the exception whose message triggered the
+decision — worth capturing verbatim, since those recognised substrings are the
+real contract of this component.
+
+Those substrings have now been checked against the platform rather than assumed.
+A genuine decryption failure, staged on an Android 16 emulator by flipping one
+byte of the stored ciphertext, raises:
+
+```text
+javax.crypto.AEADBadTagException:
+  error:1e000065:Cipher functions:OPENSSL_internal:BAD_DECRYPT
+```
+
+which two of them match. **This is also why apix passes `resetOnError: false`.**
+Left at the plugin's own default, the Android plugin deletes the entry and
+retries the read itself: you still get `null`, and the callback above never
+fires while the credential is destroyed. If you inject your own
+`FlutterSecureStorage`, keep `resetOnError: false` or this channel goes quiet.
+The trade-off is that a failed initialisation raises instead of resetting.
+
+Requested by a consumer whose support desk receives "it logged me out" with no
+way to reach a string in a platform message.
 
 ---
 
@@ -253,21 +313,28 @@ final client = ApiClientFactory.create(
   ),
 );
 
-// Override per request
+// Override the strategy for one request
 final config = await client.get<Map<String, dynamic>>(
   '/app-config',
-  options: Options(extra: {
-    'cacheStrategy': CacheStrategy.cacheFirst,
-    'cacheTtl': const Duration(hours: 24),
-  }),
-);
-
-// Force refresh
-final fresh = await client.get<Map<String, dynamic>>(
-  '/users',
-  options: Options(extra: {'forceRefresh': true}),
+  options: Options(extra: {'cacheStrategy': CacheStrategy.cacheFirst}),
 );
 ```
+
+Per-request control is a set of extensions on `RequestOptions`, so you never
+have to remember an `extra` key:
+
+```dart
+final options = Options().compose(client.dio.options, '/users')
+  ..noCache();                              // this one request skips the cache
+  // ..setCacheStrategy(CacheStrategy.cacheFirst);
+  // ..forceRevalidate();                   // see below
+```
+
+> The strategy override above is the one `extra` key apix reads. Earlier
+> versions of this README also showed `'cacheTtl'` and `'forceRefresh'`;
+> **neither has ever existed in the code**. They were quietly ignored — the
+> exact failure mode of an option that looks set. Use `defaultTtl` for the
+> lifetime, and `forceRevalidate()` below to force a round trip.
 
 | Strategy | Behavior | Can return stale? |
 |----------|----------|-------------------|
@@ -278,6 +345,37 @@ final fresh = await client.get<Map<String, dynamic>>(
 | `networkOnly` | Network only, never read cache | No |
 
 `networkFirst` is the default: configure nothing and you get fresh data.
+
+#### Entries are scoped to whoever asked — `varyHeaders`
+
+**Read this one even if you skip the rest of the section.** A cache key used to
+describe *what* was requested and never *who* requested it, so two accounts on
+one device shared every entry: log out, log back in as someone else, and
+`GET /me` returned the previous account's body. With `FileCacheStorage` that
+survived restarts, and the documented logout only dropped the tokens.
+
+`CacheConfig.varyHeaders` defaults to `['Authorization']`, and a truncated
+digest of those headers enters the key — never the value, since keys stay in
+clear text even under `EncryptedCacheStorage`.
+
+```dart
+cacheConfig: CacheConfig(
+  varyHeaders: const ['X-User-Id'],  // a stable identity beats a rotating token
+),
+```
+
+Two consequences worth knowing:
+
+- **A token refresh changes the fingerprint**, so entries cached under the old
+  access token stop being hit. That is a cache miss, never a wrong answer —
+  vary on a stable identity header to avoid it.
+- **The header must already be on the request** when the cache reads it.
+  `ApiClientFactory` installs auth before the cache precisely so it is. Wiring
+  the cache by hand *before* auth scopes nothing, and scoping nothing looks
+  exactly like working.
+
+Set `const []` to opt out, and only where responses genuinely do not depend on
+the caller — a public price list, a static catalogue.
 
 #### Knowing what you got
 
@@ -296,6 +394,75 @@ if (response.isFromCache && response.isStale) {
 `cacheFirst` serving instantly while it revalidates, and the offline fallback
 of `networkFirst` / `httpCacheAware`. Both are useful; both are lies if the
 caller can't tell. **On an amount, a balance or a status, surface it.**
+
+#### Forcing a round trip — `forceRevalidate()`
+
+Under `httpCacheAware`, a fresh entry is served without asking the server. On a
+pull-to-refresh the user *has* asked, so `forceRevalidate()` sends the stored
+`ETag` as `If-None-Match`: an unchanged resource costs a `304` with no body and
+the entry's lifetime restarts.
+
+```dart
+final response = await client.get<Map<String, dynamic>>(
+  '/orders',
+  options: Options(extra: {forceRevalidateKey: true}),
+);
+// or, on a RequestOptions you already hold:  options.forceRevalidate();
+```
+
+Cheaper than `noCache()`, which throws the entry away and downloads the body
+again.
+
+#### A cache hit keeps the type it had
+
+A body comes back as the type the network gave you — a `text/plain` payload
+stays a `String`, a `ResponseType.bytes` download stays bytes. `CacheEntry`
+records which of `CacheBodyEncoding.json`, `.text`, `.bytes` or `.empty` was
+used, so the round trip through storage is not a `jsonEncode`/`jsonDecode` pair
+that turns `"12345"` into an `int` on the second request only.
+
+You never set this — it is recorded for you. It is public because a custom
+`CacheStorage` receives it and must persist it alongside the body; drop it and
+every entry decodes as JSON again.
+
+#### Seeing the cache work
+
+A hit resolves before the logger, the metrics and the tracing interceptor, so
+none of them ever sees one — deliberately, since a cached response spent no
+time on the network. The consequence is that your fastest requests are missing
+from every dashboard, and the hit rate is not visible from the observability
+apix ships. Two callbacks close that:
+
+```dart
+cacheConfig: CacheConfig(
+  storage: FileCacheStorage(dir),
+  onCacheHit: (hit) => analytics.count(
+    hit.isStale ? 'cache.stale' : 'cache.fresh',
+  ),
+  onCacheError: (failure) => Sentry.captureException(
+    failure.error,
+    stackTrace: failure.stackTrace,
+  ),
+),
+```
+
+`onCacheError` matters more than it looks. The cache falls back to the network
+on any storage failure — correct, and unchanged — but a backend that refuses
+*every* operation then degrades the client to "no cache" permanently, with every
+request still succeeding. Without this callback there is no moment at which
+anyone finds out.
+
+#### Removing what expired
+
+`getCacheKeys()` only reads. Use `evictExpired()` when you want the sweep:
+
+```dart
+final removed = await client.cacheInterceptor!.evictExpired();
+```
+
+Worth calling at logout or on a memory-pressure signal; not worth calling
+routinely, since `FileCacheStorage` bounds itself by count and an expired entry
+is still what serves the user when the network is gone.
 
 #### The TTL is a guarantee
 
@@ -356,7 +523,7 @@ launches is also the data that must not leak, wrap it:
 
 ```dart
 final storage = EncryptedCacheStorage(
-  delegate: FileCacheStorage(directory: dir),
+  delegate: FileCacheStorage(dir),
   encrypt: (plain) => myCipher.encrypt(plain),
   decrypt: (sealed) => myCipher.decrypt(sealed),
 );
@@ -564,9 +731,21 @@ final client = ApiClientFactory.create(
 | Option | Description |
 |--------|-------------|
 | `captureStatusCodes` | HTTP status codes to capture (default: 5xx) |
-| `captureRequestBody` | Include request body (default: false) |
-| `captureResponseBody` | Include response body (default: true) |
+| `captureRequestBody` | Include request body (default: **false**) |
+| `captureResponseBody` | Include response body (default: **false** since 5.0) |
 | `redactedHeaders` | Headers to redact (Authorization, Cookie...) |
+| `redactUrls` | Replace query-parameter **values** before a URL is sent (default: `true`) |
+
+> Both bodies are withheld until you ask. `captureResponseBody` used to default
+> to `true` while `captureRequestBody` defaulted to `false` — and the response
+> body is the one written by the server, which can carry fields the client never
+> sent.
+>
+> `redactUrls` closes a matching gap: this interceptor redacted `Authorization`
+> and then sent the whole URI, so a token in a query parameter reached a
+> third-party service in clear, past a redaction step that had already run.
+> Parameter **names** are kept (`?token=[REDACTED]`), because knowing which
+> parameters a failing request carried is most of the value of having the URL.
 
 **3. Upload debug symbols — or your release stack traces are unreadable.**
 
@@ -634,6 +813,34 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
+| A multipart body that cannot be rebuilt for a replay | `MultipartReplayException` |
+| `cacheOnly` miss, or an expired entry under it | `CacheException` |
+
+#### `MultipartReplayException` — the one you can act on
+
+A `FormData` is single-use: dio finalizes it into a stream. Two things replay a
+request without you asking — the auth interceptor after a token refresh, and
+the retry interceptor on a retryable status — and both re-enter with the same
+`RequestOptions`.
+
+When you passed a plain `Map` containing `File`s, apix keeps that map and builds
+a fresh `FormData` per attempt, so the replay simply works. This exception is
+raised only where that is impossible: the body arrived as a `FormData` (or a
+caller-built `MultipartFile`) that apix did not build and cannot rebuild.
+
+```dart
+try {
+  await client.post('/upload', data: formData);
+} on MultipartReplayException {
+  // Pass a Map of Files instead, so each attempt gets its own body —
+  // or opt this request out of replay with options.disableRetry().
+}
+```
+
+It exists rather than being a silent skip because the alternative was worse:
+dio threw a `StateError`, which reached the mapper as type `unknown` and
+surfaced as `ApiException: Unknown error` — **replacing** the `500` that had
+triggered the replay, so `on ServerException catch` stopped matching.
 
 The **message** is automatically extracted from the API response body. Supports flat and nested formats:
 
@@ -714,6 +921,19 @@ which have no body to read.
 
 Keep status branching for the cross-cutting cases — `401` refresh, `403`, a
 generic `5xx` — or when no code is guaranteed.
+
+> **A code that is just the status is dropped.** Plenty of envelopes fill a
+> field named `code` with the HTTP status (`{"code": 401, ...}` on a `401`).
+> Reported as a business code, it would restore the coupling this field exists
+> to remove — disguised, since `switch (e.code)` would look like business logic.
+> apix drops any value equal to the response status, in either spelling. Real
+> codes are untouched: `4001` under a `400` comes through.
+>
+> Point `errorCodeKey` at another field only if your API genuinely publishes
+> codes there — **not** as a way to dodge the trap. One API in the wild fills
+> the same `code` field with a status on one handler and a real code on another
+> (`{"code": 400, ...}` vs `{"code": "VALIDATION_ERROR", "status": 400, ...}`);
+> pointing elsewhere to avoid the first would have silently lost the second.
 
 ### Rate limits
 
@@ -890,7 +1110,31 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 |-------|---------|--------|-------|----------|
 | **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | all | — |
 | **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
-| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | GET, POST | OrNull, List, ListOrNull, ListOrEmpty |
+| **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | all | OrNull, List, ListOrNull, ListOrEmpty |
+
+Since 5.0 every family is available on every verb — twelve shapes × five verbs.
+The table used to claim that while `PUT` and `PATCH` had two methods each and
+`DELETE` none, because filling the gaps meant copying the plumbing five times.
+It is one shared core now, so a verb cannot fall behind again.
+
+#### Progress on a typed call
+
+Every typed method takes `onReceiveProgress`, and every body-bearing one
+(`POST`, `PUT`, `PATCH`, `DELETE`) also takes `onSendProgress` — so a typed
+upload can drive a progress bar without dropping back to `client.post` and
+parsing the body by hand:
+
+```dart
+final receipt = await client.postAndDecodeData<Receipt>(
+  '/documents',
+  {'file': File(path), 'label': 'passport'},
+  Receipt.fromJson,
+  onSendProgress: (sent, total) => setState(() => _progress = sent / total),
+);
+```
+
+The twelve `GET` variants take only `onReceiveProgress`: a `GET` has nothing to
+send, and an option that can never fire is an option that looks set.
 
 ### Strict Content-Type Checks (Captive Portals)
 
@@ -974,6 +1218,34 @@ with `actualContentType: null`.
 | `ErrorTrackingInterceptor` | `errorTrackingConfig` | Error tracking |
 | `MetricsInterceptor` | `metricsConfig` | Request metrics |
 | `ErrorMapperInterceptor` | Automatic | Transforms DioException → ApiException |
+| `MultipartInterceptor` | Automatic | `File` in a `Map` → `FormData`, rebuilt per attempt |
+| `ResponseValidatorInterceptor` | `responseValidator` | Fails a 2xx your validator refuses |
+| `DeduplicationInterceptor` | `deduplicationConfig` | Collapses identical concurrent requests |
+| `TracingInterceptor` | `tracingConfig` | One performance span per request |
+
+### What your callbacks receive
+
+You write a lambda; the type of its parameter is what tells you what you can
+read. Named here because the signature alone does not.
+
+| You wire | You receive | Carries |
+|----------|-------------|---------|
+| `loggerConfig.logHandler` | `LogEntry` | `level`, `method`, `url`, `statusCode`, `durationMs`, `headers`, `body`, `error` |
+| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes, `toMap()` |
+| `metricsConfig.onBreadcrumb` | `RequestBreadcrumb` | `type` (`BreadcrumbType`), `message`, `category`, `data` |
+| `onRetry` | `RetryAttempt` | `attempt` (0-indexed), `delay`, `cause`, `statusCode` |
+| `cacheConfig.onCacheHit` | `CacheHit` | `key`, `method`, `uri`, `isStale`, `statusCode` |
+| `cacheConfig.onCacheError` | `CacheFailure` | `operation` (`CacheOperation`), `key`, `error`, `stackTrace` |
+| `SecureStorageService.onBeforeRecoveryDelete` | `SecureStorageRecovery` | `operation` (`SecureStorageOperation`), `key`, `error`, `isFullWipe` |
+| `tracingConfig.startSpan` | *returns* `ApiSpan?` | `setData()`, `finish({statusCode})` — return `null` to skip |
+| `errorTrackingConfig.onError` | `ApiException` | the **typed** exception, never the raw `DioException` |
+| `authConfig.onAuthFailure` | `TokenProvider`, `Object?` | the cause: a `DioException`, a `TokenProviderException`, or `null` |
+
+`TokenProviderException.operation` is a `TokenProviderOperation` — `read` or
+`write`. **Never `clear`**: apix does not own your logout, so a failure there is
+raised in your own frame. The value exists for a custom `TokenProvider` to
+raise, and a `case TokenProviderOperation.clear` around an apix call is a branch
+that cannot be taken.
 
 ---
 
@@ -984,19 +1256,36 @@ A complete Flutter app demonstrating all ApiX features is available on GitHub:
 👉 **[apix_example_app](https://github.com/Germinator97/apix_example_app)**
 
 <p align="center">
-  <img src="assets/screenshots/home.png" alt="ApiX Example App — cache strategies, cache invalidation and mutations, with live request metrics in the status bar" width="290">
-  &nbsp;&nbsp;
-  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry probes, Sentry error triggers, and the fetched data" width="290">
+  <img src="assets/screenshots/home.png" alt="ApiX Example App — requests, responses and caching under one taxonomy, with live request metrics in the status bar" width="260">
+  &nbsp;
+  <img src="assets/screenshots/probes.png" alt="ApiX Example App — a probe reporting that two accounts on one device are served their own cache entry, above the auth, upload and error-code demos" width="260">
+  &nbsp;
+  <img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry counted attempt by attempt, and what reaches the error tracker versus what is dropped as transport noise" width="260">
 </p>
 
-Features demonstrated:
-- 🔐 SecureTokenProvider with simplified refresh flow
-- 💾 Cache strategies (CacheFirst, NetworkFirst, HttpCache) + invalidation API
-- 🔄 Retry: exponential backoff, `Retry-After`, and the method-aware guard — three live probes measure how many times the server is actually hit for `GET`, `POST` and `POST` + `forceRetry()`
-- 🛡️ Typed failures: `ParsingException`, `UnexpectedContentTypeException`, `responseValidator` → custom exception, `TokenProviderException`
-- 📦 Envelope API (`*Data` methods) against a mocked backend
-- 🐛 Sentry integration with error testing
-- 📊 Request metrics and logging
+The app is organised by **theme**, not by release, and each section pairs the
+live feature with the probes that pin it:
+
+- 📥 **Requests & responses** — plain CRUD and the envelope (`*Data`) methods
+  against a mocked backend
+- 💾 **Cache** — the five strategies and the invalidation API, plus probes for
+  per-caller scoping, inline query keys, `networkOnly` writing nothing, and
+  deduplication without a cache
+- 🔐 **Auth & uploads** — `SecureTokenProvider` with the simplified refresh
+  flow, an upload surviving a token refresh, nested multipart, and
+  `TokenProviderException`
+- ⚠️ **Errors & error codes** — application codes, a status that is not a code,
+  `429` with its delay, a business failure dressed as `200`, a bare `[]`,
+  `ParsingException`, captive portals, `responseValidator`
+- 🔁 **Retry** — exponential backoff, `Retry-After`, and the method-aware
+  guard; four probes count how many times the server is actually hit
+- 📤 **Observability** — what reaches the tracker, what is dropped as transport
+  noise, a broken log sink that cannot fail the request, and live Sentry
+  triggers
+
+Every probe reports the **evidence** — a count, a body, a flag — rather than a
+pass mark, because the defects they cover produced a wrong answer rather than
+an error.
 
 > A shorter, single-file example lives in [`example/example.dart`](example/example.dart) — that is the one rendered on pub.dev. The linked repo is the full Flutter app.
 

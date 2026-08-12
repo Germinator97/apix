@@ -9,7 +9,11 @@ void main() {
       expect(config.enabled, isTrue);
       expect(config.captureStatusCodes, equals({500, 501, 502, 503, 504}));
       expect(config.captureRequestBody, isFalse);
-      expect(config.captureResponseBody, isTrue);
+      // Both bodies are withheld until asked for. This asserted `isTrue` while
+      // the line above asserted `isFalse`, which is how the asymmetry sat in
+      // plain sight in a passing test.
+      expect(config.captureResponseBody, isFalse);
+      expect(config.redactUrls, isTrue);
     });
 
     test('disabled factory creates disabled config', () {

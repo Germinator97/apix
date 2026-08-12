@@ -41,6 +41,44 @@ class ApiClientConfig {
   final String? defaultContentType;
 
   /// Custom Dio interceptors to add.
+  ///
+  /// Appended **after** everything the factory installs — auth, retry,
+  /// deduplication, cache, and every observer — and before the error mapper.
+  /// That is the right place for a custom interceptor: it sees the final
+  /// request and the final response, after apix has done its work.
+  ///
+  /// ## One caveat, for *re-entrant* interceptors
+  ///
+  /// `CacheInterceptor` and `DeduplicationInterceptor` are re-entrant: they
+  /// call `dio.fetch(...)` internally, which restarts the whole chain for the
+  /// request they actually send. The factory places them **before** the
+  /// observers so that inner pass is not logged a second time.
+  ///
+  /// Passing one here puts it after the observers instead, and the inner pass
+  /// is observed too. Measured, so it is not a guess: one call becomes two
+  /// `→ Request` log lines and one extra request breadcrumb. Network traffic,
+  /// metrics and response logs are unchanged — it is log noise, not doubled
+  /// telemetry.
+  ///
+  /// So prefer `cacheConfig` / `deduplicationConfig`, and reach for the
+  /// instance through `ApiClient.cacheInterceptor` when you need the
+  /// invalidation API. Wiring one here still works, and is worth it if you
+  /// need a placement the factory does not offer.
+  ///
+  /// ## Your `onError` sees a raw `DioException`, not an `ApiException`
+  ///
+  /// The mapper is installed **after** this list, so an interceptor here runs
+  /// before any typing has happened: `err.error` is whatever dio put there, and
+  /// `err.type` is a `DioExceptionType`. The `ServerException` /
+  /// `NotFoundException` hierarchy the rest of the documentation talks about
+  /// does not exist yet at this point in the chain.
+  ///
+  /// That placement is deliberate — the mapper ends the error chain with
+  /// `handler.reject`, so anything after it would never run at all — but it is
+  /// surprising, and it is the sort of thing discovered from an `on
+  /// ServerException catch` clause that silently never fires. Map it yourself
+  /// with `ErrorMapperInterceptor.mapDioException(err)`, which is a pure static
+  /// and is exactly what `ErrorTrackingInterceptor` does for the same reason.
   final List<Interceptor>? interceptors;
 
   /// The key used to extract data from envelope responses.
@@ -61,6 +99,13 @@ class ApiClientConfig {
   /// may drift between server revisions.
   ///
   /// Defaults to `'code'`.
+  ///
+  /// ⚠️ That default is also the field plenty of envelopes use for the **HTTP
+  /// status** (`{"code": 401, "message": "..."}`). A status read as a business
+  /// code is worse than no code at all — it looks like one. apix drops any
+  /// value equal to the response status, so this stays safe out of the box,
+  /// but if your API publishes real codes under a different name, say so here
+  /// (`errorCodeKey: 'errorCode'`) rather than relying on the guard.
   final String errorCodeKey;
 
   /// When `true`, typed-decode methods (`*AndDecode`, `*AndDecodeData`,
@@ -102,6 +147,12 @@ class ApiClientConfig {
   });
 
   /// Creates a copy of this config with the given fields replaced.
+  ///
+  /// **A `null` argument means "keep the current value", never "clear it".**
+  /// Passing `null` explicitly cannot remove a callback or an optional field —
+  /// build a fresh config for that. The usual Dart limitation, stated because
+  /// the alternative is discovering it from a callback that kept firing after
+  /// you thought you had removed it.
   ApiClientConfig copyWith({
     String? baseUrl,
     Duration? connectTimeout,
