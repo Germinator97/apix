@@ -122,12 +122,44 @@ void main() {
       expect(trace.logResponseBody, isTrue);
     });
 
-    test('the changelog mentions no version that was never released', () {
+    test('the section headings are exactly the versions that exist', () {
       // A version numbered while fixes are in flight and then dropped leaves a
-      // heading nobody can install, and sends readers looking for it on pub.dev.
+      // heading nobody can install behind, and sends readers looking for it on
+      // pub.dev. This guard does not name the culprit: a test that spells out
+      // the version it forbids reintroduces the very mention it exists to
+      // remove, and has to be edited again at the next one.
+      //
+      // By equality, in both directions — an invented heading fails here, and
+      // so does a deleted one. At a release, add the new version at the top of
+      // this list, in the same move as the pubspec and the README snippet.
+      const headings = [
+        '5.0.0',
+        '4.1.0',
+        '4.0.0',
+        '3.0.0',
+        '2.3.0',
+        '2.2.0',
+        '2.1.0',
+        '2.0.0',
+        '1.4.0',
+        '1.3.0',
+        '1.2.0',
+        '1.1.0',
+        '1.0.0',
+        '0.3.0',
+        '0.0.1',
+      ];
+
+      final found = RegExp(r'^## (\d+\.\d+\.\d+)', multiLine: true)
+          .allMatches(changelog)
+          .map((m) => m.group(1)!)
+          .toList();
+
       expect(
-        changelog,
-        reason: 'the release went 4.1.0 → 5.0.0, with nothing in between',
+        found,
+        headings,
+        reason: 'the changelog headings no longer match. A version that was '
+            'never published must not appear; a released one must not vanish.',
       );
     });
   });
