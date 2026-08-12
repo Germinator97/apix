@@ -122,10 +122,12 @@ void main() {
       expect(trace.logResponseBody, isTrue);
     });
 
-    test('the changelog names no unreleased version', () {
+    test('the changelog mentions no version that was never released', () {
+      // A version numbered while fixes are in flight and then dropped leaves a
+      // heading nobody can install, and sends readers looking for it on pub.dev.
       expect(
         changelog,
-        reason: 'a released version would contradict the note',
+        reason: 'the release went 4.1.0 → 5.0.0, with nothing in between',
       );
     });
   });

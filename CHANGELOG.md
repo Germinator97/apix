@@ -110,9 +110,6 @@ deliberately rather than discovering thinner Sentry tickets.
   this file previously claimed. Do not catch that refusal and keep writing: the
   plugin is left without a cipher for the rest of the process.
 
-### Notes
-
-
 ## 4.1.0
 
 Two rounds of the same defect, reported by a consumer and then found by
