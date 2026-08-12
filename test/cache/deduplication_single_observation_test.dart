@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// One logical request must produce one of everything, whether or not
 /// deduplication is installed.
 ///
-/// a consumer hit this with a `CancelToken` on a search field: one cancelled
+/// A consumer hit this with a `CancelToken` on a search field: one cancelled
 /// request per keystroke, each producing two Sentry events.
 ///
 /// The mechanism took three attempts to pin down, so it is worth recording
