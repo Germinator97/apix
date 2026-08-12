@@ -60,8 +60,8 @@
     </ol>
   </div>
 <span class="returntype">void</span>
-<span class="name ">onError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span></li>
-<li><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
+<span class="name ">onError</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span></li>
+<li><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
 </ol>)
 
       <div class="features"><span class="feature">override</span></div>
@@ -69,7 +69,26 @@
     </section>
     
 <section class="desc markdown">
-  <p>Called when an exception was occurred during the request.</p>
+  <p>Handles a failure, refreshing the token and replaying the request when the
+status calls for it.</p>
+<h2 id="every-exit-uses-handlernext-never-handlerreject">Every exit uses <code>handler.next</code>, never <code>handler.reject</code></h2>
+<p><code>reject</code> ends the error chain where it is called. This interceptor sits
+second, so rejecting here skipped tracing, logging, error tracking,
+metrics <em>and</em> the error mapper — every observer apix installs. The result
+was that a broken session, the single most consequential failure an
+authenticated app has, was the one failure nobody could see: no log, no
+tracker event, and a <code>MetricsInterceptor</code> in-flight entry that was never
+completed and lingered until the five-minute orphan sweep.</p>
+<p>What made it look fine is that the <em>refresh</em> call is a request of its own:
+its own <code>400</code> was logged and captured normally, so the dashboards were
+never empty — they just never showed the <code>401</code> the caller actually
+received.</p>
+<p><code>next</code> carries the same typed exception to the rest of the chain, which
+ends at <code>ErrorMapperInterceptor</code> — and that one returns an <code>ApiException</code>
+unchanged, so the type callers catch is exactly what it was.</p>
+<p>It also has to be <code>next</code>: <code>ErrorInterceptorHandler.reject</code> gained its
+<code>callFollowingErrorInterceptor</code> flag after dio 5.4, which apix still
+supports, so <code>reject(err, true)</code> would not compile on the declared floor.</p>
 </section>
 
 
@@ -115,9 +134,10 @@ void onError(
         case _RefreshNetworkFailure(exception: final networkException):
           &#47;&#47; Refresh hit a network error — propagate as-is, do NOT log the
           &#47;&#47; user out. onAuthFailure was already skipped in _handleRefresh.
-          handler.reject(
+          handler.next(
             DioException(
               requestOptions: err.requestOptions,
+              response: err.response,
               message: networkException.message,
               error: networkException,
               type: DioExceptionType.unknown,
@@ -135,9 +155,10 @@ void onError(
                   &#39;Token refresh failed&#39;,
                   originalError: cause,
                 );
-          handler.reject(
+          handler.next(
             DioException(
               requestOptions: err.requestOptions,
+              response: err.response,
               message: finalError.message,
               error: finalError,
               type: DioExceptionType.unknown,
@@ -149,9 +170,10 @@ void onError(
 
     handler.next(err);
   } catch (e) {
-    handler.reject(
+    handler.next(
       DioException(
         requestOptions: err.requestOptions,
+        response: err.response,
         error: e,
         type: DioExceptionType.unknown,
       ),
@@ -185,7 +207,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

@@ -62,7 +62,14 @@
       </section>
       
 <section class="desc markdown">
-  <p>Maximum body length to log (truncates if exceeded).</p>
+  <p>Maximum body length for the text this config renders — the default
+printer's output and anything you pass through <a href="../../apix/LoggerConfig/truncateBody.html">truncateBody</a>.</p>
+<p><strong>It does not bound <a href="../../apix/LogEntry/body.html">LogEntry.body</a></strong>, which a custom <a href="../../apix/LoggerConfig/logHandler.html">logHandler</a>
+receives whole and unmodified. That is deliberate: a handler forwarding to
+a structured logger wants the object, not a string clipped mid-token, and
+truncating it would change its type. If your handler ships bodies
+somewhere, bound them there — or leave <a href="../../apix/LoggerConfig/logRequestBody.html">logRequestBody</a> and
+<a href="../../apix/LoggerConfig/logResponseBody.html">logResponseBody</a> off, which is now the default.</p>
 </section>
 
       
@@ -97,7 +104,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

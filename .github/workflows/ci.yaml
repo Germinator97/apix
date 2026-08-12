@@ -87,3 +87,77 @@ jobs:
         with:
           files: coverage/lcov.info
           fail_ci_if_error: false
+
+  # Builds the demo app, which depends on this package through `path: ../apix`.
+  #
+  # It had never run here. A relative path dependency resolves on a developer's
+  # machine because the sibling is always there, so the one layout that matters
+  # is the one never exercised: a runner clones only the repo that triggered the
+  # run, and `../apix` does not exist. The two checkouts below reproduce the
+  # side-by-side layout on purpose, and the demo has to be built rather than
+  # merely analysed — only a build runs the shrinker and the plugin wiring.
+  example-app:
+    name: Example app
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout apix
+        uses: actions/checkout@v5
+        with:
+          path: apix
+
+      - name: Checkout the example app
+        uses: actions/checkout@v5
+        with:
+          repository: Germinator97/apix_example_app
+          ref: develop
+          path: apix_example_app
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: apix_example_app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: apix_example_app
+        run: flutter analyze
+
+      - name: Test
+        working-directory: apix_example_app
+        run: flutter test
+
+      # Release, not debug: only the published mode runs R8, so only it can
+      # fail on a missing shrinking rule — and if nothing builds it, that
+      # failure waits for the release.
+      - name: Build release APK
+        working-directory: apix_example_app
+        run: flutter build apk --release
+
+  # Catches what `dart analyze` cannot: anything that would make the package
+  # unpublishable, and the pub.dev score the next release will actually get.
+  publishable:
+    name: Publishable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Publish dry run
+        run: dart pub publish --dry-run
+
+      - name: Score with pana
+        run: |
+          dart pub global activate pana
+          dart pub global run pana --no-warning --exit-code-threshold 20 .

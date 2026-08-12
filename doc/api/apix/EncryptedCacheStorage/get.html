@@ -100,6 +100,7 @@ Future&lt;CacheEntry?&gt; get(String key) async {
       createdAt: stored.createdAt,
       expiresAt: stored.expiresAt,
       etag: stored.etag,
+      encoding: stored.encoding,
       headers: headers is Map
           ? headers.map((k, v) =&gt; MapEntry(k.toString(), v.toString()))
           : null,
@@ -141,7 +142,7 @@ Future&lt;CacheEntry?&gt; get(String key) async {
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

@@ -60,6 +60,20 @@ rejected so callers see the same typed exception flow as for HTTP errors.
 When the validator returns <code>null</code>, the response passes through unchanged.</p>
 <p>The validator only fires on <code>onResponse</code> (2xx). 4xx/5xx responses go
 through the existing <code>ErrorMapperInterceptor</code> flow.</p>
+<h2 id="where-this-sits-and-why-it-matters">Where this sits, and why it matters</h2>
+<p><code>ApiClientFactory</code> installs it <strong>before the cache interceptor and before
+every observer</strong>, and both halves of that are load-bearing.</p>
+<p>It used to sit after them, which broke two things at once. The response had
+already been <em>stored</em> by the time the validator saw it, so a business
+failure dressed as <code>200 OK</code> was cached — and a later cache hit resolves from
+<code>onRequest</code>, skipping response interceptors entirely, so that stored failure
+came back <strong>without being validated at all</strong>, as a success. And
+<code>MetricsInterceptor.onResponse</code> had already recorded the request as
+<code>success: true</code> and released its in-flight entry, so the very failures this
+feature exists to surface were the ones the dashboards counted as fine.</p>
+<p>Rejections also pass <code>callFollowingErrorInterceptor: true</code>, so the failure
+travels the rest of the error chain — the observers, then
+<code>ErrorMapperInterceptor</code> — instead of ending here.</p>
 </section>
 
 
@@ -70,7 +84,7 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
   <dd>
     <ul class="gt-separated dark clazz-relationships">
       <li><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></li>
-        <li><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></li>
+        <li><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor-class.html">Interceptor</a></li>
       <li>ResponseValidatorInterceptor</li>
     </ul>
   </dd>
@@ -164,7 +178,7 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
 </dd>
 
         <dt id="onError" class="callable inherited">
-  <span class="name"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor/onError.html">onError</a></span><span class="signature">(<wbr><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor/onError.html">onError</a></span><span class="signature">(<wbr><span class="parameter" id="onError-param-err"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/DioException-class.html">DioException</a></span> <span class="parameter-name">err</span>, </span><span class="parameter" id="onError-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/ErrorInterceptorHandler-class.html">ErrorInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -177,7 +191,7 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
 </dd>
 
         <dt id="onRequest" class="callable inherited">
-  <span class="name"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor/onRequest.html">onRequest</a></span><span class="signature">(<wbr><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor/onRequest.html">onRequest</a></span><span class="signature">(<wbr><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -190,7 +204,7 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
 </dd>
 
         <dt id="onResponse" class="callable">
-  <span class="name"><a href="../apix/ResponseValidatorInterceptor/onResponse.html">onResponse</a></span><span class="signature">(<wbr><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
+  <span class="name"><a href="../apix/ResponseValidatorInterceptor/onResponse.html">onResponse</a></span><span class="signature">(<wbr><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span>)
     <span class="returntype parameter">&#8594; void</span>
   </span>
   
@@ -242,6 +256,23 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
     
     
 
+  <section class="summary offset-anchor" id="constants">
+    <h2>Constants</h2>
+    <dl class="properties">
+        <dt id="validationFailedKey" class="constant">
+    <span class="name "><a href="../apix/ResponseValidatorInterceptor/validationFailedKey-constant.html">validationFailedKey</a></span>
+  <span class="signature">&#8594; const <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  Marks a request whose 2xx body the validator refused.
+  
+
+</dd>
+
+    </dl>
+  </section>
   </div> <!-- /.main-content -->
   <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
     <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
@@ -265,7 +296,7 @@ through the existing <code>ErrorMapperInterceptor</code> flow.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

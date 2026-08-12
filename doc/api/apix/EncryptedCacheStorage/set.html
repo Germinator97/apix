@@ -93,6 +93,10 @@ Future&lt;void&gt; set(String key, CacheEntry entry) async {
       createdAt: entry.createdAt,
       expiresAt: entry.expiresAt,
       etag: entry.etag,
+      &#47;&#47; Travels in the clear alongside the timestamps: it says how the body
+      &#47;&#47; was encoded, never anything about what it contains, and the decode
+      &#47;&#47; path needs it as plainly as the expiry needs its date.
+      encoding: entry.encoding,
     ),
   );
 }</code></pre>
@@ -123,7 +127,7 @@ Future&lt;void&gt; set(String key, CacheEntry entry) async {
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

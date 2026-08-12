@@ -67,7 +67,14 @@
   <p>Invalidates all cache entries for a specific URL and method.</p>
 <p>Accepts both relative paths and absolute URLs.
 Relative paths are resolved against the client's base URL.
-All query parameter variants for the same URL are invalidated.</p>
+All query parameter variants — and all callers, when
+<a href="../../apix/CacheConfig/varyHeaders.html">CacheConfig.varyHeaders</a> is in play — are invalidated for that exact URL.</p>
+<p><strong>Sibling paths are not touched.</strong> The match stops at the URL boundary, so
+<code>invalidateUrl('/users')</code> leaves <code>/users-archived</code> and <code>/users/123</code> alone.
+It used to be a bare prefix match, which swept both away — a surprise
+nobody could see, since a cache entry that vanished early just looks like
+a miss. Reach for <a href="../../apix/CacheInterceptor/invalidatePath.html">invalidatePath</a> or <a href="../../apix/CacheInterceptor/invalidateByPrefix.html">invalidateByPrefix</a> when clearing a
+whole subtree really is the intent.</p>
 <p>Returns true if at least one entry was removed.</p>
 <p>Example:</p>
 <pre class="language-dart"><code class="language-dart">await interceptor.invalidateUrl('/users/123', method: 'GET');
@@ -82,7 +89,7 @@ All query parameter variants for the same URL are invalidated.</p>
   final resolvedUrl = _resolveUrl(url);
   final prefix = &#39;$method:$resolvedUrl&#39;;
   final removed = await config.storage.removeWhere(
-    (key) =&gt; key.startsWith(prefix),
+    (key) =&gt; _matchesUrlExactly(key, prefix),
   );
   return removed &gt; 0;
 }</code></pre>
@@ -113,7 +120,7 @@ All query parameter variants for the same URL are invalidated.</p>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

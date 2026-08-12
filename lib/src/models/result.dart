@@ -6,15 +6,24 @@ import '../errors/api_exception.dart';
 ///
 /// Use [Result] for functional error handling as an alternative to exceptions.
 ///
-/// Example:
+/// `getResult` wraps whatever the future produces, so what lands in
+/// `onSuccess` is what the call itself returns — a `Response` from the raw
+/// verbs, your own type from the typed ones:
+///
 /// ```dart
-/// final result = await client.get('/users').getResult();
+/// final result = await client
+///     .getListAndDecodeData('/users', User.fromJson)
+///     .getResult();
 ///
 /// result.fold(
 ///   onSuccess: (users) => print('Got ${users.length} users'),
 ///   onFailure: (error) => print('Error: ${error.message}'),
 /// );
 /// ```
+///
+/// This example used to show `client.get('/users')`, whose success value is a
+/// `Response<T>` and has no `.length` — the snippet did not compile, and the
+/// one place a reader looks to learn the type was the place that misnamed it.
 sealed class Result<T, E extends ApiException> {
   const Result._();
 

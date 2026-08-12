@@ -60,8 +60,8 @@
     </ol>
   </div>
 <span class="returntype">void</span>
-<span class="name ">onRequest</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span></li>
-<li><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
+<span class="name ">onRequest</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onRequest-param-options"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestOptions-class.html">RequestOptions</a></span> <span class="parameter-name">options</span>, </span></li>
+<li><span class="parameter" id="onRequest-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/RequestInterceptorHandler-class.html">RequestInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
 </ol>)
 
       <div class="features"><span class="feature">override</span></div>
@@ -81,11 +81,30 @@ void onRequest(
   RequestOptions options,
   RequestInterceptorHandler handler,
 ) {
+  ObservationMarker.beginAttempt(options);
   if (config.enabled) {
     _cleanupOrphans();
-    final metrics = _createMetrics(options);
-    _inFlight[metrics.requestId] = metrics;
-    options.extra[&#39;_metrics_request_id&#39;] = metrics.requestId;
+
+    &#47;&#47; A replay keeps measuring the entry it already has.
+    &#47;&#47;
+    &#47;&#47; Every attempt comes back through here carrying the same `extra` map,
+    &#47;&#47; and an unconditional `_createMetrics` overwrote the id while leaving
+    &#47;&#47; the previous entry in `_inFlight` with nobody left to complete it.
+    &#47;&#47; Measured on a two-retry request: three attempts, one metric emitted,
+    &#47;&#47; **two entries stranded** until the five-minute orphan sweep — so
+    &#47;&#47; `inFlightCount` was wrong for five minutes after every retried request.
+    &#47;&#47;
+    &#47;&#47; Reusing it also makes the duration cover what the caller actually
+    &#47;&#47; waited for, backoff included, which is the same reasoning
+    &#47;&#47; `TracingInterceptor` states for keeping one span across attempts.
+    &#47;&#47; The breadcrumb below still fires per attempt: a retry storm belongs in
+    &#47;&#47; the trail even when it is one metric.
+    final replayed = _replayedMetrics(options);
+    if (replayed == null) {
+      final metrics = _createMetrics(options);
+      _inFlight[metrics.requestId] = metrics;
+      options.extra[&#39;_metrics_request_id&#39;] = metrics.requestId;
+    }
 
     _emitBreadcrumb(
       type: BreadcrumbType.request,
@@ -127,7 +146,7 @@ void onRequest(
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

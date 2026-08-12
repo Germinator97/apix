@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
+import '../client/response_validator_interceptor.dart';
 import '../errors/api_exception.dart';
+import '../http/body_fingerprint.dart';
+import '../http/cache_vary.dart';
+import '../observability/observer_guard.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
 import 'cache_storage.dart';
@@ -43,7 +48,12 @@ class CacheInterceptor extends Interceptor {
   final CacheConfig config;
 
   /// The request deduplicator for concurrent requests.
-  final RequestDeduplicator _deduplicator = RequestDeduplicator();
+  ///
+  /// Scoped by the same [CacheConfig.varyHeaders] as the cache: collapsing two
+  /// concurrent requests from different callers hands the second one a body it
+  /// never asked for, exactly as a shared cache entry would.
+  late final RequestDeduplicator _deduplicator =
+      RequestDeduplicator(varyHeaders: config.varyHeaders);
 
   /// Dio instance for executing deduplicated requests.
   Dio? _dio;
@@ -77,7 +87,15 @@ class CacheInterceptor extends Interceptor {
   ///
   /// Accepts both relative paths and absolute URLs.
   /// Relative paths are resolved against the client's base URL.
-  /// All query parameter variants for the same URL are invalidated.
+  /// All query parameter variants — and all callers, when
+  /// [CacheConfig.varyHeaders] is in play — are invalidated for that exact URL.
+  ///
+  /// **Sibling paths are not touched.** The match stops at the URL boundary, so
+  /// `invalidateUrl('/users')` leaves `/users-archived` and `/users/123` alone.
+  /// It used to be a bare prefix match, which swept both away — a surprise
+  /// nobody could see, since a cache entry that vanished early just looks like
+  /// a miss. Reach for [invalidatePath] or [invalidateByPrefix] when clearing a
+  /// whole subtree really is the intent.
   ///
   /// Returns true if at least one entry was removed.
   ///
@@ -89,9 +107,22 @@ class CacheInterceptor extends Interceptor {
     final resolvedUrl = _resolveUrl(url);
     final prefix = '$method:$resolvedUrl';
     final removed = await config.storage.removeWhere(
-      (key) => key.startsWith(prefix),
+      (key) => _matchesUrlExactly(key, prefix),
     );
     return removed > 0;
+  }
+
+  /// Whether [key] is an entry for exactly [prefix], rather than for a URL that
+  /// merely starts with it.
+  ///
+  /// A key is `METHOD:scheme://authority/path` optionally followed by `?query`
+  /// and by the `|v:` identity fragment, so anything else after the prefix
+  /// means a different URL.
+  bool _matchesUrlExactly(String key, String prefix) {
+    if (!key.startsWith(prefix)) return false;
+    if (key.length == prefix.length) return true;
+    final next = key[prefix.length];
+    return next == '?' || next == '|';
   }
 
   /// Resolves a relative URL against the client's base URL.
@@ -146,7 +177,9 @@ class CacheInterceptor extends Interceptor {
 
   /// Clears all cached entries.
   ///
-  /// Returns the number of entries removed.
+  /// Returns the number of entries removed — expired ones included, which it
+  /// used to under-report because [CacheStorage.keys] swept them on its way
+  /// past.
   Future<int> clearCache() async {
     final allKeys = await config.storage.keys();
     final count = allKeys.length;
@@ -154,9 +187,35 @@ class CacheInterceptor extends Interceptor {
     return count;
   }
 
-  /// Returns all current cache keys.
+  /// Returns all current cache keys, expired entries included.
+  ///
+  /// **Reading no longer deletes.** This used to purge every expired entry it
+  /// walked over, so asking what was cached destroyed the offline fallback —
+  /// an expired entry is precisely what `networkFirst` serves when the network
+  /// is gone. Reach for [evictExpired] when removing them is the intent.
   Future<List<String>> getCacheKeys() async {
     return config.storage.keys();
+  }
+
+  /// Removes every entry that is past its TTL, and returns how many went.
+  ///
+  /// The deletion that [getCacheKeys] used to perform as a side effect, under
+  /// a name that says so. Worth calling on a memory-pressure signal or at
+  /// logout; not worth calling routinely, since `FileCacheStorage` already
+  /// bounds itself by count and an expired entry still has value offline.
+  ///
+  /// Works against any [CacheStorage], including a consumer's own: it reads
+  /// through the interface rather than requiring a method of its own.
+  Future<int> evictExpired() async {
+    var removed = 0;
+    for (final key in await config.storage.keys()) {
+      final entry = await config.storage.get(key);
+      if (entry != null && entry.isExpired) {
+        await config.storage.remove(key);
+        removed++;
+      }
+    }
+    return removed;
   }
 
   /// Returns true if a cache entry exists for the given key.
@@ -211,8 +270,9 @@ class CacheInterceptor extends Interceptor {
             handler.next(options);
           }
       }
-    } catch (e) {
-      // On storage or other failure, fall through to network
+    } catch (e, st) {
+      // On storage or other failure, fall through to network — and say so.
+      _reportCacheFailure(CacheOperation.read, e, st);
       handler.next(options);
     }
   }
@@ -241,13 +301,17 @@ class CacheInterceptor extends Interceptor {
           options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
       final strategy = _getStrategy(options);
 
-      // Handle 304 Not Modified for httpCacheAware
+      // Handle 304 Not Modified for httpCacheAware.
+      //
+      // Only reachable when the caller widened `validateStatus` to accept a
+      // 304; with dio's default it arrives as an error, and `onError` handles
+      // it. Both routes go through the same helper so they cannot drift.
       if (strategy == CacheStrategy.httpCacheAware &&
           response.statusCode == 304) {
-        final cached = await config.storage.get(cacheKey);
-        if (cached != null) {
-          final cachedResponse = _buildResponseFromCache(options, cached);
-          handler.resolve(cachedResponse);
+        final revalidated =
+            await _serveRevalidated(options, cacheKey, response);
+        if (revalidated != null) {
+          handler.resolve(revalidated);
           return;
         }
       }
@@ -268,8 +332,9 @@ class CacheInterceptor extends Interceptor {
       }
 
       handler.next(response);
-    } catch (_) {
-      // On storage failure, pass through the response unmodified
+    } catch (e, st) {
+      // On storage failure, pass through the response unmodified.
+      _reportCacheFailure(CacheOperation.write, e, st);
       handler.next(response);
     }
   }
@@ -282,6 +347,15 @@ class CacheInterceptor extends Interceptor {
     try {
       final options = err.requestOptions;
       final strategy = _getStrategy(options);
+
+      // A body the consumer's `responseValidator` refused is a business
+      // failure, not a transport one. Answering it from storage would swap the
+      // failure the caller must see for a stale success.
+      if (options.extra[ResponseValidatorInterceptor.validationFailedKey] ==
+          true) {
+        handler.next(err);
+        return;
+      }
 
       // Only handle networkFirst and httpCacheAware fallback
       if (strategy != CacheStrategy.networkFirst &&
@@ -299,6 +373,25 @@ class CacheInterceptor extends Interceptor {
       final cacheKey =
           options.extra['_cacheKey'] as String? ?? _generateCacheKey(options);
 
+      // A 304 is not a failure, it is the successful outcome of a conditional
+      // request — but dio's default `validateStatus` accepts only 2xx, so it
+      // arrives here as an error. Handling it in `onResponse` alone meant the
+      // branch never ran: the 304 fell through to the generic fallback below,
+      // which served the entry flagged `isStale` (it had to be expired to be
+      // revalidated at all) and left its TTL untouched. So a *successful*
+      // revalidation reported stale data and re-hit the network on every later
+      // request — `httpCacheAware` degenerated into "always revalidate", the
+      // opposite of what it documents.
+      if (strategy == CacheStrategy.httpCacheAware &&
+          err.response?.statusCode == 304) {
+        final revalidated =
+            await _serveRevalidated(options, cacheKey, err.response!);
+        if (revalidated != null) {
+          handler.resolve(revalidated);
+          return;
+        }
+      }
+
       // Try to return cached response on network failure. An expired entry is
       // served on purpose here — stale data beats no data when the network is
       // gone — but it is flagged so the caller can say so.
@@ -307,6 +400,7 @@ class CacheInterceptor extends Interceptor {
         final response = _buildResponseFromCache(
           options,
           cached,
+          cacheKey,
           stale: cached.isExpired,
         );
         handler.resolve(response);
@@ -314,10 +408,43 @@ class CacheInterceptor extends Interceptor {
       }
 
       handler.next(err);
-    } catch (_) {
-      // On storage failure, propagate the original error
+    } catch (e, st) {
+      // On storage failure, propagate the original error.
+      _reportCacheFailure(CacheOperation.read, e, st);
       handler.next(err);
     }
+  }
+
+  /// Answers a `304 Not Modified` from the stored entry, restarting its
+  /// lifetime first.
+  ///
+  /// Returns null when there is nothing stored to confirm, in which case the
+  /// caller carries on with its normal handling.
+  ///
+  /// Restarting the TTL is the whole point: a 304 is the server saying "what
+  /// you hold is still current". Serving the body without recording that left
+  /// the entry expired, so the next request revalidated again — and the one
+  /// after that — while every hit was flagged `isStale`, telling callers the
+  /// data was old at the exact moment the server had confirmed it was not.
+  ///
+  /// The new lifetime comes from the 304's own `Cache-Control` when it carries
+  /// one, since that is the server's current answer, not the one it gave when
+  /// the body was first stored.
+  Future<Response<dynamic>?> _serveRevalidated(
+    RequestOptions options,
+    String cacheKey,
+    Response<dynamic> notModified,
+  ) async {
+    final cached = await config.storage.get(cacheKey);
+    if (cached == null) return null;
+
+    final refreshed = cached.revalidated(
+      ttl: _ttlFor(notModified, CacheStrategy.httpCacheAware),
+      etag: _getEtag(notModified.headers),
+    );
+    await config.storage.set(cacheKey, refreshed);
+
+    return _buildResponseFromCache(options, refreshed, cacheKey);
   }
 
   /// Handles CacheFirst strategy: serve the cache immediately, refresh behind.
@@ -339,7 +466,7 @@ class CacheInterceptor extends Interceptor {
 
     if (cached != null) {
       if (cached.isValid) {
-        handler.resolve(_buildResponseFromCache(options, cached));
+        handler.resolve(_buildResponseFromCache(options, cached, cacheKey));
         return;
       }
 
@@ -348,7 +475,7 @@ class CacheInterceptor extends Interceptor {
       // a normal blocking request rather than serving stale data forever.
       if (_dio != null) {
         handler.resolve(
-          _buildResponseFromCache(options, cached, stale: true),
+          _buildResponseFromCache(options, cached, cacheKey, stale: true),
         );
         _revalidateInBackground(options, cacheKey);
         return;
@@ -400,9 +527,9 @@ class CacheInterceptor extends Interceptor {
       // Check if cache is still fresh (no need to revalidate)
       if (cached.isValid) {
         // Check if we should revalidate based on no-cache
-        final shouldRevalidate = options.extra['_forceRevalidate'] == true;
+        final shouldRevalidate = options.extra[forceRevalidateKey] == true;
         if (!shouldRevalidate) {
-          final response = _buildResponseFromCache(options, cached);
+          final response = _buildResponseFromCache(options, cached, cacheKey);
           handler.resolve(response);
           return;
         }
@@ -426,12 +553,15 @@ class CacheInterceptor extends Interceptor {
     final cached = await config.storage.get(cacheKey);
 
     if (cached != null && cached.isValid) {
-      final response = _buildResponseFromCache(options, cached);
+      final response = _buildResponseFromCache(options, cached, cacheKey);
       handler.resolve(response);
       return;
     }
 
-    // No usable cache available, reject
+    // No usable cache available, reject — with `true`, so the failure still
+    // travels the rest of the error chain. Without it a `cacheOnly` miss was
+    // invisible to logging, metrics and error tracking, and left the metrics
+    // in-flight entry for this request dangling.
     handler.reject(
       DioException(
         requestOptions: options,
@@ -442,6 +572,7 @@ class CacheInterceptor extends Interceptor {
         ),
         type: DioExceptionType.unknown,
       ),
+      true,
     );
   }
 
@@ -458,20 +589,34 @@ class CacheInterceptor extends Interceptor {
         () => _executeRequest(options),
       );
 
-      // Cache the response if needed
+      // Storing is deliberately unable to fail the request.
+      //
+      // It used to be a bare `await _cacheResponse(...)` sitting *before* the
+      // resolve, so a storage failure escaped to `onRequest`'s catch — which
+      // falls through to `handler.next(options)` and sends the request a second
+      // time. Measured on the default configuration: two network calls, and the
+      // caller handed the **second** response. Not merely wasted traffic, a
+      // different answer than the one that was actually computed first; and a
+      // duplicated side effect for anyone who widened `cacheableMethods`.
+      //
+      // Kept awaited rather than moved after the resolve: the write stays
+      // deterministic for callers that inspect the store right after a request.
       if (_shouldStore(strategy) && _shouldCacheResponse(response)) {
-        await _cacheResponse(cacheKey, response, strategy: strategy);
+        await _storeQuietly(cacheKey, response, strategy);
       }
 
       handler.resolve(response);
     } on DioException catch (e) {
-      // For networkFirst, try cache fallback
+      // For networkFirst, try cache fallback. Read through the guarded helper
+      // for the same reason: a throwing read here would escape to the same
+      // catch and replay the request that has just failed.
       if (strategy == CacheStrategy.networkFirst) {
-        final cached = await config.storage.get(cacheKey);
+        final cached = await _readQuietly(cacheKey);
         if (cached != null) {
           final cachedResponse = _buildResponseFromCache(
             options,
             cached,
+            cacheKey,
             stale: cached.isExpired,
           );
           handler.resolve(cachedResponse);
@@ -480,6 +625,58 @@ class CacheInterceptor extends Interceptor {
       }
       handler.reject(e);
     }
+  }
+
+  /// Writes an entry, absorbing any storage failure.
+  ///
+  /// Used on the paths where a response is already in hand. There, a storage
+  /// exception has nothing to do with the request's outcome, and letting it
+  /// travel changes that outcome — see the note in [_handleWithDeduplication].
+  Future<void> _storeQuietly(
+    String key,
+    Response<dynamic> response,
+    CacheStrategy? strategy,
+  ) async {
+    try {
+      await _cacheResponse(key, response, strategy: strategy);
+    } catch (e, st) {
+      // The caller keeps its response; the entry simply is not written — and
+      // the consumer is told, which is the part that was missing.
+      _reportCacheFailure(CacheOperation.write, e, st, key: key);
+    }
+  }
+
+  /// Reads an entry, absorbing any storage failure as a miss.
+  Future<CacheEntry?> _readQuietly(String key) async {
+    try {
+      return await config.storage.get(key);
+    } catch (e, st) {
+      _reportCacheFailure(CacheOperation.read, e, st, key: key);
+      return null;
+    }
+  }
+
+  /// Hands a storage failure to [CacheConfig.onCacheError], if one is wired.
+  ///
+  /// Absorbing the failure is right: a cache that cannot answer is a cache
+  /// miss, and failing the request over it would turn a degraded optimisation
+  /// into an outage. Absorbing it *without a word* is what was wrong. A backend
+  /// refusing every operation left the client permanently cacheless with no
+  /// moment at which anyone could find out — every request still succeeded.
+  void _reportCacheFailure(
+    CacheOperation operation,
+    Object error,
+    StackTrace stackTrace, {
+    String? key,
+  }) {
+    final handler = config.onCacheError;
+    if (handler == null) return;
+    guardObserver(() => handler(CacheFailure(
+          operation: operation,
+          key: key,
+          error: error,
+          stackTrace: stackTrace,
+        )));
   }
 
   /// Executes the actual network request using the main Dio instance.
@@ -494,8 +691,15 @@ class CacheInterceptor extends Interceptor {
 
   /// Generates a cache key from request options.
   ///
-  /// Uses method + base URL path (without query) + sorted query params
-  /// to produce deterministic, non-duplicated keys.
+  /// Uses method + base URL path (without query) + sorted query params, then
+  /// the identity fragment from [CacheConfig.varyHeaders], to produce
+  /// deterministic keys that cannot be shared across callers.
+  ///
+  /// Without that last part the key described only *what* was asked, never
+  /// *who* asked. Two accounts on one device therefore shared every entry:
+  /// after a logout and a login, `GET /me` returned the previous account's
+  /// body — persisted across restarts by `FileCacheStorage`, and never
+  /// cleared, since the documented logout only dropped the tokens.
   String _generateCacheKey(RequestOptions options) {
     final uri = options.uri;
     final buffer = StringBuffer()
@@ -503,22 +707,48 @@ class CacheInterceptor extends Interceptor {
       ..write(':')
       ..write('${uri.scheme}://${uri.authority}${uri.path}');
 
-    // Append sorted query parameters for deterministic keys
-    if (options.queryParameters.isNotEmpty) {
-      final sortedParams = Map.fromEntries(
-        options.queryParameters.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key)),
-      );
-      buffer.write(
-          '?${Uri(queryParameters: _stringifyParams(sortedParams)).query}');
+    // Read the query off `uri`, never off `options.queryParameters`.
+    //
+    // dio merges both sources into `uri`: parameters passed as
+    // `queryParameters:` *and* those the caller wrote straight into the path.
+    // Reading only the map dropped the second kind entirely, so
+    // `get('/users?page=1')` and `get('/users?page=2')` produced the same key
+    // and the second call was served the first one's body — one network
+    // request for two different pages. The same two pages passed as
+    // `queryParameters: {'page': n}` did not collide, so whether the defect
+    // fired depended on how the caller happened to spell the request.
+    //
+    // Sorted by name so declaration order is irrelevant; repeated values keep
+    // their order, which can carry meaning.
+    final params = uri.queryParametersAll;
+    if (params.isNotEmpty) {
+      final names = params.keys.toList()..sort();
+      final canonical =
+          names.map((name) => '$name=${params[name]!.join(',')}').join('&');
+      buffer.write('?$canonical');
     }
 
-    return buffer.toString();
-  }
+    // The body, for the methods that carry one.
+    //
+    // `cacheableMethods` is a public list and nothing stopped a consumer from
+    // adding `POST`. Until this line, the key described the method, the URL and
+    // the caller — never *what was asked*. Two searches with different payloads
+    // therefore shared one entry: measured, `{"q":"alice"}` and `{"q":"bob"}`
+    // collapsed into a single network call and the second caller received the
+    // first one's results.
+    //
+    // Null for a body-less request, so every `GET` keeps the key it has always
+    // had and no stored entry is orphaned by this.
+    final body = bodyFingerprint(options.data);
+    if (body != null) buffer.write('|b:$body');
 
-  /// Converts query parameters to string map.
-  Map<String, String> _stringifyParams(Map<String, dynamic> params) {
-    return params.map((key, value) => MapEntry(key, value.toString()));
+    // Digest, never the value: `EncryptedCacheStorage` leaves keys in clear
+    // text on purpose, so an embedded bearer token would be written to disk by
+    // the very storage picked for sensitive data.
+    final vary = varyFingerprint(options, config.varyHeaders);
+    if (vary != null) buffer.write('|v:$vary');
+
+    return buffer.toString();
   }
 
   /// Gets the cache strategy for this request.
@@ -565,32 +795,84 @@ class CacheInterceptor extends Interceptor {
     Response<dynamic> response, {
     CacheStrategy? strategy,
   }) async {
-    final data = response.data;
-    final jsonString = data is String ? data : jsonEncode(data);
-
-    // Determine TTL based on Cache-Control for httpCacheAware
-    Duration ttl = config.defaultTtl;
-    String? etag;
-
-    if (strategy == CacheStrategy.httpCacheAware) {
-      final cacheControl = _parseCacheControl(response.headers);
-      if (cacheControl.maxAge != null) {
-        ttl = Duration(seconds: cacheControl.maxAge!);
-      }
-      etag = _getEtag(response.headers);
-    }
+    final (encoded, encoding) = _encodeBody(response.data);
 
     final entry = CacheEntry.withTtl(
-      data: jsonString,
+      data: encoded,
+      encoding: encoding,
       statusCode: response.statusCode ?? 200,
-      ttl: ttl,
-      etag: etag,
+      ttl: _ttlFor(response, strategy),
+      etag: strategy == CacheStrategy.httpCacheAware
+          ? _getEtag(response.headers)
+          : null,
       headers: response.headers.map.map(
         (key, value) => MapEntry(key, value.join(', ')),
       ),
     );
 
     await config.storage.set(key, entry);
+  }
+
+  /// How long an entry built from [response] should live.
+  ///
+  /// Under `httpCacheAware` this reads the server's own directives, all three
+  /// of which used to be parsed and then ignored except `max-age`:
+  ///
+  /// - `no-cache` and `must-revalidate` mean "you may keep this, but confirm it
+  ///   before using it again". That is a zero lifetime here: the entry stays on
+  ///   disk with its `ETag`, and the next request revalidates — cheaply, since
+  ///   a `304` costs no body and now correctly restarts the entry.
+  /// - `max-age` sets the lifetime.
+  ///
+  /// Ignoring the first two meant a server marking a resource as
+  /// must-revalidate had it served from cache for `defaultTtl` regardless —
+  /// apix deciding freshness for a strategy whose entire premise is that the
+  /// server decides.
+  Duration _ttlFor(Response<dynamic> response, CacheStrategy? strategy) {
+    if (strategy != CacheStrategy.httpCacheAware) return config.defaultTtl;
+    final cacheControl = _parseCacheControl(response.headers);
+    if (cacheControl.noCache || cacheControl.mustRevalidate) {
+      return Duration.zero;
+    }
+    final maxAge = cacheControl.maxAge;
+    return maxAge == null ? config.defaultTtl : Duration(seconds: maxAge);
+  }
+
+  /// Encodes a response body for storage, recording how, so the hit can hand
+  /// back the same runtime type the network handed back.
+  ///
+  /// Everything used to go through `jsonEncode`/`jsonDecode`, which is not a
+  /// round trip for two common bodies: a `text/plain` payload of `12345` came
+  /// back as the **int** `12345`, and a `ResponseType.bytes` download came back
+  /// as a `List<dynamic>`, so any cast to `Uint8List` at the call site threw —
+  /// on the second request only, which is what made it so hard to see.
+  (String, CacheBodyEncoding) _encodeBody(dynamic data) {
+    if (data == null) return ('', CacheBodyEncoding.empty);
+    if (data is String) return (data, CacheBodyEncoding.text);
+    if (data is Uint8List || data is List<int>) {
+      return (base64Encode(data as List<int>), CacheBodyEncoding.bytes);
+    }
+    return (jsonEncode(data), CacheBodyEncoding.json);
+  }
+
+  /// Reverses [_encodeBody].
+  dynamic _decodeBody(CacheEntry entry) {
+    switch (entry.encoding) {
+      case CacheBodyEncoding.empty:
+        return null;
+      case CacheBodyEncoding.text:
+        return entry.data;
+      case CacheBodyEncoding.bytes:
+        return base64Decode(entry.data);
+      case CacheBodyEncoding.json:
+        try {
+          return jsonDecode(entry.data);
+        } catch (_) {
+          // An entry written before `encoding` existed, holding a body that was
+          // never JSON. Handing the raw string back is what the old code did.
+          return entry.data;
+        }
+    }
   }
 
   /// Parses Cache-Control header into structured data.
@@ -633,22 +915,33 @@ class CacheInterceptor extends Interceptor {
     return headers.value('etag');
   }
 
-  /// Builds a response from a cached entry.
+  /// Builds a response from a cached entry, and reports the hit.
+  ///
+  /// Every path that answers from storage passes through here — the five
+  /// strategies, the 304 confirmation and both offline fallbacks — which is why
+  /// [CacheConfig.onCacheHit] is fired from this one place rather than from
+  /// each of them. A reporting call added per site is a reporting call that
+  /// will be missing from the next site.
   Response<dynamic> _buildResponseFromCache(
     RequestOptions options,
-    CacheEntry entry, {
+    CacheEntry entry,
+    String cacheKey, {
     bool stale = false,
   }) {
-    dynamic data;
-    try {
-      data = jsonDecode(entry.data);
-    } catch (_) {
-      data = entry.data;
+    final handler = config.onCacheHit;
+    if (handler != null) {
+      guardObserver(() => handler(CacheHit(
+            key: cacheKey,
+            method: options.method,
+            uri: options.uri,
+            isStale: stale,
+            statusCode: entry.statusCode,
+          )));
     }
 
     return Response<dynamic>(
       requestOptions: options,
-      data: data,
+      data: _decodeBody(entry),
       statusCode: entry.statusCode,
       headers: Headers.fromMap(
         entry.headers?.map((k, v) => MapEntry(k, [v])) ?? {},
@@ -702,6 +995,9 @@ const String fromCacheKey = 'fromCache';
 /// Key set on `Response.extra` when the cached body served had expired.
 const String fromCacheStaleKey = 'fromCacheStale';
 
+/// Key set on `RequestOptions.extra` to force a conditional revalidation.
+const String forceRevalidateKey = '_forceRevalidate';
+
 /// Extension for per-request cache control.
 extension CacheRequestExtension on RequestOptions {
   /// Sets a custom cache strategy for this request.
@@ -712,6 +1008,21 @@ extension CacheRequestExtension on RequestOptions {
   /// Disables caching for this request.
   void noCache() {
     extra['cacheStrategy'] = CacheStrategy.networkOnly;
+  }
+
+  /// Under [CacheStrategy.httpCacheAware], revalidates with the server even
+  /// when the stored entry is still fresh.
+  ///
+  /// Sends the stored `ETag` as `If-None-Match`, so an unchanged resource costs
+  /// a `304` with no body and the entry's lifetime restarts. Use it for a
+  /// pull-to-refresh: the user asked for the current answer, and a cheap
+  /// confirmation is a better one than a full download.
+  ///
+  /// The interceptor honoured this flag from the start, but nothing in the
+  /// public API ever set it — only a test did, by writing the private key by
+  /// hand.
+  void forceRevalidate() {
+    extra[forceRevalidateKey] = true;
   }
 }
 

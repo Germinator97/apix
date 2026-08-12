@@ -1,5 +1,104 @@
 import 'cache_storage.dart';
 
+/// A response served from storage rather than from the network.
+///
+/// Handed to [CacheConfig.onCacheHit], which exists because nothing else in
+/// apix can report one. A hit is resolved from `onRequest`, which ends the
+/// chain before the logger, the metrics and the tracing interceptor are
+/// reached — deliberately, since a cached response spent no time on the
+/// network and a span opened for it would never be closed. The cost of that
+/// choice is that the *fastest* requests are the ones missing from every
+/// dashboard, and that the cache's own hit rate is invisible from the
+/// observability the package provides. This closes it without moving anything
+/// in the chain.
+class CacheHit {
+  /// The storage key the body came from.
+  final String key;
+
+  /// The HTTP method of the request that was answered.
+  final String method;
+
+  /// The URI of the request that was answered.
+  final Uri uri;
+
+  /// Whether the body handed back was past its TTL.
+  ///
+  /// True in the two situations apix knowingly serves expired data:
+  /// `cacheFirst` answering instantly while it revalidates behind, and the
+  /// offline fallback of `networkFirst` / `httpCacheAware`. A hit rate that
+  /// counts these together with fresh ones is measuring two different things.
+  final bool isStale;
+
+  /// The status code stored with the entry.
+  final int statusCode;
+
+  /// Creates a [CacheHit].
+  const CacheHit({
+    required this.key,
+    required this.method,
+    required this.uri,
+    required this.isStale,
+    required this.statusCode,
+  });
+
+  @override
+  String toString() =>
+      'CacheHit($method ${uri.path}${isStale ? ' stale' : ''} [$statusCode])';
+}
+
+/// Signature for [CacheConfig.onCacheHit].
+typedef CacheHitHandler = void Function(CacheHit hit);
+
+/// What the cache was doing when the storage backend refused.
+enum CacheOperation {
+  /// Reading an entry, on any strategy.
+  read,
+
+  /// Writing an entry after a response.
+  write,
+}
+
+/// A storage failure the cache absorbed.
+///
+/// Handed to [CacheConfig.onCacheError]. Falling back to the network is the
+/// right behaviour and does not change; what changes is that it stops being
+/// silent.
+///
+/// The failure it exists for is not the noisy kind. A `CacheStorage` that
+/// refuses every operation — a revoked directory permission, a rotated
+/// encryption key, a full disk — degrades the client to "no cache" and keeps
+/// working. Every request succeeds, every test passes, and the only symptom is
+/// traffic nobody is measuring. Without a channel there is no moment at which
+/// anyone could find out.
+class CacheFailure {
+  /// Whether the read or the write side refused.
+  final CacheOperation operation;
+
+  /// The entry key involved, when the failure happened against one.
+  final String? key;
+
+  /// What the storage threw.
+  final Object error;
+
+  /// Where it threw.
+  final StackTrace stackTrace;
+
+  /// Creates a [CacheFailure].
+  const CacheFailure({
+    required this.operation,
+    required this.error,
+    required this.stackTrace,
+    this.key,
+  });
+
+  @override
+  String toString() => 'CacheFailure(${operation.name}'
+      '${key == null ? '' : ' $key'}): $error';
+}
+
+/// Signature for [CacheConfig.onCacheError].
+typedef CacheErrorHandler = void Function(CacheFailure failure);
+
 /// Cache strategy options.
 ///
 /// Only [cacheFirst] and [networkFirst] can hand back data that is past its
@@ -76,6 +175,77 @@ class CacheConfig {
   /// HTTP methods that should be deduplicated.
   final List<String> deduplicateMethods;
 
+  /// Request headers whose value scopes a cache entry to whoever sent it.
+  ///
+  /// **Defaults to `['Authorization']`, and that default is load-bearing.**
+  /// Without it the cache key is `method + url + query` and nothing else, so
+  /// two different users on the same device share every entry: log out, log
+  /// back in as someone else, and `GET /me` is served the previous account's
+  /// body. With `FileCacheStorage` that survives process restarts, so the leak
+  /// outlives the session that created it.
+  ///
+  /// Values are never stored — only a truncated digest of them reaches the key
+  /// (see `varyFingerprint`), because cache keys are deliberately left in clear
+  /// text even by `EncryptedCacheStorage`.
+  ///
+  /// Set to `const []` to opt out and restore the pre-5.0 key. Do that only
+  /// where responses genuinely do not depend on the caller — a public price
+  /// list, a static catalogue.
+  ///
+  /// ## Two consequences worth knowing
+  ///
+  /// A **token refresh changes the fingerprint**, so entries cached under the
+  /// old access token stop being hit. That is a cache miss, never a wrong
+  /// answer. Where it matters, vary on a header carrying a stable identity
+  /// (`['X-User-Id']`) instead of the bearer token.
+  ///
+  /// The header must already be **on the request** when the cache reads it.
+  /// `ApiClientFactory` installs `AuthInterceptor` before `CacheInterceptor`
+  /// precisely so it is. Wiring the cache by hand *before* auth would scope
+  /// nothing — and scoping nothing looks exactly like working.
+  final List<String> varyHeaders;
+
+  /// Called each time a response is answered from storage.
+  ///
+  /// The only way to see a cache hit from outside the cache. `LoggerConfig`,
+  /// `MetricsConfig` and `TracingConfig` never observe one — see [CacheHit] for
+  /// why, and why moving them in the chain would be worse.
+  ///
+  /// Guarded like every other consumer callback: a handler that throws cannot
+  /// fail the request it was only meant to watch.
+  ///
+  /// ```dart
+  /// cacheConfig: CacheConfig(
+  ///   onCacheHit: (hit) => metrics.increment(
+  ///     hit.isStale ? 'cache.stale' : 'cache.fresh',
+  ///   ),
+  /// )
+  /// ```
+  final CacheHitHandler? onCacheHit;
+
+  /// Called when the storage backend refuses an operation.
+  ///
+  /// The cache falls back to the network on any storage failure, which is the
+  /// right answer and is unchanged. What was missing is any way to learn that
+  /// it is happening: the three `catch` blocks in `CacheInterceptor` swallowed
+  /// the exception and passed the request through, so a backend that refuses
+  /// *every* operation degraded the client to "no cache" permanently and
+  /// silently. Every request still succeeds. Nothing fails, nothing is logged,
+  /// and the only symptom is traffic nobody is measuring.
+  ///
+  /// Guarded like every other consumer callback.
+  ///
+  /// ```dart
+  /// cacheConfig: CacheConfig(
+  ///   storage: FileCacheStorage(dir),
+  ///   onCacheError: (failure) => Sentry.captureException(
+  ///     failure.error,
+  ///     stackTrace: failure.stackTrace,
+  ///   ),
+  /// )
+  /// ```
+  final CacheErrorHandler? onCacheError;
+
   /// Creates a [CacheConfig] with the given parameters.
   CacheConfig({
     CacheStorage? storage,
@@ -85,6 +255,9 @@ class CacheConfig {
     this.cacheableMethods = const ['GET'],
     this.enableDeduplication = true,
     this.deduplicateMethods = const ['GET'],
+    this.varyHeaders = const ['Authorization'],
+    this.onCacheHit,
+    this.onCacheError,
   }) : storage = storage ?? InMemoryCacheStorage();
 
   /// Returns true if the given HTTP method should be cached.
@@ -104,6 +277,9 @@ class CacheConfig {
     List<String>? cacheableMethods,
     bool? enableDeduplication,
     List<String>? deduplicateMethods,
+    List<String>? varyHeaders,
+    CacheHitHandler? onCacheHit,
+    CacheErrorHandler? onCacheError,
   }) {
     return CacheConfig(
       storage: storage ?? this.storage,
@@ -113,6 +289,9 @@ class CacheConfig {
       cacheableMethods: cacheableMethods ?? this.cacheableMethods,
       enableDeduplication: enableDeduplication ?? this.enableDeduplication,
       deduplicateMethods: deduplicateMethods ?? this.deduplicateMethods,
+      varyHeaders: varyHeaders ?? this.varyHeaders,
+      onCacheHit: onCacheHit ?? this.onCacheHit,
+      onCacheError: onCacheError ?? this.onCacheError,
     );
   }
 
@@ -122,6 +301,7 @@ class CacheConfig {
         'defaultTtl: $defaultTtl, '
         'cacheErrors: $cacheErrors, '
         'cacheableMethods: $cacheableMethods, '
-        'enableDeduplication: $enableDeduplication)';
+        'enableDeduplication: $enableDeduplication, '
+        'varyHeaders: $varyHeaders)';
   }
 }

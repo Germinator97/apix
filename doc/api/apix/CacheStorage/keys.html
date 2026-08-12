@@ -62,7 +62,15 @@
     </section>
     
 <section class="desc markdown">
-  <p>Returns all cached keys.</p>
+  <p>Returns every stored key, <strong>expired or not</strong>, and removes nothing.</p>
+<p>Reading must not delete. Both built-in backends used to purge expired
+entries while walking, which made a listing destructive in a way its name
+gave no hint of — and destructive of the wrong thing: an expired entry is
+exactly what <code>networkFirst</code> serves when the network is gone, and what
+<code>cacheFirst</code> serves while it revalidates. Calling <code>getCacheKeys()</code> to see
+what was cached therefore threw away the offline fallback, silently,
+leaving a cache miss where there had been data.</p>
+<p>Use <code>CacheInterceptor.evictExpired()</code> when removing them is the intent.</p>
 </section>
 
 
@@ -97,7 +105,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

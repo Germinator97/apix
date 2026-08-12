@@ -60,8 +60,9 @@
 <li><span class="parameter" id="-param-onBreadcrumb"><span class="type-annotation"><a href="../../apix/AddBreadcrumb.html">AddBreadcrumb</a>?</span> <span class="parameter-name">onBreadcrumb</span>, </span></li>
 <li><span class="parameter" id="-param-captureStatusCodes"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Set-class.html">Set</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>&gt;</span></span> <span class="parameter-name">captureStatusCodes</span> = <span class="default-value">const {500, 501, 502, 503, 504}</span>, </span></li>
 <li><span class="parameter" id="-param-captureRequestBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureRequestBody</span> = <span class="default-value">false</span>, </span></li>
-<li><span class="parameter" id="-param-captureResponseBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureResponseBody</span> = <span class="default-value">true</span>, </span></li>
+<li><span class="parameter" id="-param-captureResponseBody"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">captureResponseBody</span> = <span class="default-value">false</span>, </span></li>
 <li><span class="parameter" id="-param-redactedHeaders"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span> <span class="parameter-name">redactedHeaders</span> = <span class="default-value">const [&#39;Authorization&#39;, &#39;Cookie&#39;, &#39;Set-Cookie&#39;]</span>, </span></li>
+<li><span class="parameter" id="-param-redactUrls"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">redactUrls</span> = <span class="default-value">true</span>, </span></li>
 <li><span class="parameter" id="-param-maxBodyLength"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxBodyLength</span> = <span class="default-value">1024</span>, </span></li>
 </ol>})
     </section>
@@ -78,8 +79,9 @@
   this.onBreadcrumb,
   this.captureStatusCodes = const {500, 501, 502, 503, 504},
   this.captureRequestBody = false,
-  this.captureResponseBody = true,
+  this.captureResponseBody = false,
   this.redactedHeaders = const [&#39;Authorization&#39;, &#39;Cookie&#39;, &#39;Set-Cookie&#39;],
+  this.redactUrls = true,
   this.maxBodyLength = 1024,
 });</code></pre>
 </section>
@@ -109,7 +111,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

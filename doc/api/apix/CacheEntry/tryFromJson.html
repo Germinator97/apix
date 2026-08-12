@@ -82,6 +82,7 @@
       headers: json[&#39;headers&#39;] != null
           ? Map&lt;String, String&gt;.from(json[&#39;headers&#39;] as Map)
           : null,
+      encoding: _encodingFrom(json[&#39;encoding&#39;]),
     );
   } catch (_) {
     return null;
@@ -114,7 +115,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

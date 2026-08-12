@@ -89,6 +89,7 @@ Future&lt;int&gt; removeWhere(bool Function(String key) predicate) async {
       removed++;
     }
   }
+  if (_knownCount != null) _knownCount = _knownCount! - removed;
   return removed;
 }</code></pre>
 </section>
@@ -118,7 +119,7 @@ Future&lt;int&gt; removeWhere(bool Function(String key) predicate) async {
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

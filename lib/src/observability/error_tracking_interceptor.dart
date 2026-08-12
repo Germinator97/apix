@@ -3,8 +3,9 @@ import 'package:dio/dio.dart';
 import '../errors/api_exception.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../errors/http_exception.dart';
-import 'observer_guard.dart';
 import '../http/observation_marker.dart';
+import '../http/redacted_uri.dart';
+import 'observer_guard.dart';
 
 /// Signature for capturing exceptions to an error tracking service.
 typedef CaptureException = Future<void> Function(
@@ -88,11 +89,39 @@ class ErrorTrackingConfig {
   /// Whether to capture request body in error context.
   final bool captureRequestBody;
 
-  /// Whether to capture response body in error context.
+  /// Whether to capture the response body in the error context.
+  ///
+  /// **Defaults to `false` since 5.0.** It used to default to `true` while
+  /// [captureRequestBody] — declared on the line above — defaulted to `false`,
+  /// so the body most likely to describe the user who failed was the one sent
+  /// to a third-party tracker without anyone choosing it. The asymmetry was
+  /// the whole tell: whatever argument justified withholding the request body
+  /// applies at least as strongly here, since this one is written by the
+  /// server and can carry fields the client never sent.
+  ///
+  /// Turn it on where you have decided you want it, as you already do for the
+  /// request side.
   final bool captureResponseBody;
 
   /// Headers to redact from error context.
   final List<String> redactedHeaders;
+
+  /// Whether query-parameter **values** are replaced before a URL leaves for
+  /// the tracker. Names are kept.
+  ///
+  /// **Defaults to `true`.** This interceptor took the trouble to redact
+  /// `Authorization` and then sent `options.uri.toString()` whole, so a token
+  /// or an identifier in the query travelled to a third-party service in clear
+  /// — past a redaction step that had already run. A half-applied redaction is
+  /// worse than none, because it reads as complete.
+  ///
+  /// `TracingInterceptor` already refuses the query for exactly this reason and
+  /// sends only the path; this brings the two in line without losing which
+  /// parameters a failing request carried.
+  ///
+  /// Set to `false` only where the query is known to carry nothing personal
+  /// and the full URL is worth more than the guarantee.
+  final bool redactUrls;
 
   /// Maximum body length to capture.
   final int maxBodyLength;
@@ -104,14 +133,19 @@ class ErrorTrackingConfig {
     this.onBreadcrumb,
     this.captureStatusCodes = const {500, 501, 502, 503, 504},
     this.captureRequestBody = false,
-    this.captureResponseBody = true,
+    this.captureResponseBody = false,
     this.redactedHeaders = const ['Authorization', 'Cookie', 'Set-Cookie'],
+    this.redactUrls = true,
     this.maxBodyLength = 1024,
   });
 
   /// Creates a disabled config.
   factory ErrorTrackingConfig.disabled() =>
       const ErrorTrackingConfig(enabled: false);
+
+  /// Renders [uri] as it should appear in a report.
+  String renderUrl(Uri uri) =>
+      redactUrls ? redactQueryValues(uri) : uri.toString();
 
   /// Redacts sensitive headers.
   Map<String, dynamic> redactHeaders(Map<String, dynamic> headers) {
@@ -165,6 +199,7 @@ class ErrorTrackingInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) {
+    ObservationMarker.beginAttempt(options);
     if (config.enabled && config.onBreadcrumb != null) {
       _addRequestBreadcrumb(options);
     }
@@ -220,12 +255,12 @@ class ErrorTrackingInterceptor extends Interceptor {
 
   void _addRequestBreadcrumb(RequestOptions options) {
     guardObserver(() => config.onBreadcrumb!({
-          'message': '${options.method} ${options.uri}',
+          'message': '${options.method} ${config.renderUrl(options.uri)}',
           'category': 'http',
           'type': 'http',
           'data': {
             'method': options.method,
-            'url': options.uri.toString(),
+            'url': config.renderUrl(options.uri),
             if (config.captureRequestBody && options.data != null)
               'request_body': config.truncateBody(options.data),
           },
@@ -235,13 +270,13 @@ class ErrorTrackingInterceptor extends Interceptor {
   void _addResponseBreadcrumb(Response<dynamic> response) {
     final options = response.requestOptions;
     guardObserver(() => config.onBreadcrumb!({
-          'message':
-              '${options.method} ${options.uri} [${response.statusCode}]',
+          'message': '${options.method} ${config.renderUrl(options.uri)} '
+              '[${response.statusCode}]',
           'category': 'http',
           'type': 'http',
           'data': {
             'method': options.method,
-            'url': options.uri.toString(),
+            'url': config.renderUrl(options.uri),
             'status_code': response.statusCode,
             'reason': response.statusMessage,
           },
@@ -254,7 +289,7 @@ class ErrorTrackingInterceptor extends Interceptor {
     final exception = HttpTrackingException(
       statusCode: response.statusCode!,
       message: response.statusMessage ?? 'HTTP Error',
-      url: options.uri.toString(),
+      url: config.renderUrl(options.uri),
       method: options.method,
       responseBody: response.data,
     );
@@ -304,7 +339,7 @@ class ErrorTrackingInterceptor extends Interceptor {
   ) {
     return {
       'method': options.method,
-      'url': options.uri.toString(),
+      'url': config.renderUrl(options.uri),
       'path': options.path,
       'headers':
           config.redactHeaders(Map<String, dynamic>.from(options.headers)),

@@ -61,7 +61,7 @@
 <li><span class="parameter" id="copyWith-param-sendTimeout"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Duration-class.html">Duration</a>?</span> <span class="parameter-name">sendTimeout</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-headers"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">headers</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-defaultContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">defaultContentType</span>, </span></li>
-<li><span class="parameter" id="copyWith-param-interceptors"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?</span> <span class="parameter-name">interceptors</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-interceptors"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?</span> <span class="parameter-name">interceptors</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-dataKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">dataKey</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-errorCodeKey"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">errorCodeKey</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-strictContentType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>?</span> <span class="parameter-name">strictContentType</span>, </span></li>
@@ -74,6 +74,11 @@
     
 <section class="desc markdown">
   <p>Creates a copy of this config with the given fields replaced.</p>
+<p><strong>A <code>null</code> argument means "keep the current value", never "clear it".</strong>
+Passing <code>null</code> explicitly cannot remove a callback or an optional field —
+build a fresh config for that. The usual Dart limitation, stated because
+the alternative is discovering it from a callback that kept firing after
+you thought you had removed it.</p>
 </section>
 
 
@@ -134,7 +139,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

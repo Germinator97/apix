@@ -65,6 +65,12 @@
     
 <section class="desc markdown">
   <p>Initializes Sentry with the given options.</p>
+<p><strong>The app starts even if this fails.</strong> <code>SentryFlutter.init</code> runs
+<code>appRunner</code> itself, so anything that threw before it got there — a
+malformed DSN, a plugin missing on a platform, a <code>configureOptions</code>
+touching an option the installed SDK no longer has — took the whole app
+down with it. Crash reporting is a side channel; a side channel that can
+prevent startup is a worse liability than the reports it collects.</p>
 </section>
 
 
@@ -85,60 +91,9 @@
     return;
   }
 
-  _isInitialized = true;
-
-  await SentryFlutter.init(
-    (sentryOptions) {
-      sentryOptions.dsn = options.dsn;
-      sentryOptions.environment = options.environment;
-
-      sentryOptions.sendDefaultPii = options.sendDefaultPii;
-      sentryOptions.sampleRate = options.sampleRate;
-
-      &#47;&#47; Disable tracing in debug mode
-      sentryOptions.tracesSampleRate =
-          kDebugMode ? 0.0 : options.tracesSampleRate;
-      &#47;&#47; Note: profilesSampleRate is experimental and may be removed
-      &#47;&#47; sentryOptions.profilesSampleRate =
-      &#47;&#47;     kDebugMode ? 0.0 : options.profilesSampleRate;
-
-      &#47;&#47; Note: Replay options available in newer versions
-      &#47;&#47; sentryOptions.replay.onErrorSampleRate = options.replayOnErrorSampleRate;
-      &#47;&#47; sentryOptions.replay.sessionSampleRate = options.replaySessionSampleRate;
-
-      sentryOptions.debug = kDebugMode;
-      sentryOptions.captureFailedRequests = options.captureFailedRequests;
-      sentryOptions.anrEnabled = options.anrEnabled;
-
-      &#47;&#47; Session and performance tracking
-      sentryOptions.enableAutoSessionTracking = true;
-      sentryOptions.enableAutoPerformanceTracing = true;
-
-      &#47;&#47; Event filtering
-      sentryOptions.beforeSend = (event, hint) =&gt; _beforeSend(
-            event,
-            hint,
-            options,
-          );
-
-      sentryOptions.beforeSendTransaction =
-          (transaction, hint) =&gt; _beforeSendTransaction(
-                transaction,
-                options,
-              );
-
-      &#47;&#47; Escape hatch: invoked last so consumers can override any option.
-      &#47;&#47; Guarded to avoid crashing app startup on a faulty callback.
-      if (options.configureOptions != null) {
-        try {
-          options.configureOptions!(sentryOptions);
-        } catch (e, st) {
-          debugPrint(&#39;⚠️ [Sentry] configureOptions threw: $e\n$st&#39;);
-          if (kDebugMode) rethrow;
-        }
-      }
-    },
+  await guardedStart(
     appRunner: appRunner,
+    initialize: (runner) =&gt; _initialize(options, runner),
   );
 }</code></pre>
 </section>
@@ -168,7 +123,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

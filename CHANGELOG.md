@@ -1,3 +1,115 @@
+## 5.0.0
+
+Two audits of the package, then the consumer's review of both: 47 defects, 20
+reproduced against the real client. None raised, logged or reddened a test.
+
+**Nothing breaks your build** — no public symbol removed or narrowed, checked by
+a 4.1.0-era consumer compiled against this release
+(`test/migration_4_1_0_compiles_test.dart`). Everything below is runtime.
+
+### Breaking — defaults
+
+Four defaults used to send personal data to a third party out of the box.
+
+* `SentrySetupOptions.sendDefaultPii` → **`false`**. It was `true`, against the
+  SDK's own default: an app that configured nothing shipped request headers,
+  cookies and the user's IP to the tracker.
+* `ErrorTrackingConfig.captureResponseBody` → **`false`**.
+* `ErrorTrackingConfig.redactUrls` → **`true`**: query *values* are replaced
+  before a URL reaches the tracker. Names are kept.
+* `LoggerConfig` logs no request or response body, error path included.
+  `LoggerConfig.trace()` still keeps both.
+
+⚠️ The middle two remove a field you may be diagnosing from. Set them back
+deliberately rather than discovering thinner Sentry tickets.
+
+### Breaking — behaviour
+
+* Cache entries are scoped to the caller (`CacheConfig.varyHeaders`, default
+  `['Authorization']`) and keyed on the request body. A token refresh is now a
+  miss — vary on a stable identity header, or `const []` to opt out.
+* `CacheStorage.keys()` no longer deletes expired entries — use
+  `CacheInterceptor.evictExpired()`.
+* A failing cache write no longer re-sends the request.
+* A failed `SentrySetup.init` starts the app without Sentry, not at all.
+* `SecureStorageService` stops the Android plugin repairing unreadable entries
+  behind it (`resetOnError: false`). Under the plugin's default the read still
+  answered `null` — after destroying a credential without `onBeforeRecoveryDelete`
+  ever firing. A failed initialisation now raises instead of resetting: inject
+  your own `FlutterSecureStorage` to keep the old behaviour.
+* Expect a one-off rise in tracker events, in three classes that reached no
+  observer before: broken sessions, `responseValidator` rejections, `cacheOnly`
+  misses. Real failures, not new noise. A filter keyed on exception *names*
+  cannot tell them from their `dart:io` namesakes.
+
+### Added
+
+* Every typed-method family on every verb — 12 shapes x 5 verbs. GET and POST
+  had 12 each, PUT and PATCH 2, DELETE none.
+* `onSendProgress` / `onReceiveProgress` on those methods.
+* `ApiClient.cacheInterceptor` — the invalidation API on the instance in use.
+* `CacheConfig.onCacheHit` / `onCacheError` — a hit reaches no observer, and a
+  storage failure was absorbed in silence.
+* `CacheInterceptor.evictExpired()`.
+* `SecureStorageService.onBeforeRecoveryDelete` — fires before the recovery
+  deletes a credential.
+* `RequestOptions.forceRevalidate()`, `MultipartReplayException`,
+  `CacheBodyEncoding`, `ErrorTrackingConfig.redactUrls`.
+
+### Fixed
+
+**Cache**
+
+* Query parameters written into the path were dropped from the key, so
+  `/users?page=1` and `?page=2` shared one entry.
+* A failing write re-sent the request and returned the second response.
+* A hit changed the body's type: `text/plain` `12345` came back an int.
+* A `304` served the body as stale and never restarted the TTL.
+* `no-cache` and `must-revalidate` were parsed and ignored.
+* `invalidateUrl('/users')` also removed `/users-archived` and `/users/123`.
+* `clearCache()` under-reported by the entries `keys()` had just swept.
+* Concurrent `FileCacheStorage` writes to one key raced on a shared temp file.
+
+**Multipart**
+
+* Nested fields and files were dropped: `{'a': {'b': {'file': File}}}` sent an empty body, and returned `200`.
+* An upload died after a token refresh or a retry, and its `StateError` replaced the server's status.
+
+**Observability**
+
+* A refresh failure reached no log and no tracker, and leaked its metric.
+* A `responseValidator` rejection was recorded as a success, cached, then served unvalidated.
+* An error body reached the log sink whatever `logResponseBody` said.
+* `ErrorMapperInterceptor` rewrote an already-typed exception.
+* A reused `RequestOptions` was observed once; every retry stranded a metric.
+* `profilesSampleRate` and both replay rates were accepted and ignored;
+  `customBeforeSendTransaction` got an empty `Hint`.
+
+**Client**
+
+* The `…OrEmpty` / `…OrNull` variants broke on a bare `[]`. They tolerate every
+  shape of empty now, including an absent `data` key; the strict ones name the
+  key they wanted.
+* `ApiException.code` returned the HTTP status disguised as a business code.
+* `RetryConfig` broke the `==` / `hashCode` contract.
+* `RetryInterceptor` swallowed failures of its own retry machinery.
+* A post-refresh token read did not raise `TokenProviderException`.
+* A hanging `onAuthFailure` froze the refresh queue.
+
+### Docs
+
+* The README showed `extra: {'cacheTtl': …}` and `extra: {'forceRefresh': true}`,
+  which **never existed in the code**. Use `defaultTtl` and `forceRevalidate()`.
+* A cache hit reaches no logger, metric or span; an interceptor passed through
+  `ApiClientConfig.interceptors` sees a raw `DioException`;
+  `TokenProviderOperation.clear` is never raised by apix.
+* `varyHeaders`, `forceRevalidate()`, `MultipartReplayException` and
+  `CacheBodyEncoding` are documented at last.
+* `SecureStorageService.withBiometrics()` **refuses** on a device with no PIN,
+  pattern, password or enrolled biometric — it does not degrade silently, as
+  this file previously claimed. Do not catch that refusal and keep writing: the
+  plugin is left without a cipher for the rest of the process.
+
 ## 4.1.0
 
 Two rounds of the same defect, reported by a consumer and then found by

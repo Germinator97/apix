@@ -60,8 +60,8 @@
     </ol>
   </div>
 <span class="returntype">void</span>
-<span class="name ">onResponse</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span></li>
-<li><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.11.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
+<span class="name ">onResponse</span>(<wbr><ol class="parameter-list single-line"> <li><span class="parameter" id="onResponse-param-response"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Response-class.html">Response</a></span> <span class="parameter-name">response</span>, </span></li>
+<li><span class="parameter" id="onResponse-param-handler"><span class="type-annotation"><a href="https://pub.dev/documentation/dio/5.4.0/dio/ResponseInterceptorHandler-class.html">ResponseInterceptorHandler</a></span> <span class="parameter-name">handler</span></span></li>
 </ol>)
 
       <div class="features"><span class="feature">override</span></div>
@@ -85,31 +85,21 @@ void onResponse(
   try {
     exception = validator(response);
   } catch (e, st) {
-    handler.reject(
-      DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: ApiException(
-          message: &#39;responseValidator threw: $e&#39;,
-          statusCode: response.statusCode,
-          originalError: e,
-          stackTrace: st,
-        ),
-        type: DioExceptionType.unknown,
+    _refuse(
+      handler,
+      response,
+      ApiException(
+        message: &#39;responseValidator threw: $e&#39;,
+        statusCode: response.statusCode,
+        originalError: e,
+        stackTrace: st,
       ),
     );
     return;
   }
 
   if (exception != null) {
-    handler.reject(
-      DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        error: exception,
-        type: DioExceptionType.badResponse,
-      ),
-    );
+    _refuse(handler, response, exception);
     return;
   }
 
@@ -142,7 +132,7 @@ void onResponse(
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

@@ -82,7 +82,8 @@ miss, and the file is deleted so it stops being read.</li>
 <li>Writes are atomic (write to a temporary file, then rename), so a reader
 never observes a half-written entry.</li>
 <li>Like every <a href="../apix/CacheStorage-class.html">CacheStorage</a>, this one does <strong>not</strong> filter on expiry — the
-interceptor owns the TTL. See <a href="../apix/CacheStorage/get.html">CacheStorage.get</a>.</li>
+interceptor owns the TTL. See <a href="../apix/CacheStorage/get.html">CacheStorage.get</a>. <a href="../apix/FileCacheStorage/keys.html">keys</a> does not filter
+either, and does not sweep: reading must not delete.</li>
 <li><a href="../apix/FileCacheStorage/maxEntries.html">maxEntries</a> caps how many entries are kept. <strong>It defaults to a bound</strong>,
 unlike <a href="../apix/InMemoryCacheStorage-class.html">InMemoryCacheStorage</a>: a process cache disappears when the app
 closes, a disk cache does not. Left unbounded, this one would grow for
@@ -234,7 +235,7 @@ the lifetime of the install.</li>
 
 </dt>
 <dd>
-  Returns all cached keys.
+  Returns every stored key, <strong>expired or not</strong>, and removes nothing.
   <div class="features"><span class="feature">override</span></div>
 
 </dd>
@@ -367,7 +368,7 @@ the lifetime of the install.</li>
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>

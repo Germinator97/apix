@@ -55,7 +55,7 @@
     
       <section class="multi-line-signature">
         
-        <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.11.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?
+        <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://pub.dev/documentation/dio/5.4.0/dio/Interceptor-class.html">Interceptor</a></span>&gt;</span>?
         <span class="name ">interceptors</span>
         <div class="features"><span class="feature">final</span></div>
 
@@ -63,6 +63,35 @@
       
 <section class="desc markdown">
   <p>Custom Dio interceptors to add.</p>
+<p>Appended <strong>after</strong> everything the factory installs — auth, retry,
+deduplication, cache, and every observer — and before the error mapper.
+That is the right place for a custom interceptor: it sees the final
+request and the final response, after apix has done its work.</p>
+<h2 id="one-caveat-for-re-entrant-interceptors">One caveat, for <em>re-entrant</em> interceptors</h2>
+<p><code>CacheInterceptor</code> and <code>DeduplicationInterceptor</code> are re-entrant: they
+call <code>dio.fetch(...)</code> internally, which restarts the whole chain for the
+request they actually send. The factory places them <strong>before</strong> the
+observers so that inner pass is not logged a second time.</p>
+<p>Passing one here puts it after the observers instead, and the inner pass
+is observed too. Measured, so it is not a guess: one call becomes two
+<code>→ Request</code> log lines and one extra request breadcrumb. Network traffic,
+metrics and response logs are unchanged — it is log noise, not doubled
+telemetry.</p>
+<p>So prefer <code>cacheConfig</code> / <code>deduplicationConfig</code>, and reach for the
+instance through <code>ApiClient.cacheInterceptor</code> when you need the
+invalidation API. Wiring one here still works, and is worth it if you
+need a placement the factory does not offer.</p>
+<h2 id="your-onerror-sees-a-raw-dioexception-not-an-apiexception">Your <code>onError</code> sees a raw <code>DioException</code>, not an <code>ApiException</code></h2>
+<p>The mapper is installed <strong>after</strong> this list, so an interceptor here runs
+before any typing has happened: <code>err.error</code> is whatever dio put there, and
+<code>err.type</code> is a <code>DioExceptionType</code>. The <code>ServerException</code> /
+<code>NotFoundException</code> hierarchy the rest of the documentation talks about
+does not exist yet at this point in the chain.</p>
+<p>That placement is deliberate — the mapper ends the error chain with
+<code>handler.reject</code>, so anything after it would never run at all — but it is
+surprising, and it is the sort of thing discovered from an <code>on ServerException catch</code> clause that silently never fires. Map it yourself
+with <code>ErrorMapperInterceptor.mapDioException(err)</code>, which is a pure static
+and is exactly what <code>ErrorTrackingInterceptor</code> does for the same reason.</p>
 </section>
 
       
@@ -97,7 +126,7 @@
 <footer>
   <span class="no-break">
     apix
-      4.1.0
+      5.0.0
   </span>
   
 </footer>
