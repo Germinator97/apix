@@ -244,6 +244,14 @@ class SentrySetup {
         // `SentrySetupOptions.production()` configured three things that did
         // nothing, and nothing anywhere said so — the worst kind of option,
         // one that looks set.
+        // `@meta.experimental` on sentry_flutter's side, and deliberately used
+        // anyway: the alternative is an option apix documents and never
+        // applies, which is the defect this block exists to close. Newer Dart
+        // SDKs warn on it (`experimental_member_use`), so the choice is stated
+        // here rather than left to whoever next sees the CI go red. Revisit if
+        // sentry_flutter changes the signature — that is what the annotation
+        // reserves the right to do.
+        // ignore: experimental_member_use
         sentryOptions.profilesSampleRate =
             kDebugMode ? 0.0 : options.profilesSampleRate;
         sentryOptions.replay.onErrorSampleRate =

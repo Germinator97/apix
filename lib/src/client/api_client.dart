@@ -318,9 +318,10 @@ class ApiClient {
   ///
   /// The strict variants are supposed to refuse an absent payload — that is
   /// what separates them from `…OrNull` / `…OrEmpty`. What they were not
-  /// supposed to do is refuse it with `type 'Null' is not a subtype of type
-  /// 'Map<String, dynamic>'`, which names neither the key that was missing nor
-  /// the envelope it was missing from.
+  /// supposed to do is refuse it with a cast error —
+  /// `type 'Null' is not a subtype of type 'Map<String, dynamic>'` — which
+  /// names neither the key that was missing nor the envelope it was missing
+  /// from.
   ///
   /// Reported by a consumer: a Jackson `default-property-inclusion:
   /// non_empty` on the server removes the `data` key from every empty
