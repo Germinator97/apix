@@ -88,6 +88,77 @@ jobs:
           files: coverage/lcov.info
           fail_ci_if_error: false
 
+  # The second declared range, and the one the dio matrix above cannot see.
+  #
+  # `flutter_secure_storage: ">=10.0.0 <11.0.0"` is not a passive dependency:
+  # SecureStorageService decides whether to delete a user's credentials from the
+  # message its Android side produces, and that side does not behave the same
+  # across the range — where the plugin assigns its `preferences` field moved
+  # inside the success callback between 10.2.0 and 10.3.1, and the per-store
+  # option freeze starts at 10.2.0. A release about that behaviour shipped
+  # without a guard on both bounds is the drift this file exists to catch.
+  #
+  # A job rather than a second matrix axis: adding a key renames every existing
+  # cell, and the required checks are named after them.
+  plugin-floor:
+    name: Plugin floor (flutter_secure_storage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Pin flutter_secure_storage to floor
+        run: flutter pub downgrade flutter_secure_storage
+
+      # Prove the pin took before concluding anything from a green run: a
+      # downgrade that silently resolved to the same version would make this
+      # job a second copy of `latest`, green and measuring nothing.
+      #
+      # The expected value is derived from the declared constraint rather than
+      # written here — a floor spelled out in this file goes stale the day the
+      # pubspec raises it, and a stale expectation fails a healthy repo.
+      - name: Prove the floor is what pubspec declares
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import re, sys
+
+          spec = open('pubspec.yaml').read()
+          lock = open('pubspec.lock').read()
+
+          floor = re.search(
+              r'flutter_secure_storage:\s*["\']>=([0-9][0-9.]*)', spec)
+          if not floor:
+              sys.exit('no ">=x.y.z" floor for flutter_secure_storage in '
+                       'pubspec.yaml — this parsing is stale, not the pubspec')
+
+          got = re.search(
+              r'^  flutter_secure_storage:\n(?:.*\n)*?    version: "([^"]+)"',
+              lock, re.M)
+          if not got:
+              sys.exit('flutter_secure_storage absent from pubspec.lock — '
+                       'the downgrade did not run')
+
+          print(f'declared floor {floor.group(1)} · resolved {got.group(1)}')
+          if got.group(1) != floor.group(1):
+              sys.exit('the downgrade did not reach the declared floor, so '
+                       'this job is a second copy of `latest`')
+          EOF
+
+      - name: Analyze
+        run: dart analyze --fatal-infos lib test example
+
+      - name: Run tests
+        run: flutter test
+
   # Builds the demo app, which depends on this package through `path: ../apix`.
   #
   # It had never run here. A relative path dependency resolves on a developer's
