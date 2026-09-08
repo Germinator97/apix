@@ -84,6 +84,13 @@ it to a string in a platform message.</p>
 </code></pre>
 <p>Guarded like every consumer callback: a handler that throws cannot stop
 the recovery it was only meant to observe.</p>
+<p>It announces an <strong>imminent attempt</strong>, not an accomplished fact — the
+price of firing before, which is the moment a consumer needs to snapshot
+what is about to go. If the deletion then fails, the original error is
+rethrown rather than the one the cleanup raised, and the call answers
+nothing. That gap is narrow by construction: the failures where a
+deletion cannot run are classified <a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a>
+and never enter the recovery in the first place.</p>
 </section>
 
       
@@ -118,7 +125,7 @@ the recovery it was only meant to observe.</p>
 <footer>
   <span class="no-break">
     apix
-      5.0.0
+      5.1.0
   </span>
   
 </footer>

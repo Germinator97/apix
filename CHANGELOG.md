@@ -1,6 +1,6 @@
-## Unreleased
+## 5.1.0
 
-### Breaking
+### Changed
 
 * `SecureStorageService` no longer deletes when the store's own key is unusable
   — it rethrows. Its message can contain `Bad padding`
@@ -32,6 +32,9 @@
   `BIOMETRIC_UNAVAILABLE` only on the **first** run; afterwards it arrives
   wrapped in `Migration failed after algorithm change …`. Keying on the bare
   string sees it once and never again.
+* Both example READMEs describe the two failure classes. `example/README.md`
+  tagged its entries with the release that introduced them and had stopped at
+  v2.3.0 — the tags are gone, and a guard keeps them gone.
 
 ## 5.0.0
 
