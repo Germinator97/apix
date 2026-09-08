@@ -46,11 +46,15 @@ doivent bouger ensemble — `pubspec.yaml`, l'extrait d'installation du README, 
 le titre de section du CHANGELOG. `test/readme_claims_test.dart` tombe si on n'en
 change que deux.
 
-## Les 5 surfaces d'une modification
+## Les 6 surfaces d'une modification
 
-Toute modification du paquet en touche cinq : `README.md`, `CHANGELOG.md`,
-`doc/api` (régénérer avec `dart doc .`), et les **deux** exemples —
-`example/example.dart` et le dépôt voisin `apix_example_app`.
+Toute modification du paquet en touche six : `README.md`, `CHANGELOG.md`,
+`doc/api` (régénérer avec `dart doc .`), le dépôt voisin `apix_example_app`, et
+les **deux** fichiers de `example/` — `example.dart` **et son `README.md`**, qui
+décrit ce que le fichier montre et que rien ne garde. Il avait dérivé trois
+majeures avant qu'on le remarque.
+
+La procédure complète d'une montée en version est le tableau de `RELEASING.md`.
 
 `doc/api` embarque le numéro de version dans chaque page : un bump de version
 seul demande déjà une régénération complète.
