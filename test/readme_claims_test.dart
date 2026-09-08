@@ -104,26 +104,22 @@ void main() {
             'this regex if the snippet was reworded',
       );
 
-      // Caret compatibility, not equality. `^4.0.0` correctly installs any
-      // later 4.x, so demanding equality would fail on every patch release and
-      // push toward editing the README for no reader-visible reason — a guard
-      // that cries wolf gets silenced. What must never happen is the snippet
-      // pointing somewhere nobody can reach: a different major, or a version
-      // ahead of what is published.
-      final want = advertised!.split('.').map(int.parse).toList();
-      final have = declared.split('.').map(int.parse).toList();
-
+      // Equality, and it is a deliberate tightening. This used to accept any
+      // caret-compatible value, on the reasoning that `^5.0.0` installs 5.1.0
+      // anyway and that editing the README on every patch would make the guard
+      // cry wolf. The project rule is the stricter one: the snippet shows the
+      // **latest** version. Under the old check a snippet could sit a whole
+      // minor behind and stay green — which is not a wolf that cries, it is one
+      // that never does.
+      //
+      // The cost is real and taken knowingly: the README is now a third place
+      // that has to move on every release, patches included.
       expect(
-        want[0],
-        equals(have[0]),
-        reason: 'README advertises ^$advertised, package is $declared — a '
-            'different major resolves to something else entirely',
-      );
-      expect(
-        want[1] * 1000 + want[2],
-        lessThanOrEqualTo(have[1] * 1000 + have[2]),
-        reason: 'README advertises ^$advertised, ahead of the published '
-            '$declared — nobody can install that',
+        advertised,
+        declared,
+        reason: 'README advertises ^$advertised, package is $declared. The '
+            'snippet is what a reader copies — it names the version they get, '
+            'not merely one that resolves.',
       );
     });
 
