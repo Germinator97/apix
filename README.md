@@ -244,6 +244,78 @@ The trade-off is that a failed initialisation raises instead of resetting.
 Requested by a consumer whose support desk receives "it logged me out" with no
 way to reach a string in a platform message.
 
+#### The failure apix does *not* delete on
+
+There are two failures here, not one, and they need opposite reactions:
+
+| `SecureStorageFailure` | What happened | What apix does |
+| --- | --- | --- |
+| `unreadableEntry` | One entry's bytes no longer decrypt. The store is fine. | Drops the key (or the store, on `readAll`), announces it, answers `null` / `false` / `{}`. |
+| `storeUnusable` | The store's **own key** cannot be used. Nothing in it can be read, written **or deleted** through the plugin. | Rethrows. Never deletes, never answers `null`. |
+| `other` | A cancelled prompt, a locked keychain, anything else. | Rethrows. |
+
+The second one is the trap, because the plugin reports both as a
+`PlatformException` with the same `code: 'Exception encountered'`, and its
+message for a dead store can itself contain the words `Bad padding`:
+
+```text
+Key mismatch after algorithm change (Bad padding, wrong key for cipher
+algorithm). Enable migrateOnAlgorithmChange=true to preserve data, ...
+```
+
+apix used to read that as a corrupted entry and take a deletion that
+**cannot run** — the Android plugin executes `read`, `write`, `delete` and
+`deleteAll` only inside a successful `initialize`, so the cleanup fails for the
+same reason the read did. You got a purge report for a purge that never
+happened, and the cleanup's exception in place of the one that named the cause.
+
+`SecureStorageService.classify` is that decision, exposed so you do not have to
+redo the substring matching on your side:
+
+```dart
+try {
+  token = await storage.read('apix_access_token');
+} on PlatformException catch (e) {
+  if (SecureStorageService.classify(e) == SecureStorageFailure.storeUnusable) {
+    // Nothing to purge. Retry once — see below — and treat a second failure
+    // as permanent.
+  }
+  rethrow;
+}
+```
+
+**Retry once before doing anything drastic.** Read in the Android plugin's
+sources (10.0.0 · 10.2.0 · 10.3.1) rather than measured here: when the failure
+comes from *missing* algorithm markers — the state a "clear app data" leaves
+behind when the Keystore key outlives the preferences — `StorageCipherFactory`
+writes the current markers as it builds, so the **next** call no longer takes
+that branch and the failure clears itself. When the markers are present but name
+another algorithm, nothing is rewritten and every call fails identically: that
+one is permanent until the store is reset, which is what
+`resetOnError: true` on your own `FlutterSecureStorage` does — the trade-off
+above, taken deliberately.
+
+⚠️ **A purge instance binds the store for the rest of the process.** From plugin
+10.2.0 the Android side keeps one instance per preferences store
+(`FlutterSecureStoragePlugin.getOrCreateStorage`) and its `initialize` returns
+early on an already-initialised store *before* re-reading the options. So a
+second `FlutterSecureStorage` you create just to purge, with
+`resetOnError: true` and no store name of its own, shares apix's store — and
+once its call succeeds, **its** `resetOnError` governs every later call,
+apix's included. It has to share that store for the purge to reach anything, so
+this is a consequence rather than a mistake: know that for the remainder of that
+process `onBeforeRecoveryDelete` stays quiet and a write that fails after a
+broken initialisation is reported as a success. Restart the process after the
+purge rather than carrying on inside it.
+
+⚠️ **One envelope, several causes.** `Migration failed after algorithm change
+(Algorithm changed detected)` is also what a `SecureStorageService.withBiometrics()`
+refusal looks like from its second run onward — measured on an Android 11 (API
+30) emulator with no lock screen, `BIOMETRIC_UNAVAILABLE` buried in the
+`Caused by:` chain. No retry clears that one: the device has nothing to prompt
+for. The `(%s)` does not separate the causes; the `Caused by:` chain does, and
+it reaches you in the exception and in `SecureStorageRecovery.error`.
+
 ---
 
 ### 🔄 Retry with Exponential Backoff

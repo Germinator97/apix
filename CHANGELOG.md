@@ -1,3 +1,38 @@
+## Unreleased
+
+### Breaking
+
+* `SecureStorageService` no longer deletes when the store's own key is unusable
+  — it rethrows. Its message can contain `Bad padding`
+  (`Key mismatch after algorithm change (Bad padding, …)`) and used to be read
+  as a corrupted entry, taking a deletion the plugin cannot run: you got a purge
+  report for a purge that never happened, and the cleanup's exception instead of
+  the one naming the cause.
+* `onBeforeRecoveryDelete` announces an imminent **attempt**, not an
+  accomplished deletion. If the deletion fails, the original error is rethrown.
+
+### Added
+
+* `SecureStorageService.classify` and `SecureStorageFailure` —
+  `unreadableEntry` / `storeUnusable` / `other`. Tells a lost entry from a store
+  that needs a retry, without matching platform strings on your side.
+* `IllegalBlockSizeException`, `WRONG_FINAL_BLOCK_LENGTH` and `error:1e00007b`
+  now count as an unreadable entry, alongside their `BadPaddingException`
+  sibling.
+
+### Docs
+
+* README says what to do on `storeUnusable`: retry once, and treat a second
+  failure as permanent.
+* …and warns that a purge instance with `resetOnError: true` has to share
+  apix's store, so it governs apix's calls for the rest of the process.
+* The per-store option freeze starts at plugin **10.2.0**, not 10.3.0. A
+  consumer on 10.2.x was told they were safe.
+* `withBiometrics()` on an unsecured device raises the bare
+  `BIOMETRIC_UNAVAILABLE` only on the **first** run; afterwards it arrives
+  wrapped in `Migration failed after algorithm change …`. Keying on the bare
+  string sees it once and never again.
+
 ## 5.0.0
 
 Two audits of the package, then the consumer's review of both: 47 defects, 20
