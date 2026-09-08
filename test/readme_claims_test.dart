@@ -52,13 +52,43 @@ void main() {
       expect(titles, isNotEmpty,
           reason: 'no "## x.y.z" heading found in CHANGELOG.md — update this '
               'regex, do not delete the test');
+
+      // One "## Unreleased" may sit on top, and only one. The project rule is
+      // that a version is numbered when it ships, not when it is fixed — and
+      // the other rule is that a section already on pub.dev is never rewritten.
+      // Between the two, work in progress has nowhere to go but its own
+      // heading, and this test used to forbid exactly that: it demanded the
+      // first heading be the shipped version, so following the documented
+      // workflow turned it red. A guard that forbids the prescribed gesture is
+      // the gesture people drop, not the guard.
+      final unreleased = titles.takeWhile((t) => t == 'Unreleased').length;
+      expect(unreleased, lessThanOrEqualTo(1),
+          reason: 'two "## Unreleased" sections: merge them, or one of the two '
+              'is a version that was never numbered');
+
+      final versioned = titles.skip(unreleased).toList();
+      expect(versioned, isNotEmpty,
+          reason: 'the changelog has no released section left');
+
+      // The direction that matters, unchanged: the newest *numbered* section
+      // is the version being shipped. An `Unreleased` heading buys room to
+      // write, never room to ship something the changelog does not describe.
       expect(
-        titles.first,
+        versioned.first,
         declared,
-        reason: 'pubspec says $declared and the newest CHANGELOG section is '
-            '${titles.first}. A consumer opening the changelog to ask "does '
-            'this break me?" finds nothing about the version they are '
-            'installing.',
+        reason: 'pubspec says $declared and the newest numbered CHANGELOG '
+            'section is ${versioned.first}. A consumer opening the changelog '
+            'to ask "does this break me?" finds nothing about the version they '
+            'are installing.',
+      );
+
+      // And nothing but `Unreleased` may sit above it — `## 5.1.0-wip`,
+      // `## Next` or a stray title would slip a version past the check above
+      // by not being one.
+      expect(
+        titles.take(unreleased).toSet(),
+        unreleased == 0 ? isEmpty : {'Unreleased'},
+        reason: 'only "## Unreleased" may precede the shipped version',
       );
     });
 
