@@ -13,12 +13,18 @@ import 'package:flutter_test/flutter_test.dart';
 /// this file would stop compiling — which is a stronger answer than a sentence
 /// in a changelog saying nothing breaks.
 ///
-/// It deliberately does **not** assert behaviour. 5.0.0 changes defaults, and
-/// those changes are the point; what this file pins is that a consumer meets
-/// them at runtime, having read the changelog, rather than at build time,
-/// having read a compiler error.
+/// It deliberately does **not** assert behaviour. Releases since have changed
+/// defaults, and those changes are the point; what this file pins is that a
+/// consumer meets them at runtime, having read the changelog, rather than at
+/// build time, having read a compiler error.
+///
+/// The title used to name the release it compiled against — "still compiles
+/// against 5.0.0" — which was true when written and stale one version later,
+/// silently, since a test name is prose that nothing checks.
 void main() {
-  test('a consumer written against 4.1.0 still compiles against 5.0.0', () {
+  test(
+      'a consumer written against 4.1.0 still compiles against the current '
+      'release', () {
     // ---- the factory, with every 4.1.0 option ----
     final client = ApiClientFactory.create(
       baseUrl: 'https://api.test',

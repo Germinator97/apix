@@ -84,15 +84,22 @@ surfaces as an exception instead of silently emptying the store.</p>
 own initialisation fails — a failed migration after an algorithm change now
 raises instead of resetting. Pass your own <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> with
 <code>resetOnError: true</code> if you prefer the old behaviour.</p>
-<h2 id="-on-plugin-103-this-option-is-only-yours-if-apix-asks-first">⚠️ On plugin 10.3+, this option is only yours if apix asks first</h2>
-<p>From <strong>10.3.0</strong> the Android plugin keeps one instance per preferences
-store, and binds that store's options on the <strong>first call for it</strong> — later
+<h2 id="-from-plugin-1020-this-option-is-only-yours-if-apix-asks-first">⚠️ From plugin 10.2.0, this option is only yours if apix asks first</h2>
+<p>From <strong>10.2.0</strong> — this said 10.3.0 until it was read again, and a consumer
+on 10.2.x would have concluded they were safe — the Android plugin keeps
+one instance per preferences store
+(<code>FlutterSecureStoragePlugin.getOrCreateStorage</code>), and binds that store's
+options on the <strong>first call for it</strong>: <code>initialize</code> returns early on an
+already-initialised store <em>before</em> re-reading the config. Later
 callers naming the same store are served the first one's settings, in
 silence. This service names no store, so it uses the default one. If
 anything else in your app reaches <code>flutter_secure_storage</code> on that same
 default store before this service does, it is that call's <code>resetOnError</code>
 that applies, and the channel above goes quiet again. Give your own
-storage a <code>sharedPreferencesName</code> to keep the two apart.</p>
+storage a <code>sharedPreferencesName</code> to keep the two apart — except when the
+other storage exists to <strong>purge this one</strong>, which has to share the store
+to reach anything. See <a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a> for what that
+costs and what to do about it.</p>
 <p>At the declared floor (10.0.0) the config is re-read on every call, so this
 cannot happen — only the cipher is cached there.</p>
 <p>Measured against <strong>both bounds</strong> by the device probes in
@@ -142,7 +149,7 @@ costs to give it up.</p>
 <footer>
   <span class="no-break">
     apix
-      5.0.0
+      5.1.0
   </span>
   
 </footer>

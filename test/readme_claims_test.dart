@@ -52,13 +52,43 @@ void main() {
       expect(titles, isNotEmpty,
           reason: 'no "## x.y.z" heading found in CHANGELOG.md — update this '
               'regex, do not delete the test');
+
+      // One "## Unreleased" may sit on top, and only one. The project rule is
+      // that a version is numbered when it ships, not when it is fixed — and
+      // the other rule is that a section already on pub.dev is never rewritten.
+      // Between the two, work in progress has nowhere to go but its own
+      // heading, and this test used to forbid exactly that: it demanded the
+      // first heading be the shipped version, so following the documented
+      // workflow turned it red. A guard that forbids the prescribed gesture is
+      // the gesture people drop, not the guard.
+      final unreleased = titles.takeWhile((t) => t == 'Unreleased').length;
+      expect(unreleased, lessThanOrEqualTo(1),
+          reason: 'two "## Unreleased" sections: merge them, or one of the two '
+              'is a version that was never numbered');
+
+      final versioned = titles.skip(unreleased).toList();
+      expect(versioned, isNotEmpty,
+          reason: 'the changelog has no released section left');
+
+      // The direction that matters, unchanged: the newest *numbered* section
+      // is the version being shipped. An `Unreleased` heading buys room to
+      // write, never room to ship something the changelog does not describe.
       expect(
-        titles.first,
+        versioned.first,
         declared,
-        reason: 'pubspec says $declared and the newest CHANGELOG section is '
-            '${titles.first}. A consumer opening the changelog to ask "does '
-            'this break me?" finds nothing about the version they are '
-            'installing.',
+        reason: 'pubspec says $declared and the newest numbered CHANGELOG '
+            'section is ${versioned.first}. A consumer opening the changelog '
+            'to ask "does this break me?" finds nothing about the version they '
+            'are installing.',
+      );
+
+      // And nothing but `Unreleased` may sit above it — `## 5.1.0-wip`,
+      // `## Next` or a stray title would slip a version past the check above
+      // by not being one.
+      expect(
+        titles.take(unreleased).toSet(),
+        unreleased == 0 ? isEmpty : {'Unreleased'},
+        reason: 'only "## Unreleased" may precede the shipped version',
       );
     });
 
@@ -74,26 +104,58 @@ void main() {
             'this regex if the snippet was reworded',
       );
 
-      // Caret compatibility, not equality. `^4.0.0` correctly installs any
-      // later 4.x, so demanding equality would fail on every patch release and
-      // push toward editing the README for no reader-visible reason — a guard
-      // that cries wolf gets silenced. What must never happen is the snippet
-      // pointing somewhere nobody can reach: a different major, or a version
-      // ahead of what is published.
-      final want = advertised!.split('.').map(int.parse).toList();
-      final have = declared.split('.').map(int.parse).toList();
+      // Equality, and it is a deliberate tightening. This used to accept any
+      // caret-compatible value, on the reasoning that `^5.0.0` installs 5.1.0
+      // anyway and that editing the README on every patch would make the guard
+      // cry wolf. The project rule is the stricter one: the snippet shows the
+      // **latest** version. Under the old check a snippet could sit a whole
+      // minor behind and stay green — which is not a wolf that cries, it is one
+      // that never does.
+      //
+      // The cost is real and taken knowingly: the README is now a third place
+      // that has to move on every release, patches included.
+      expect(
+        advertised,
+        declared,
+        reason: 'README advertises ^$advertised, package is $declared. The '
+            'snippet is what a reader copies — it names the version they get, '
+            'not merely one that resolves.',
+      );
+    });
+
+    // `example/` has its own README describing `example.dart`, and nothing
+    // guarded it: it tagged entries with the release that introduced them, and
+    // stopped at v2.3.0 while the package reached 5.x — three majors of drift,
+    // silent, because a per-release relevé kept by hand records the releases
+    // someone remembered rather than what the file shows.
+    //
+    // The tags are gone; this keeps them gone. Deliberately narrow: it forbids
+    // the bullet-tag form, not every mention of a version, so prose may still
+    // explain why the tags left.
+    //
+    // The stronger check — every apix type used by example.dart is named in its
+    // README — was measured and rejected: 24 of the 35 types in use are not
+    // named, because the README summarises themes ("Cache interceptor with
+    // strategies") instead of indexing symbols. Shipping it would have meant
+    // 24 pre-existing failures, and a guard that cries wolf gets silenced.
+    test('the example README does not tag entries with a release', () {
+      final exampleReadme = File('example/README.md').readAsStringSync();
+
+      expect(exampleReadme, contains('example.dart'),
+          reason: 'example/README.md no longer describes example.dart — this '
+              'test is reading the wrong file');
+
+      final tagged = RegExp(r'^\s*[-*]\s.*\(v\d+\.\d+\.\d+\)', multiLine: true)
+          .allMatches(exampleReadme)
+          .map((m) => m.group(0)!.trim())
+          .toList();
 
       expect(
-        want[0],
-        equals(have[0]),
-        reason: 'README advertises ^$advertised, package is $declared — a '
-            'different major resolves to something else entirely',
-      );
-      expect(
-        want[1] * 1000 + want[2],
-        lessThanOrEqualTo(have[1] * 1000 + have[2]),
-        reason: 'README advertises ^$advertised, ahead of the published '
-            '$declared — nobody can install that',
+        tagged,
+        isEmpty,
+        reason: 'a bullet tagged with the release that introduced it has to be '
+            'extended by hand every version, so it records what someone '
+            'remembered. The CHANGELOG is where a release lives.',
       );
     });
 

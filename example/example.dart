@@ -462,6 +462,27 @@ void main() async {
   final watchedTokens = SecureTokenProvider(storage: watchedStorage);
   debugPrint('watched provider ready: ${watchedTokens.accessTokenKey}');
 
+  // The other failure, and the one apix refuses to delete on: the store's own
+  // key is unusable, so nothing in it can be read, written OR deleted — the
+  // cleanup would fail for the same reason the read did. apix rethrows; this is
+  // how you tell the two apart without matching platform strings yourself.
+  try {
+    await watchedStorage.read('apix_access_token');
+  } catch (e) {
+    switch (SecureStorageService.classify(e)) {
+      case SecureStorageFailure.storeUnusable:
+        // Retry once: when the cause is missing algorithm markers — what a
+        // "clear app data" leaves behind — the plugin repairs them as it fails,
+        // so the next call goes through. A second failure is permanent.
+        debugPrint('secure store unusable — retry once, then treat as final');
+      case SecureStorageFailure.unreadableEntry:
+        // Never reached from apix: it recovers this one itself and answers null.
+        debugPrint('one entry was unreadable and has been dropped');
+      case SecureStorageFailure.other:
+        debugPrint('unrelated storage failure: $e');
+    }
+  }
+
   // After login, save tokens
   await tokenProvider.saveTokens('access_token_here', 'refresh_token_here');
 

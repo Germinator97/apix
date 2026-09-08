@@ -64,9 +64,13 @@
     
 <section class="desc markdown">
   <p>Reads the value for the given <code>key</code> from secure storage.</p>
-<p>Returns <code>null</code> if no value exists for the key.
-If a bad padding exception occurs (corrupted data), only the affected
-key is deleted rather than clearing all storage.</p>
+<p>Returns <code>null</code> if no value exists for the key.</p>
+<p>On <a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.unreadableEntry</a> — the entry's bytes no longer
+decrypt — only the affected key is deleted, never the whole store, and
+the miss is reported as <code>null</code>. Every other failure is rethrown,
+<a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a> included: there is nothing a
+deletion could reach there, and answering <code>null</code> would claim an empty
+store rather than an unreachable one.</p>
 </section>
 
 
@@ -77,9 +81,9 @@ key is deleted rather than clearing all storage.</p>
   try {
     return await _storage.read(key: key);
   } catch (e) {
-    if (_isBadPaddingException(e)) {
+    if (classify(e) == SecureStorageFailure.unreadableEntry) {
       _announce(SecureStorageOperation.read, e, key: key);
-      await delete(key);
+      if (!await _recoveryDeleteSucceeded(() =&gt; delete(key))) rethrow;
       return null;
     }
     rethrow;
@@ -112,7 +116,7 @@ key is deleted rather than clearing all storage.</p>
 <footer>
   <span class="no-break">
     apix
-      5.0.0
+      5.1.0
   </span>
   
 </footer>

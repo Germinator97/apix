@@ -21,14 +21,25 @@ latest of the dependency range** — which is exactly what the CI matrix does
 
 ## Checklist
 
-1. **Version + changelog**
-   - Bump `version:` in `pubspec.yaml`.
-   - Add a matching section to `CHANGELOG.md` (Added / Changed / Fixed / Breaking).
-2. **Regenerate dartdoc — only if the public API changed**
-   - Needed when a `///` doc comment or a public signature changed. Method bodies,
-     `//` comments and `CHANGELOG.md` are **not** reflected in `doc/api/`, so a
-     behaviour-only fix needs no regen.
-   - `dart doc .` (writes to `doc/api/`), then review and commit the diff.
+1. **The six places a version touches.** Not four, not five — the two that get
+   forgotten are at the bottom, and each was forgotten at least once.
+
+   | # | Place | Why it is missed |
+   |---|-------|------------------|
+   | 1 | `pubspec.yaml` — `version:` | — |
+   | 2 | `CHANGELOG.md` — a `## X.Y.Z` heading, and `## Unreleased` folded into it | Never rewrite a section already on pub.dev |
+   | 3 | `README.md` — the `apix: ^X.Y.Z` install snippet | It shows the **latest** version, so it moves on patches too |
+   | 4 | `doc/api/` — `dart doc .` | The number is stamped into **every** page, so a bump alone rewrites all of them |
+   | 5 | `apix_example_app/` — `flutter pub get`, commit the lock | A `path:` dependency does not update the lock on its own, and only the `enforce-lockfile` CI job compares them |
+   | 6 | `apix/example/` — **both** `example.dart` *and* its `README.md` | The neighbouring README describes the file; it had drifted three majors |
+
+   Places 1–3 are guarded by `test/readme_claims_test.dart` and
+   `test/changelog_defaults_test.dart`, by equality in both directions. 4–6 are
+   not, and are the reason this table exists.
+
+   For 4, the rule of thumb: a `///` doc comment or a public signature changed
+   means a regen is needed; method bodies, `//` comments and `CHANGELOG.md` are
+   not reflected in `doc/api/`. A version bump always is.
 3. **Local verification on BOTH dependency bounds** (see commands below) — format,
    `dart analyze --fatal-infos lib test`, and `flutter test` must all pass on the
    floor **and** the latest.

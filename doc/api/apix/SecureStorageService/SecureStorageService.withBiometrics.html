@@ -78,6 +78,15 @@ biometric: the first storage call raises</p>
 <pre class="language-text"><code class="language-text">BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no
 PIN, pattern, password, or biometric enrolled. Cannot generate secure key.
 </code></pre>
+<p>⚠️ That is the message on the <strong>first</strong> run against a virgin store. From
+the second onward the store carries algorithm markers, so the refusal
+arrives wrapped — <code>Migration failed after algorithm change (Algorithm changed detected). Enable resetOnError=true or call deleteAll().</code>, with
+<code>BIOMETRIC_UNAVAILABLE</code> down in the <code>Caused by:</code> chain. Measured on an
+Android 11 (API 30) emulator; pinned by the device probe, which matches
+the buried token rather than the outer message for exactly this reason.
+A consumer keying on the bare string sees it once and never again.
+<a href="../../apix/SecureStorageService/classify.html">SecureStorageService.classify</a> calls the wrapped form
+<a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a>, which is what it is.</p>
 <p>That is <code>enforceBiometrics: true</code> doing its job. Decide what your app does
 about it — send the user to secure their device, or fall back to the plain
 constructor knowing what you are giving up — but decide, because the state
@@ -160,7 +169,7 @@ final tokenProvider = SecureTokenProvider(storage: storage);
 <footer>
   <span class="no-break">
     apix
-      5.0.0
+      5.1.0
   </span>
   
 </footer>

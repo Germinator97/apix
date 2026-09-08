@@ -5,6 +5,26 @@ import 'package:mocktail/mocktail.dart';
 
 class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
+/// Every message the Android plugin sends when the store's own key is unusable.
+///
+/// Verbatim from its sources, identical at 10.0.0, 10.2.0 and 10.3.1 — the
+/// range this package declares. Named here rather than inline so a list literal
+/// of wrapped strings cannot hide a missing comma.
+const deadStoreMessages = [
+  'Key mismatch after algorithm change (Algorithm changed detected). Enable migrateOnAlgorithmChange=true to preserve data, or resetOnError=true to delete.',
+  'Key mismatch after algorithm change (Invalid key, key type incompatible with cipher). Enable migrateOnAlgorithmChange=true to preserve data, or resetOnError=true to delete.',
+  'Migration failed after algorithm change (Illegal block size, wrong cipher configuration). Enable resetOnError=true or call deleteAll().',
+  'Required cryptographic algorithm not supported by device.',
+  'EncryptedSharedPreferences data found but migration is disabled. Set migrateOnAlgorithmChange=true to migrate.',
+];
+
+/// The biometric refusal measured on an Android 16 emulator (pass 4).
+///
+/// It leaves the plugin without a cipher for the rest of the process, but it is
+/// not a classification this service acts on: it must stay `other`.
+const biometricUnavailable =
+    'BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no PIN, pattern, password, or biometric enrolled.';
+
 /// Guards on the one path in this service that **deletes**.
 ///
 /// `SecureStorageService` recovers from corrupted keychain data by wiping it:
@@ -249,6 +269,266 @@ void main() {
           .thenThrow(Exception('BadPaddingException'));
 
       expect(await service.read('apix_access_token'), isNull);
+    });
+  });
+
+  /// The plugin has two failure classes wearing one exception type, and they
+  /// need opposite reactions. `initialize()` failing means the store's key is
+  /// unusable, and — this is the part that is easy to miss — the Android plugin
+  /// runs *every* method inside that `initialize`'s success callback, deletion
+  /// included. So the recovery this service performs cannot run there. Worse,
+  /// the plugin wraps the cause in a message that can itself carry
+  /// `Bad padding`, which is how the narrow, correct matcher below reached into
+  /// a class it must not touch.
+  group('classify — the two classes, and the order that separates them', () {
+    // Verbatim from a consumer's device: Android API 30, plugin 10.3.1,
+    // app data cleared while the Keystore key outlived it.
+    const reported = 'PlatformException(Exception encountered, '
+        'Migration failed after algorithm change (Algorithm changed detected). '
+        'Enable resetOnError=true or call deleteAll()., '
+        'java.lang.Exception: Migration failed after algorithm change '
+        '(Algorithm changed detected). Enable resetOnError=true or call '
+        'deleteAll().\n'
+        '\tat com.it_nomads.fluttersecurestorage.FlutterSecureStorage'
+        '.handleKeyMismatch(FlutterSecureStorage.java:964)\n'
+        'Caused by: javax.crypto.IllegalBlockSizeException: '
+        'error:1e00007b:Cipher functions:OPENSSL_internal:'
+        'WRONG_FINAL_BLOCK_LENGTH\n, null)';
+
+    test('the message a consumer actually captured is storeUnusable', () {
+      expect(
+        SecureStorageService.classify(Exception(reported)),
+        SecureStorageFailure.storeUnusable,
+        reason: 'the store cannot be read, written OR deleted through the '
+            'plugin here — answering null would claim an empty store rather '
+            'than an unreachable one',
+      );
+    });
+
+    // Same envelope, same `(%s)`, a completely different cause — and this one
+    // is produced by apix's own `withBiometrics()` on a device with no lock
+    // screen, from its second run onward. Captured verbatim on an Android 11
+    // (API 30) emulator by
+    // `apix_example_app/integration_test/secure_storage_biometric_device_test`.
+    //
+    // It matters twice: `storeUnusable` is the right answer (the store really
+    // is unusable), and it is the counter-example to "retry once" — no retry
+    // will ever give that device something to prompt for.
+    test(
+        'a biometric refusal wrapped in the migration envelope is storeUnusable',
+        () {
+      const measured =
+          'PlatformException(Exception encountered, Migration failed after algorithm change (Algorithm changed detected). Enable resetOnError=true or call deleteAll()., java.lang.Exception: Migration failed after algorithm change (Algorithm changed detected). Enable resetOnError=true or call deleteAll().\n'
+          'Caused by: java.lang.Exception: Non-biometric migration failed\n'
+          'Caused by: java.lang.Exception: BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no PIN, pattern, password, or biometric enrolled. Cannot generate secure key.\n, null)';
+
+      expect(
+        SecureStorageService.classify(Exception(measured)),
+        SecureStorageFailure.storeUnusable,
+      );
+    });
+
+    // And the bare form, which is what the FIRST run against a virgin store
+    // raises. It is not a store failure yet — it is the refusal itself, and
+    // apix rethrows it either way. The pair is what shows the envelope is what
+    // moves the classification, not the words BIOMETRIC_UNAVAILABLE.
+    test('the bare refusal, on the other hand, is other', () {
+      expect(SecureStorageService.classify(Exception(biometricUnavailable)),
+          SecureStorageFailure.other);
+    });
+
+    // The whole reason the store-unusable markers are tested first. This
+    // message carries `Bad padding` inside its parentheses, so a matcher that
+    // looks for corruption first classifies a dead store as a dead entry and
+    // takes a deletion that cannot run.
+    test('a key-mismatch envelope that CONTAINS "Bad padding" is not an entry',
+        () {
+      expect(
+        SecureStorageService.classify(Exception(
+          'Key mismatch after algorithm change (Bad padding, wrong key for '
+          'cipher algorithm). Enable migrateOnAlgorithmChange=true to preserve '
+          'data, or resetOnError=true to delete.',
+        )),
+        SecureStorageFailure.storeUnusable,
+        reason: 'order matters: the envelope has to be recognised before the '
+            'substring it contains',
+      );
+    });
+
+    for (final message in deadStoreMessages) {
+      test('storeUnusable on: ${message.substring(0, 40)}…', () {
+        expect(SecureStorageService.classify(Exception(message)),
+            SecureStorageFailure.storeUnusable);
+      });
+    }
+
+    // The other half. A matcher that answers `storeUnusable` to everything
+    // would pass every test above and quietly stop recovering anything.
+    for (final message in corruptionMessages) {
+      test('still unreadableEntry on: $message', () {
+        expect(SecureStorageService.classify(Exception(message)),
+            SecureStorageFailure.unreadableEntry);
+      });
+    }
+
+    // Added with this change, and not from a measurement — `doFinal` raises
+    // IllegalBlockSizeException as the sibling of BadPaddingException on the
+    // AES-CBC storage cipher, and recognising one of a pair and not the other
+    // is the asymmetry. Outside any store-unusable envelope, it is an entry.
+    test('a bare IllegalBlockSizeException is an unreadable entry', () {
+      expect(
+        SecureStorageService.classify(Exception(
+          'javax.crypto.IllegalBlockSizeException: error:1e00007b:Cipher '
+          'functions:OPENSSL_internal:WRONG_FINAL_BLOCK_LENGTH',
+        )),
+        SecureStorageFailure.unreadableEntry,
+      );
+    });
+
+    for (final message in const [
+      'SocketException: Failed host lookup: api.example.com',
+      'TimeoutException after 0:00:30.000000',
+      'FormatException: Unexpected character',
+      'Object/factory with type ApiClient is not registered',
+      '',
+      'Unknown error',
+      'Authentication canceled by the user',
+      biometricUnavailable,
+      'MissingPluginException(No implementation found for method read)',
+      'Code: -25308, Message: User interaction is not allowed.',
+    ]) {
+      test('other on: ${message.isEmpty ? '(message vide)' : message}', () {
+        expect(SecureStorageService.classify(Exception(message)),
+            SecureStorageFailure.other);
+      });
+    }
+
+    test('never throws, whatever it is handed', () {
+      for (final input in <Object>[
+        'a bare string',
+        42,
+        Exception(),
+        StateError('boom'),
+        Object(),
+      ]) {
+        expect(() => SecureStorageService.classify(input), returnsNormally);
+      }
+    });
+  });
+
+  group('a dead store is rethrown, never purged', () {
+    late List<SecureStorageRecovery> announced;
+    late SecureStorageService watched;
+    final dead = Exception(
+      'Migration failed after algorithm change (Algorithm changed detected). '
+      'Enable resetOnError=true or call deleteAll().',
+    );
+
+    setUp(() {
+      announced = [];
+      watched = SecureStorageService(
+        storage: storage,
+        onBeforeRecoveryDelete: announced.add,
+      );
+    });
+
+    test('read rethrows and deletes nothing', () async {
+      when(() => storage.read(key: any(named: 'key'))).thenThrow(dead);
+
+      await expectLater(
+          watched.read('apix_access_token'), throwsA(isA<Exception>()));
+
+      verifyNever(() => storage.delete(key: any(named: 'key')));
+      verifyNever(() => storage.deleteAll());
+      expect(announced, isEmpty,
+          reason: 'nothing was destroyed, so nothing may be reported as such');
+    });
+
+    test('containsKey rethrows and deletes nothing', () async {
+      when(() => storage.containsKey(key: any(named: 'key'))).thenThrow(dead);
+
+      await expectLater(
+          watched.containsKey('apix_access_token'), throwsA(isA<Exception>()));
+
+      verifyNever(() => storage.delete(key: any(named: 'key')));
+      expect(announced, isEmpty);
+    });
+
+    test('readAll does not wipe the store it cannot reach', () async {
+      when(() => storage.readAll()).thenThrow(dead);
+
+      await expectLater(watched.readAll(), throwsA(isA<Exception>()));
+
+      verifyNever(() => storage.deleteAll());
+      expect(announced, isEmpty);
+    });
+  });
+
+  /// The belt for everything the classification does not catch. A deletion can
+  /// fail for the same reason the read did; when it does, the caller has to see
+  /// the failure that names the cause, not the one raised by the cleanup.
+  group('when the recovery deletion itself fails', () {
+    late List<SecureStorageRecovery> announced;
+    late SecureStorageService watched;
+    final original = Exception('BadPaddingException: the original');
+    final fromCleanup = Exception('BadPaddingException: raised by the cleanup');
+
+    setUp(() {
+      announced = [];
+      watched = SecureStorageService(
+        storage: storage,
+        onBeforeRecoveryDelete: announced.add,
+      );
+    });
+
+    test('read rethrows the ORIGINAL, not the deletion failure', () async {
+      when(() => storage.read(key: any(named: 'key'))).thenThrow(original);
+      when(() => storage.delete(key: any(named: 'key'))).thenThrow(fromCleanup);
+
+      await expectLater(
+        watched.read('apix_access_token'),
+        throwsA(predicate<Object>(
+          (e) => e.toString().contains('the original'),
+          'the original failure, not the cleanup\'s',
+        )),
+      );
+    });
+
+    test('readAll rethrows the ORIGINAL, not the deleteAll failure', () async {
+      when(() => storage.readAll()).thenThrow(original);
+      when(() => storage.deleteAll()).thenThrow(fromCleanup);
+
+      await expectLater(
+        watched.readAll(),
+        throwsA(predicate<Object>(
+          (e) => e.toString().contains('the original'),
+          'the original failure, not the cleanup\'s',
+        )),
+      );
+    });
+
+    test('the announcement already went out — it names an attempt', () async {
+      when(() => storage.read(key: any(named: 'key'))).thenThrow(original);
+      when(() => storage.delete(key: any(named: 'key'))).thenThrow(fromCleanup);
+
+      await expectLater(
+          watched.read('apix_access_token'), throwsA(isA<Exception>()));
+
+      expect(announced, hasLength(1),
+          reason: 'firing before the deletion is the documented contract; a '
+              'consumer that snapshots what is about to go needs that moment. '
+              'What it must not do is claim the deletion happened.');
+    });
+
+    // The other direction: a deletion that works must still answer, or this
+    // guard would pass on a service that gave up on every recovery.
+    test('a deletion that succeeds still answers null', () async {
+      when(() => storage.read(key: any(named: 'key'))).thenThrow(original);
+      when(() => storage.delete(key: any(named: 'key')))
+          .thenAnswer((_) async {});
+
+      expect(await watched.read('apix_access_token'), isNull);
+      verify(() => storage.delete(key: 'apix_access_token')).called(1);
     });
   });
 

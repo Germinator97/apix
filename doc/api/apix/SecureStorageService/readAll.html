@@ -63,8 +63,10 @@
     
 <section class="desc markdown">
   <p>Reads all key-value pairs from secure storage.</p>
-<p>Returns an empty map if no values exist.
-If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
+<p>Returns an empty map if no values exist.</p>
+<p>The most destructive path in this package: an
+<a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.unreadableEntry</a> here clears <strong>the whole store</strong>,
+because there is no single key to blame. Anything else is rethrown.</p>
 </section>
 
 
@@ -75,10 +77,10 @@ If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
   try {
     return await _storage.readAll();
   } catch (e) {
-    if (_isBadPaddingException(e)) {
+    if (classify(e) == SecureStorageFailure.unreadableEntry) {
       &#47;&#47; No key: this one takes the whole store.
       _announce(SecureStorageOperation.readAll, e);
-      await deleteAll();
+      if (!await _recoveryDeleteSucceeded(deleteAll)) rethrow;
       return {};
     }
     rethrow;
@@ -111,7 +113,7 @@ If a bad padding exception occurs (corrupted data), the storage is cleared.</p>
 <footer>
   <span class="no-break">
     apix
-      5.0.0
+      5.1.0
   </span>
   
 </footer>
