@@ -123,6 +123,42 @@ void main() {
       );
     });
 
+    // `example/` has its own README describing `example.dart`, and nothing
+    // guarded it: it tagged entries with the release that introduced them, and
+    // stopped at v2.3.0 while the package reached 5.x — three majors of drift,
+    // silent, because a per-release relevé kept by hand records the releases
+    // someone remembered rather than what the file shows.
+    //
+    // The tags are gone; this keeps them gone. Deliberately narrow: it forbids
+    // the bullet-tag form, not every mention of a version, so prose may still
+    // explain why the tags left.
+    //
+    // The stronger check — every apix type used by example.dart is named in its
+    // README — was measured and rejected: 24 of the 35 types in use are not
+    // named, because the README summarises themes ("Cache interceptor with
+    // strategies") instead of indexing symbols. Shipping it would have meant
+    // 24 pre-existing failures, and a guard that cries wolf gets silenced.
+    test('the example README does not tag entries with a release', () {
+      final exampleReadme = File('example/README.md').readAsStringSync();
+
+      expect(exampleReadme, contains('example.dart'),
+          reason: 'example/README.md no longer describes example.dart — this '
+              'test is reading the wrong file');
+
+      final tagged = RegExp(r'^\s*[-*]\s.*\(v\d+\.\d+\.\d+\)', multiLine: true)
+          .allMatches(exampleReadme)
+          .map((m) => m.group(0)!.trim())
+          .toList();
+
+      expect(
+        tagged,
+        isEmpty,
+        reason: 'a bullet tagged with the release that introduced it has to be '
+            'extended by hand every version, so it records what someone '
+            'remembered. The CHANGELOG is where a release lives.',
+      );
+    });
+
     // The count is prose, so it cannot be interpolated. Derive the check
     // instead: whichever number is written has to match reality.
     test('the advertised number of config blocks matches the factory', () {
