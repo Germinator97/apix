@@ -213,12 +213,11 @@ class ErrorMapperInterceptor extends Interceptor {
 
   /// Reads and parses the `Retry-After` header, if the response carried one.
   ///
-  /// Uses the same parser as `RetryInterceptor`, so what the caller is told to
-  /// wait and what the interceptor actually waits cannot drift apart.
-  static Duration? _extractRetryAfter(Response<dynamic>? response) {
-    final header = response?.headers.value('retry-after');
-    return header == null ? null : parseRetryAfterHeader(header);
-  }
+  /// Uses the same reader as `RetryInterceptor`, so what the caller is told to
+  /// wait and what the interceptor actually waits cannot drift apart — even
+  /// when the field is repeated, which `Headers.value` answered by throwing.
+  static Duration? _extractRetryAfter(Response<dynamic>? response) =>
+      retryAfterFrom(response?.headers);
 
   /// Reads the application-level error code from the response body.
   ///

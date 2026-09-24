@@ -169,20 +169,17 @@ class RetryInterceptor extends Interceptor {
   /// when to come back, obeying it exactly matters more than spreading load.
   Duration _resolveDelay(DioException err, int currentAttempt) {
     if (config.respectRetryAfter) {
-      final header = err.response?.headers.value('retry-after');
-      if (header != null) {
-        final parsed = _parseRetryAfter(header);
-        if (parsed != null) {
-          final clampedMs = parsed.inMilliseconds.clamp(0, config.maxDelayMs);
-          return Duration(milliseconds: clampedMs);
-        }
+      // The longest of the values that parse: a repeated `Retry-After` used
+      // to throw out of `Headers.value` here, turning the retry itself into
+      // an untyped failure.
+      final parsed = retryAfterFrom(err.response?.headers, now: DateTime.now());
+      if (parsed != null) {
+        final clampedMs = parsed.inMilliseconds.clamp(0, config.maxDelayMs);
+        return Duration(milliseconds: clampedMs);
       }
     }
     return config.getDelay(currentAttempt, random: random);
   }
-
-  Duration? _parseRetryAfter(String value) =>
-      parseRetryAfter(value, now: DateTime.now());
 
   /// Parses a `Retry-After` header value (RFC 7231 §7.1.3).
   ///

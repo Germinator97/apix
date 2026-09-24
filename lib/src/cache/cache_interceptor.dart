@@ -8,6 +8,7 @@ import '../client/response_validator_interceptor.dart';
 import '../errors/api_exception.dart';
 import '../http/body_fingerprint.dart';
 import '../http/cache_vary.dart';
+import '../http/header_values.dart';
 import '../observability/observer_guard.dart';
 import 'cache_config.dart';
 import 'cache_entry.dart';
@@ -876,8 +877,12 @@ class CacheInterceptor extends Interceptor {
   }
 
   /// Parses Cache-Control header into structured data.
+  ///
+  /// A list-based field: repeated lines are joined before parsing, as
+  /// RFC 9110 §5.3 prescribes. Two layers each adding their own
+  /// `Cache-Control` is common, and `Headers.value` threw on it.
   CacheControlHeader _parseCacheControl(Headers headers) {
-    final headerValue = headers.value('cache-control');
+    final headerValue = joinedHeaderValue(headers, 'cache-control');
     if (headerValue == null) {
       return const CacheControlHeader();
     }
@@ -910,9 +915,9 @@ class CacheInterceptor extends Interceptor {
     );
   }
 
-  /// Gets ETag from response headers.
+  /// Gets ETag from response headers — the first, should it be repeated.
   String? _getEtag(Headers headers) {
-    return headers.value('etag');
+    return firstHeaderValue(headers, 'etag');
   }
 
   /// Builds a response from a cached entry, and reports the hit.

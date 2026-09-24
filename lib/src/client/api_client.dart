@@ -4,6 +4,7 @@ import '../cache/cache_interceptor.dart';
 import '../errors/api_exception.dart';
 import '../errors/parsing_exception.dart';
 import '../errors/unexpected_content_type_exception.dart';
+import '../http/header_values.dart';
 import 'api_client_config.dart';
 
 /// A production-ready API client powered by Dio.
@@ -125,7 +126,9 @@ class ApiClient {
   /// `Content-Type` header is missing or does not start with
   /// `application/json` (case-insensitive). Charset suffixes are tolerated.
   void _assertJsonContentType(Response<dynamic> response) {
-    final raw = response.headers.value('content-type');
+    // The first line, as dio's own transformer reads it. `Headers.value`
+    // threw on a repeated `Content-Type` and let an untyped error out.
+    final raw = firstHeaderValue(response.headers, 'content-type');
     if (raw == null ||
         !raw.toLowerCase().trimLeft().startsWith('application/json')) {
       throw UnexpectedContentTypeException(

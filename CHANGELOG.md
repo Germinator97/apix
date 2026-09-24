@@ -1,3 +1,11 @@
+## Unreleased
+
+### Fixed
+
+* A response header sent twice no longer escapes as a raw `DioException`: a
+  repeated `Retry-After` keeps a `429` typed and waits the longest delay, and
+  repeated `Cache-Control` lines combine.
+
 ## 5.1.0
 
 ### Changed
