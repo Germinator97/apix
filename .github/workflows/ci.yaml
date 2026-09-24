@@ -296,6 +296,132 @@ jobs:
         working-directory: apix_example_app
         run: flutter build apk --release
 
+  # The device probes of the demo app, on an Android 11 (API 30) emulator, at
+  # both ends of the plugin range. Every job above runs against a mocked
+  # flutter_secure_storage, which proves apix's logic and never its premise:
+  # which exception the platform raises, where a write lands, whether a store
+  # can be deleted at all. Those were only ever measured by hand, and the
+  # measurements kept correcting the documentation — the last run, the day this
+  # job was written, found the biometric refusal wrapped from the first call
+  # where the docs said bare. A job, not a manual step before a release.
+  #
+  # The probes run with Sentry active, as every run of the demo does: an event
+  # that stops reaching the tracker looks exactly like one that does, unless it
+  # is sent. So the job needs the SENTRY_DSN secret, and says so if it is gone.
+  device-probes:
+    name: Device probes (flutter_secure_storage ${{ matrix.plugin }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The floor, on the SDK the demo pins.
+          - plugin: floor
+            flutter-version: '3.32.0'
+          # The ceiling needs today's stable: 11.x resolves from Flutter 3.38.
+          - plugin: latest
+            flutter-version: ''
+    steps:
+      - name: Require the Sentry DSN
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        run: |
+          if [ -z "$SENTRY_DSN" ]; then
+            echo "::error::No SENTRY_DSN secret: the probes run with Sentry active. Add it with: gh secret set SENTRY_DSN -R Germinator97/apix"
+            exit 1
+          fi
+
+      - name: Checkout apix
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
+          path: apix
+
+      - name: Checkout the example app
+        uses: actions/checkout@v5
+        with:
+          repository: Germinator97/apix_example_app
+          ref: develop
+          path: apix_example_app
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ matrix.flutter-version }}
+          channel: 'stable'
+          cache: true
+
+      - name: Resolve the plugin at its ${{ matrix.plugin }}
+        working-directory: apix_example_app
+        run: |
+          flutter pub get
+          if [ "${{ matrix.plugin }}" = floor ]; then
+            flutter pub downgrade flutter_secure_storage
+          else
+            flutter pub upgrade
+          fi
+
+      # As in plugin-floor and plugin-latest: prove the bound before trusting
+      # a green run, both ends derived from apix's declared range.
+      - name: Prove the resolved plugin is the ${{ matrix.plugin }}
+        env:
+          BOUND: ${{ matrix.plugin }}
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import os, re, sys
+
+          spec = open('apix/pubspec.yaml').read()
+          lock = open('apix_example_app/pubspec.lock').read()
+
+          declared = re.search(
+              r'flutter_secure_storage:\s*["\']>=([0-9][0-9.]*)\s*<([0-9]+)\.0\.0',
+              spec)
+          if not declared:
+              sys.exit('no ">=x.y.z <N.0.0" range for flutter_secure_storage '
+                       'in apix/pubspec.yaml — this parsing is stale')
+          got = re.search(
+              r'^  flutter_secure_storage:\n(?:.*\n)*?    version: "([^"]+)"',
+              lock, re.M)
+          if not got:
+              sys.exit('flutter_secure_storage absent from the demo lock')
+
+          floor, ceiling = declared.group(1), int(declared.group(2))
+          version = got.group(1)
+          print(f'declared >={floor} <{ceiling}.0.0 · resolved {version}')
+          if os.environ['BOUND'] == 'floor' and version != floor:
+              sys.exit('the downgrade did not reach the declared floor')
+          if (os.environ['BOUND'] == 'latest'
+                  and int(version.split('.')[0]) != ceiling - 1):
+              sys.exit('the upgrade did not reach the top major of the range')
+          EOF
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the probes on an API 30 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          working-directory: apix_example_app
+          script: flutter test integration_test -d emulator-5554 --dart-define=SENTRY_DSN=$SENTRY_DSN
+
   # Catches what `dart analyze` cannot: anything that would make the package
   # unpublishable, and the pub.dev score the next release will actually get.
   publishable:
