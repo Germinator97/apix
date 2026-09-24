@@ -1,7 +1,16 @@
 ## Unreleased
 
+### Changed
+
+* `HttpException.responseBody` is the decoded JSON when a JSON error body was
+  received as bytes or text; the raw value stays on
+  `originalError.response.data`. If you decoded it yourself, drop that step.
+
 ### Fixed
 
+* A JSON error body keeps its `message` and `code` whatever the request's
+  `responseType` — a failed binary download reported `HTTP 400` and no code.
+  Bodies over 64 KB are left as received.
 * A response header sent twice no longer escapes as a raw `DioException`: a
   repeated `Retry-After` keeps a `429` typed and waits the longest delay, and
   repeated `Cache-Control` lines combine.

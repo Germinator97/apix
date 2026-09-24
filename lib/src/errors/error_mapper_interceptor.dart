@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
+import '../http/header_values.dart';
+import '../http/json_media_type.dart';
 import '../http/retry_after.dart';
 import 'api_exception.dart';
 import 'http_exception.dart';
@@ -140,27 +144,30 @@ class ErrorMapperInterceptor extends Interceptor {
   static ApiException _mapBadResponse(DioException err, String errorCodeKey) {
     final response = err.response;
     final statusCode = response?.statusCode ?? 0;
-    final message = _extractMessage(response);
-    final code = _extractCode(response, errorCodeKey, statusCode);
+    // Read once: the message, the code and `responseBody` all come from the
+    // same reading, so they cannot disagree about what the server sent.
+    final body = _readBody(response);
+    final message = _extractMessage(body, response?.statusCode);
+    final code = _extractCode(body, errorCodeKey, statusCode);
 
     return switch (statusCode) {
       401 => UnauthorizedException(
           message: message,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
       403 => ForbiddenException(
           message: message,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
         ),
       404 => NotFoundException(
           message: message,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
@@ -171,7 +178,7 @@ class ErrorMapperInterceptor extends Interceptor {
       429 => TooManyRequestsException(
           message: message,
           retryAfter: _extractRetryAfter(response),
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
@@ -184,7 +191,7 @@ class ErrorMapperInterceptor extends Interceptor {
       _ when statusCode >= 400 && statusCode < 500 => ClientException(
           message: message,
           statusCode: statusCode,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
@@ -192,7 +199,7 @@ class ErrorMapperInterceptor extends Interceptor {
       _ when statusCode >= 500 && statusCode < 600 => ServerException(
           message: message,
           statusCode: statusCode,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
@@ -203,7 +210,7 @@ class ErrorMapperInterceptor extends Interceptor {
       _ => HttpException(
           message: message,
           statusCode: statusCode,
-          responseBody: response?.data,
+          responseBody: body,
           code: code,
           originalError: err,
           stackTrace: err.stackTrace,
@@ -253,12 +260,8 @@ class ErrorMapperInterceptor extends Interceptor {
   /// That case is indistinguishable from the disguise by construction.
   ///
   /// Reported by a consumer, against the field these codes are read from.
-  static String? _extractCode(
-    Response<dynamic>? response,
-    String key,
-    int statusCode,
-  ) {
-    final data = response?.data;
+  static String? _extractCode(Object? body, String key, int statusCode) {
+    final data = body;
     if (data is! Map) return null;
 
     final nested = data['error'];
@@ -275,8 +278,8 @@ class ErrorMapperInterceptor extends Interceptor {
     return normalised == statusCode.toString() ? null : normalised;
   }
 
-  static String _extractMessage(Response<dynamic>? response) {
-    final data = response?.data;
+  static String _extractMessage(Object? body, int? statusCode) {
+    final data = body;
 
     if (data is Map) {
       // Common API message field names (flat structure)
@@ -303,6 +306,61 @@ class ErrorMapperInterceptor extends Interceptor {
       }
     }
 
-    return 'HTTP ${response?.statusCode ?? 'error'}';
+    return 'HTTP ${statusCode ?? 'error'}';
+  }
+
+  /// Largest error body decoded here: 64 KB, in bytes or UTF-16 code units.
+  ///
+  /// The mapper runs on the calling isolate — the UI one in an app — and an
+  /// error envelope is a few hundred bytes. A body past this is not the
+  /// envelope a caller wants to read; it is left exactly as received.
+  static const int _maxDecodedBodyLength = 64 * 1024;
+
+  /// The error body as a caller wants to read it.
+  ///
+  /// dio applies the request's `responseType` to error responses too, so the
+  /// same JSON envelope arrives as a `Map` under `ResponseType.json`, as a
+  /// `Uint8List` under `bytes` and as a `String` under `plain`. Only the
+  /// first was ever read: a download that failed reported `HTTP 400` and no
+  /// code, while its body carried both.
+  ///
+  /// Bytes and text are decoded **only** when the `Content-Type` is JSON by
+  /// dio's own rule ([isJsonContentType]) — the same body dio would have
+  /// decoded under `json`, never a page that merely looks like JSON. Bytes
+  /// must be valid UTF-8: an invalid sequence is not the JSON its header
+  /// claims. Text arrives already decoded by dio, which replaced any invalid
+  /// sequence with U+FFFD — that cannot be told apart any more, and is read
+  /// as dio's own `json` path reads it at the floor.
+  ///
+  /// Anything else — no or another `Content-Type`, malformed JSON, a body
+  /// over [_maxDecodedBodyLength], a stream — is returned as dio produced it.
+  /// This never throws: it runs while an error is being mapped, and a throw
+  /// here would replace the failure it is describing.
+  static Object? _readBody(Response<dynamic>? response) {
+    final data = response?.data;
+    if (data is! List<int> && data is! String) return data;
+    if (!isJsonContentType(
+        firstHeaderValue(response?.headers, 'content-type'))) {
+      return data;
+    }
+
+    final String text;
+    if (data is List<int>) {
+      if (data.length > _maxDecodedBodyLength) return data;
+      try {
+        text = utf8.decode(data);
+      } on FormatException {
+        return data;
+      }
+    } else {
+      text = data as String;
+      if (text.length > _maxDecodedBodyLength) return data;
+    }
+
+    try {
+      return jsonDecode(text);
+    } on FormatException {
+      return data;
+    }
   }
 }

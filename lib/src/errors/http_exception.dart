@@ -14,7 +14,16 @@ import 'api_exception.dart';
 /// }
 /// ```
 class HttpException extends ApiException {
-  /// The response body if available.
+  /// The response body, as a caller wants to read it.
+  ///
+  /// The decoded JSON — a `Map`, a `List` or a scalar — whenever the body is
+  /// JSON, **whatever the request's `responseType`**: the error of a
+  /// `ResponseType.bytes` download is decoded too, provided its
+  /// `Content-Type` is JSON and it is under 64 KB. Otherwise the value dio
+  /// produced — bytes, text, a stream — or `null`.
+  ///
+  /// The value dio received stays reachable through
+  /// `(originalError as DioException).response?.data`.
   final dynamic responseBody;
 
   /// Creates an [HttpException] with the given [message] and [statusCode].
