@@ -112,13 +112,15 @@ jobs:
 
   # The second declared range, and the one the dio matrix above cannot see.
   #
-  # `flutter_secure_storage: ">=10.0.0 <11.0.0"` is not a passive dependency:
+  # `flutter_secure_storage: ">=10.0.0 <12.0.0"` is not a passive dependency:
   # SecureStorageService decides whether to delete a user's credentials from the
   # message its Android side produces, and that side does not behave the same
   # across the range — where the plugin assigns its `preferences` field moved
-  # inside the success callback between 10.2.0 and 10.3.1, and the per-store
-  # option freeze starts at 10.2.0. A release about that behaviour shipped
-  # without a guard on both bounds is the drift this file exists to catch.
+  # inside the success callback between 10.2.0 and 10.3.1, the per-store option
+  # freeze starts at 10.2.0, and 11.2.0 scopes deleteAll to the key prefix. A
+  # release about that behaviour shipped without a guard on both bounds is the
+  # drift this file exists to catch. The floor is this job; the ceiling is
+  # `plugin-latest` below.
   #
   # A job rather than a second matrix axis: adding a key renames every existing
   # cell, and the required checks are named after them.
@@ -179,6 +181,67 @@ jobs:
 
       - name: Analyze
         run: dart analyze --fatal-infos lib test example
+
+      - name: Run tests
+        run: flutter test
+
+  # The ceiling of the same range. The Test jobs pin Flutter 3.24.0, where pub
+  # resolves flutter_secure_storage 10.x: 11 needs Flutter 3.38, its windows
+  # implementation depending on win32 6. So only a job on today's stable
+  # reaches the major the range was widened for — and only on a fresh
+  # resolution: a lock kept from an older SDK stays on 10.x without a word,
+  # which is exactly what a local run did before this job existed.
+  plugin-latest:
+    name: Plugin latest (flutter_secure_storage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Prove the resolution reached the top of the range before concluding
+      # anything from a green run: otherwise this job is a copy of the Test
+      # jobs, green and measuring nothing. The expected major is derived from
+      # the declared ceiling (`<12.0.0` → 11), never written here.
+      - name: Prove the latest major is what pubspec allows
+        run: |
+          set -euo pipefail
+          python3 - <<'EOF'
+          import re, sys
+
+          spec = open('pubspec.yaml').read()
+          lock = open('pubspec.lock').read()
+
+          ceiling = re.search(
+              r'flutter_secure_storage:\s*["\'][^"\']*<([0-9]+)\.0\.0', spec)
+          if not ceiling:
+              sys.exit('no "<N.0.0" ceiling for flutter_secure_storage in '
+                       'pubspec.yaml — this parsing is stale, not the pubspec')
+
+          got = re.search(
+              r'^  flutter_secure_storage:\n(?:.*\n)*?    version: "([^"]+)"',
+              lock, re.M)
+          if not got:
+              sys.exit('flutter_secure_storage absent from pubspec.lock')
+
+          expected = int(ceiling.group(1)) - 1
+          major = int(got.group(1).split('.')[0])
+          print(f'declared ceiling <{ceiling.group(1)}.0.0 · resolved '
+                f'{got.group(1)}')
+          if major != expected:
+              sys.exit(f'resolved major {major} where the range reaches '
+                       f'{expected}: this job is testing an older plugin '
+                       f'than the one it exists for')
+          EOF
 
       - name: Run tests
         run: flutter test
