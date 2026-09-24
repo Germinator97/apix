@@ -15,6 +15,9 @@
 * A JSON error body keeps its `message` and `code` whatever the request's
   `responseType` — a failed binary download reported `HTTP 400` and no code.
   Bodies over 64 KB are left as received.
+* Logs and tracker fields no longer render a body beyond what they keep: a
+  `Uint8List` prints `<binary: N bytes>` — a 5 MB download cost ~170 ms per
+  log line — and a large JSON body costs its preview, not its size.
 * A response header sent twice no longer escapes as a raw `DioException`: a
   repeated `Retry-After` keeps a `429` typed and waits the longest delay, and
   repeated `Cache-Control` lines combine.

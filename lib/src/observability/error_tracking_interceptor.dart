@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../errors/api_exception.dart';
 import '../errors/error_mapper_interceptor.dart';
 import '../errors/http_exception.dart';
+import '../http/body_preview.dart';
 import '../http/observation_marker.dart';
 import '../http/redacted_uri.dart';
 import 'observer_guard.dart';
@@ -158,13 +159,14 @@ class ErrorTrackingConfig {
     return result;
   }
 
-  /// Truncates body if too long.
-  String truncateBody(dynamic body) {
-    if (body == null) return 'null';
-    final str = body.toString();
-    if (str.length <= maxBodyLength) return str;
-    return '${str.substring(0, maxBodyLength)}... [truncated]';
-  }
+  /// Renders [body] in at most [maxBodyLength] characters, then
+  /// `... [truncated]`.
+  ///
+  /// Shares its rendering with `LoggerConfig.truncateBody`: a `Uint8List`
+  /// renders as `<binary: N bytes>` without being read, and nothing is turned
+  /// into text beyond what the cut keeps. Here it matters most for uploads —
+  /// `captureRequestBody` renders the body of every request breadcrumb.
+  String truncateBody(dynamic body) => previewBody(body, maxBodyLength);
 }
 
 /// Interceptor that captures API errors to error tracking services.
