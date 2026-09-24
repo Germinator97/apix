@@ -108,6 +108,11 @@ final client = ApiClientFactory.fromConfig(config);
     headers: config.headers,
   );
 
+  &#47;&#47; dio decodes a JSON body before any interceptor runs, and a decoding
+  &#47;&#47; failure used to leave with no response at all — status, headers and
+  &#47;&#47; body lost, a 401 no longer refreshing. See StatusPreservingTransformer.
+  dio.transformer = StatusPreservingTransformer(dio.transformer);
+
   &#47;&#47; Custom HTTP client adapter (optional)
   if (httpClientAdapter != null) {
     dio.httpClientAdapter = httpClientAdapter;

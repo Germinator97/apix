@@ -98,6 +98,7 @@ void onError(
         success: false,
         error: err.message ?? err.error?.toString(),
         errorType: err.type.name,
+        requestSize: _getRequestSize(err.requestOptions),
         responseSize:
             err.response != null ? _getResponseSize(err.response!) : null,
       );

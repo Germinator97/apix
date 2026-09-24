@@ -62,7 +62,13 @@
       </section>
       
 <section class="desc markdown">
-  <p>Request size in bytes (if available).</p>
+  <p>Size in bytes of the body the request sent, or null when it cannot be
+told.</p>
+<p>Once the request has gone out, the <code>Content-Length</code> dio computed while
+encoding the body; while it is in flight, measured on raw bytes, text and
+form data only. Never a rendering of the body — this used to be the
+length of <code>toString()</code>: characters of Dart's <code>{key: value}</code> form, not
+bytes, at the cost of building that string.</p>
 </section>
 
       

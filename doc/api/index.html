@@ -626,9 +626,9 @@ directly. That matters beyond convenience: a direct import makes apix's
 declared dio version range a constraint on your code too.</p>
 <pre class="language-dart"><code class="language-dart">import 'package:apix/apix.dart';
 
-// Binary downloads (reports, receipts)
-final pdf = await client.get&lt;List&lt;int&gt;&gt;(
-  '/reports/2026-08.pdf',
+// A raw binary call — `getAndReadBytes` does this for you, headers included
+final raw = await client.get&lt;List&lt;int&gt;&gt;(
+  '/files/report.pdf',
   options: Options(responseType: ResponseType.bytes),
 );
 
@@ -734,6 +734,10 @@ tracker event, not two.</p>
 </tr>
 </tbody>
 </table>
+<p>A body is printed in at most <code>maxBodyLength</code> characters and never rendered
+beyond them: a <code>Uint8List</code> — a download, an upload — prints
+<code>&lt;binary: N bytes&gt;</code>, and a large JSON body costs only what is shown. The
+fields <code>ErrorTrackingConfig</code> sends are rendered the same way.</p>
 <hr>
 <h3 id="-sentry-integration">🐛 Sentry Integration</h3>
 <p><strong>1. Sentry initialization (in <code>main.dart</code>):</strong></p>
@@ -898,7 +902,7 @@ dart run sentry_dart_plugin
 <td><code>HttpException</code></td>
 </tr>
 <tr>
-<td><code>*AndDecode</code> / <code>*AndParse</code> parse failure</td>
+<td>A body that does not parse — a typed shape's decoding, or a <code>2xx</code> claiming JSON on any verb</td>
 <td><code>ParsingException</code></td>
 </tr>
 <tr>
@@ -947,6 +951,15 @@ triggered the replay, so <code>on ServerException catch</code> stopped matching.
 { "error": { "detail": "..." } }                   → "..."
 </code></pre>
 <p>Falls back to <code>"HTTP {statusCode}"</code> if no known field is found.</p>
+<p>The body is read the same way <strong>whatever the request's <code>responseType</code></strong>: the
+JSON error of a <code>ResponseType.bytes</code> download, or of a <code>plain</code> call, gives its
+message and <code>code</code> too, provided its <code>Content-Type</code> is JSON and it is under
+64 KB. <code>HttpException.responseBody</code> then holds the decoded JSON; the value dio
+received stays on <code>originalError.response.data</code>. A <code>stream</code> body is left
+unread.</p>
+<p>A body that claims JSON and does not parse keeps its status: a <code>401</code> is still
+an <code>UnauthorizedException</code> — and still refreshes — with the text in
+<code>responseBody</code>, and only a <code>2xx</code> becomes a <code>ParsingException</code>.</p>
 <h3 id="exception-hierarchy">Exception Hierarchy</h3>
 <pre class="language-dart"><code>ApiException
 ├── NetworkException
@@ -1026,7 +1039,8 @@ pointing elsewhere to avoid the first would have silently lost the second.</p>
 </code></pre>
 <p><code>retryAfter</code> is the parsed <code>Retry-After</code> header (delta-seconds or HTTP-date), or
 null when the server sent none — treat null as <em>unknown delay</em>, never as <em>retry
-now</em>.</p>
+now</em>. Sent twice — a gateway and the application both setting it — the longest
+delay wins, here and in the retry alike.</p>
 <p><code>AuthException</code> exposes <code>originalError</code> so the underlying cause (e.g. <code>TokenProviderException</code> or a custom error from a legacy <code>onRefresh</code>) is recoverable.</p>
 <h3 id="classic-try-catch">Classic Try-catch</h3>
 <p>ApiClient methods throw typed <code>ApiException</code> directly — no need to unwrap <code>DioException</code>:</p>
@@ -1104,7 +1118,7 @@ final patched = await client.patchAndDecode('/users/1', body, User.fromJson);
 </code></pre>
 <h3 id="level-3-data-methods--envelope-unwrapping">Level 3: Data Methods — Envelope Unwrapping</h3>
 <p>For APIs that wrap responses in an envelope like <code>{ "data": { ... } }</code>.
-Extracts <code>response.data[dataKey]</code> then formats. <strong>GET &amp; POST only.</strong></p>
+Extracts <code>response.data[dataKey]</code> then formats. Available for all verbs.</p>
 <pre class="language-dart"><code class="language-dart">// Configure dataKey globally (default: 'data')
 final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
@@ -1144,6 +1158,41 @@ final user = await client.postAndDecodeDataOrNull('/users', body, User.fromJson)
 final results = await client.postListAndDecodeData('/search', query, User.fromJson);
 final results = await client.postListAndDecodeDataOrEmpty('/search', query, User.fromJson);
 </code></pre>
+<h3 id="binary-downloads--verbandreadbytes">Binary Downloads — <code>{verb}AndReadBytes</code></h3>
+<p>A file — a PDF, an image, an archive — comes back as a <code>BinaryResponse</code>: the
+bytes, byte for byte, with the status and headers none of the other shapes can
+reach. No dio type crosses into your data layer.</p>
+<pre class="language-dart"><code class="language-dart">final pdf = await client.getAndReadBytes(
+  '/reports/2026-08',
+  expectedContentTypes: ['application/pdf'],
+  options: Options(receiveTimeout: const Duration(minutes: 2)),
+);
+
+if (pdf.isEmpty) return;                        // 204, or an empty body
+final name = pdf.fileName ?? 'report.pdf';      // Content-Disposition, sanitised
+final missing = pdf.header('X-Missing-Items');  // any header, case-insensitive
+await File('${dir.path}/$name').writeAsBytes(pdf.bytes);
+</code></pre>
+<ul>
+<li><code>ResponseType.bytes</code> is forced whatever <code>options</code> says, and the rest of
+<code>options</code> is kept. Forgotten on a raw <code>get</code>, it decodes the file as text and
+corrupts it without a word.</li>
+<li><code>expectedContentTypes</code> refuses a non-empty body of another type with
+<code>UnexpectedContentTypeException</code> — a captive portal's HTML served as <code>200</code>
+would otherwise be saved as your PDF. Parameters (<code>; charset=…</code>) are
+ignored and <code>image/*</code> matches the family. <code>Accept</code> is left alone: narrowing
+it can turn a JSON error into a <code>406</code> without a body.</li>
+<li><code>fileName</code> prefers <code>filename*</code> (RFC 8187) to <code>filename</code>, and is sanitised:
+last path segment only, no control characters, never <code>.</code> or <code>..</code>. It still
+comes from the server — where the file goes is yours to decide.</li>
+<li>Failures are typed like every other call: a JSON error body gives its
+<code>message</code> and <code>code</code> although bytes were asked for.</li>
+<li>A <code>responseValidator</code> sees the bytes — <code>response.data</code> is a <code>Uint8List</code> —
+so have it return <code>null</code> for what it does not understand.</li>
+</ul>
+<p><code>postAndReadBytes</code>, <code>putAndReadBytes</code>, <code>patchAndReadBytes</code> and
+<code>deleteAndReadBytes</code> take a body like the other shapes; the bytes are what is
+<em>received</em>.</p>
 <h3 id="method-summary">Method Summary</h3>
 <table>
 <thead>
@@ -1177,12 +1226,19 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 <td>all</td>
 <td>OrNull, List, ListOrNull, ListOrEmpty</td>
 </tr>
+<tr>
+<td><strong>Binary</strong></td>
+<td><code>{verb}AndReadBytes</code></td>
+<td>the body's bytes, with status and headers</td>
+<td>all</td>
+<td>—</td>
+</tr>
 </tbody>
 </table>
-<p>Since 5.0 every family is available on every verb — twelve shapes × five verbs.
-The table used to claim that while <code>PUT</code> and <code>PATCH</code> had two methods each and
-<code>DELETE</code> none, because filling the gaps meant copying the plumbing five times.
-It is one shared core now, so a verb cannot fall behind again.</p>
+<p>Since 5.0 every shape is available on every verb. The table used to claim that
+while <code>PUT</code> and <code>PATCH</code> had two methods each and <code>DELETE</code> none, because filling
+the gaps meant copying the plumbing five times. It is one shared core now, so a
+verb cannot fall behind again.</p>
 <h4 id="progress-on-a-typed-call">Progress on a typed call</h4>
 <p>Every typed method takes <code>onReceiveProgress</code>, and every body-bearing one
 (<code>POST</code>, <code>PUT</code>, <code>PATCH</code>, <code>DELETE</code>) also takes <code>onSendProgress</code> — so a typed
@@ -1195,13 +1251,13 @@ parsing the body by hand:</p>
   onSendProgress: (sent, total) =&gt; setState(() =&gt; _progress = sent / total),
 );
 </code></pre>
-<p>The twelve <code>GET</code> variants take only <code>onReceiveProgress</code>: a <code>GET</code> has nothing to
-send, and an option that can never fire is an option that looks set.</p>
+<p>The <code>GET</code> variants take only <code>onReceiveProgress</code>: a <code>GET</code> has nothing to send,
+and an option that can never fire is an option that looks set.</p>
 <h3 id="strict-content-type-checks-captive-portals">Strict Content-Type Checks (Captive Portals)</h3>
 <p><code>*AndDecode</code> methods can verify that the response's <code>Content-Type</code> starts
 with <code>application/json</code> before attempting to parse. Useful in mobile
-contexts where a captive Wi-Fi portal may return HTML 200 in place
-of the expected JSON:</p>
+contexts where a captive Wi-Fi portal may return HTML 200 in place of the
+expected JSON:</p>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
   baseUrl: 'https://api.example.com',
   strictContentType: true, // opt-in (default: false)
@@ -1217,6 +1273,9 @@ try {
 <p><code>*AndParse</code> methods are unaffected (they accept any payload type by design).
 A missing <code>Content-Type</code> header in strict mode triggers the same exception
 with <code>actualContentType: null</code>.</p>
+<p>A binary download has its own check, per call: <code>expectedContentTypes</code> on
+<code>getAndReadBytes</code> and its verbs, which raises the same exception — see
+<em>Binary Downloads</em> above.</p>
 <hr>
 <h2 id="api-reference">API Reference</h2>
 <h3 id="apiclientfactorycreate">ApiClientFactory.create</h3>
@@ -1502,7 +1561,7 @@ read. Named here because the signature alone does not.</p>
 <tr>
 <td><code>metricsConfig.onMetrics</code></td>
 <td><code>RequestMetrics</code></td>
-<td><code>requestId</code>, <code>durationMs</code>, <code>statusCode</code>, <code>success</code>, sizes, <code>toMap()</code></td>
+<td><code>requestId</code>, <code>durationMs</code>, <code>statusCode</code>, <code>success</code>, sizes in bytes, <code>toMap()</code></td>
 </tr>
 <tr>
 <td><code>metricsConfig.onBreadcrumb</code></td>
@@ -1556,11 +1615,11 @@ that cannot be taken.</p>
 <p>A complete Flutter app demonstrating all ApiX features is available on GitHub:</p>
 <p>👉 <strong><a href="https://github.com/Germinator97/apix_example_app">apix_example_app</a></strong></p>
 <p align="center">
-<img src="assets/screenshots/home.png" alt="ApiX Example App — requests, responses and caching under one taxonomy, with live request metrics in the status bar" width="260">
+<img src="assets/screenshots/home.png" alt="ApiX Example App — requests, responses and caching under one taxonomy, with live request metrics in the status bar" width="200">
 &nbsp;
-<img src="assets/screenshots/probes.png" alt="ApiX Example App — a probe reporting that two accounts on one device are served their own cache entry, above the auth, upload and error-code demos" width="260">
+<img src="assets/screenshots/probes.png" alt="ApiX Example App — a probe reporting that two accounts on one device are served their own cache entry, above the auth, upload and error-code demos" width="200">
 &nbsp;
-<img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry counted attempt by attempt, and what reaches the error tracker versus what is dropped as transport noise" width="260">
+<img src="assets/screenshots/demos.png" alt="ApiX Example App — method-aware retry counted attempt by attempt, and what reaches the error tracker versus what is dropped as transport noise" width="200">
 </p>
 <p>The app is organised by <strong>theme</strong>, not by release, and each section pairs the
 live feature with the probes that pin it:</p>

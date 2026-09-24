@@ -62,7 +62,12 @@
       </section>
       
 <section class="desc markdown">
-  <p>Response size in bytes (if available).</p>
+  <p>Size in bytes of the body received, after any transport decompression,
+or null when it cannot be told.</p>
+<p>Measured on raw bytes; for JSON and text, counted by apix as the bytes
+arrive; otherwise the <code>Content-Length</code> of a body that was not
+content-encoded. A stream is not measured. It used to be the length of
+<code>toString()</code>: 23,960,010 for a 5,242,880-byte download.</p>
 </section>
 
       

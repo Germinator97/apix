@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
-  <meta name="description" content="API docs for the trackRequestSize property from the MetricsConfig class, for the Dart programming language.">
-  <title>trackRequestSize property - MetricsConfig class - apix library - Dart API</title>
+  <meta name="description" content="API docs for the fileName property from the BinaryResponse class, for the Dart programming language.">
+  <title>fileName property - BinaryResponse class - apix library - Dart API</title>
 
 
   
@@ -26,10 +26,10 @@
   <ol class="breadcrumbs gt-separated dark hidden-xs">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix.dart</a></li>
-    <li><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a></li>
-    <li class="self-crumb">trackRequestSize property</li>
+    <li><a href="../../apix/BinaryResponse-class.html">BinaryResponse</a></li>
+    <li class="self-crumb">fileName property</li>
   </ol>
-  <div class="self-name">trackRequestSize</div>
+  <div class="self-name">fileName</div>
   <form class="search navbar-right" role="search">
     <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
   </form>
@@ -46,34 +46,44 @@
 <div
     id="dartdoc-main-content"
     class="main-content"
-    data-above-sidebar="apix&#47;MetricsConfig-class-sidebar.html"
+    data-above-sidebar="apix&#47;BinaryResponse-class-sidebar.html"
     data-below-sidebar="">
     <div>
-<h1><span class="kind-property">trackRequestSize</span> property 
+<h1><span class="kind-property">fileName</span> property 
 </h1></div>
 
     
-      <section class="multi-line-signature">
-        
-        <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>
-        <span class="name ">trackRequestSize</span>
-        <div class="features"><span class="feature">final</span></div>
-
-      </section>
-      
-<section class="desc markdown">
-  <p>Whether to include request size in metrics, in bytes — see
-<a href="../../apix/RequestMetrics/requestSize.html">RequestMetrics.requestSize</a>.</p>
-</section>
-
-      
-<section class="summary source-code" id="source">
-  <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">final bool trackRequestSize;</code></pre>
-</section>
-
 
     
+        
+  <section id="getter">
+    <section class="multi-line-signature">
+      
+      <span class="returntype"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+      get
+      <span class="name ">fileName</span>
+      
+
+    </section>
+    
+<section class="desc markdown">
+  <p>The file name the server proposes in <code>Content-Disposition</code>, or <code>null</code>.</p>
+<p><code>filename*</code> (RFC 8187) wins over <code>filename</code>. The name is sanitised —
+last path segment only, no control or bidirectional-override
+characters, never <code>.</code> or <code>..</code> — since it comes from the server and is
+about to become a path. Where the file goes is still yours to decide.</p>
+</section>
+
+    
+<section class="summary source-code" id="source">
+  <h2><span>Implementation</span></h2>
+  <pre class="language-dart"><code class="language-dart">String? get fileName =&gt;
+    fileNameFromContentDisposition(_first(&#39;content-disposition&#39;));</code></pre>
+</section>
+
+  </section>
+
+
 </div> <!-- /.main-content -->
 <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
   <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
@@ -85,11 +95,11 @@
 <ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
     <li><a href="../../index.html">apix</a></li>
     <li><a href="../../apix/">apix</a></li>
-    <li><a href="../../apix/MetricsConfig-class.html">MetricsConfig</a></li>
-    <li class="self-crumb">trackRequestSize property</li>
+    <li><a href="../../apix/BinaryResponse-class.html">BinaryResponse</a></li>
+    <li class="self-crumb">fileName property</li>
 </ol>
 
-  <h5>MetricsConfig class</h5>
+  <h5>BinaryResponse class</h5>
   <div id="dartdoc-sidebar-left-content"></div>
 </div><!--/.sidebar-offcanvas-->
 <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">

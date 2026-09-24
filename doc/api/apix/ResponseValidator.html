@@ -64,6 +64,16 @@
 have the request fail with that exception.</p>
 <p>Useful for legacy APIs that signal business errors via 200-OK responses
 with a payload like <code>{"success": false, "error": "..."}</code>.</p>
+<p>It sees <strong>every</strong> 2xx response, including binary downloads, whose
+<code>response.data</code> is a <code>Uint8List</code>. A validator written for JSON envelopes
+should let what it does not understand through — otherwise each download
+fails with <code>responseValidator threw</code>:</p>
+<pre class="language-dart"><code class="language-dart">responseValidator: (response) {
+  final data = response.data;
+  if (data is! Map) return null;
+  return data['success'] == false ? BusinessException(data) : null;
+},
+</code></pre>
 </section>
 
     

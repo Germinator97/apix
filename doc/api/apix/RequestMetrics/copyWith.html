@@ -61,6 +61,7 @@
 <li><span class="parameter" id="copyWith-param-success"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a>?</span> <span class="parameter-name">success</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-error"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">error</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-errorType"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span> <span class="parameter-name">errorType</span>, </span></li>
+<li><span class="parameter" id="copyWith-param-requestSize"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">requestSize</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-responseSize"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">responseSize</span>, </span></li>
 <li><span class="parameter" id="copyWith-param-extra"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Map-class.html">Map</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>, <span class="type-parameter">dynamic</span>&gt;</span>?</span> <span class="parameter-name">extra</span>, </span></li>
 </ol>})
@@ -84,6 +85,7 @@
   bool? success,
   String? error,
   String? errorType,
+  int? requestSize,
   int? responseSize,
   Map&lt;String, dynamic&gt;? extra,
 }) {
@@ -99,7 +101,7 @@
     success: success ?? this.success,
     error: error ?? this.error,
     errorType: errorType ?? this.errorType,
-    requestSize: requestSize,
+    requestSize: requestSize ?? this.requestSize,
     responseSize: responseSize ?? this.responseSize,
     extra: extra ?? this.extra,
   );
