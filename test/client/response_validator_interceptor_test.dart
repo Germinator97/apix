@@ -77,8 +77,8 @@ void main() {
           fail('expected _BusinessException');
         } on ApiException catch (e) {
           expect(e, isA<_BusinessException>());
-          expect((e as _BusinessException).businessCode,
-              equals('OUT_OF_STOCK'));
+          expect(
+              (e as _BusinessException).businessCode, equals('OUT_OF_STOCK'));
         }
         expect(validatorCalls, equals(1));
       },

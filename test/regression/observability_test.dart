@@ -171,8 +171,8 @@ void main() {
   group('M8 — a business failure dressed as 200 is treated as a failure', () {
     /// A legacy-style API: HTTP 200, `{"success": false}` in the body.
     ScriptedAdapter legacyApi() => ScriptedAdapter(
-          (options, i) => jsonResponse(
-              {'success': false, 'message': 'out of stock'}, 200),
+          (options, i) =>
+              jsonResponse({'success': false, 'message': 'out of stock'}, 200),
         );
 
     ApiException? rejectUnsuccessful(Response<dynamic> response) {
