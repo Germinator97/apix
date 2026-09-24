@@ -639,9 +639,9 @@ declared dio version range a constraint on your code too.
 ```dart
 import 'package:apix/apix.dart';
 
-// Binary downloads (reports, receipts)
-final pdf = await client.get<List<int>>(
-  '/reports/2026-08.pdf',
+// A raw binary call — `getAndReadBytes` does this for you, headers included
+final raw = await client.get<List<int>>(
+  '/files/report.pdf',
   options: Options(responseType: ResponseType.bytes),
 );
 
@@ -739,6 +739,11 @@ final client = ApiClientFactory.create(
 | `warn` | Warnings + errors |
 | `info` | Info + warnings + errors |
 | `trace` | Everything (debug) |
+
+A body is printed in at most `maxBodyLength` characters and never rendered
+beyond them: a `Uint8List` — a download, an upload — prints
+`<binary: N bytes>`, and a large JSON body costs only what is shown. The
+fields `ErrorTrackingConfig` sends are rendered the same way.
 
 ---
 
@@ -882,7 +887,7 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 4xx (other) | `ClientException` |
 | HTTP 5xx | `ServerException` |
 | Other status on the error path (3xx, unknown) | `HttpException` |
-| `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
+| A body that does not parse — a typed shape's decoding, or a `2xx` claiming JSON on any verb | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
 | A multipart body that cannot be rebuilt for a replay | `MultipartReplayException` |
@@ -925,6 +930,17 @@ The **message** is automatically extracted from the API response body. Supports 
 ```
 
 Falls back to `"HTTP {statusCode}"` if no known field is found.
+
+The body is read the same way **whatever the request's `responseType`**: the
+JSON error of a `ResponseType.bytes` download, or of a `plain` call, gives its
+message and `code` too, provided its `Content-Type` is JSON and it is under
+64 KB. `HttpException.responseBody` then holds the decoded JSON; the value dio
+received stays on `originalError.response.data`. A `stream` body is left
+unread.
+
+A body that claims JSON and does not parse keeps its status: a `401` is still
+an `UnauthorizedException` — and still refreshes — with the text in
+`responseBody`, and only a `2xx` becomes a `ParsingException`.
 
 ### Exception Hierarchy
 
@@ -1020,7 +1036,8 @@ on TooManyRequestsException catch (e) {
 
 `retryAfter` is the parsed `Retry-After` header (delta-seconds or HTTP-date), or
 null when the server sent none — treat null as *unknown delay*, never as *retry
-now*.
+now*. Sent twice — a gateway and the application both setting it — the longest
+delay wins, here and in the retry alike.
 
 `AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
 
@@ -1124,7 +1141,7 @@ final patched = await client.patchAndDecode('/users/1', body, User.fromJson);
 ### Level 3: Data Methods — Envelope Unwrapping
 
 For APIs that wrap responses in an envelope like `{ "data": { ... } }`.
-Extracts `response.data[dataKey]` then formats. **GET & POST only.**
+Extracts `response.data[dataKey]` then formats. Available for all verbs.
 
 ```dart
 // Configure dataKey globally (default: 'data')
@@ -1252,8 +1269,8 @@ and an option that can never fire is an option that looks set.
 
 `*AndDecode` methods can verify that the response's `Content-Type` starts
 with `application/json` before attempting to parse. Useful in mobile
-contexts where a captive Wi-Fi portal may return HTML 200 in place
-of the expected JSON:
+contexts where a captive Wi-Fi portal may return HTML 200 in place of the
+expected JSON:
 
 ```dart
 final client = ApiClientFactory.create(
@@ -1347,7 +1364,7 @@ read. Named here because the signature alone does not.
 | You wire | You receive | Carries |
 |----------|-------------|---------|
 | `loggerConfig.logHandler` | `LogEntry` | `level`, `method`, `url`, `statusCode`, `durationMs`, `headers`, `body`, `error` |
-| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes, `toMap()` |
+| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes in bytes, `toMap()` |
 | `metricsConfig.onBreadcrumb` | `RequestBreadcrumb` | `type` (`BreadcrumbType`), `message`, `category`, `data` |
 | `onRetry` | `RetryAttempt` | `attempt` (0-indexed), `delay`, `cause`, `statusCode` |
 | `cacheConfig.onCacheHit` | `CacheHit` | `key`, `method`, `uri`, `isStale`, `statusCode` |

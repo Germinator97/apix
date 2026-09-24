@@ -312,15 +312,19 @@ void main() async {
     );
     debugPrint('Search results: ${searched.length}');
 
-    // --- Binary download (v4.0.0+) ---
-    // `ResponseType` now comes from the apix barrel, so a PDF or an image no
-    // longer forces a direct `package:dio` import — and with it, apix's dio
-    // version range — into your code.
-    final report = await client.get<List<int>>(
-      '/reports/2026-08.pdf',
-      options: Options(responseType: ResponseType.bytes),
+    // --- Binary download ---
+    // The bytes come back with their status and headers — no dio type in
+    // sight. A body of another type (a captive portal's page served as 200)
+    // is refused instead of being saved as the PDF, and a JSON error still
+    // gives its message and code below, although bytes were asked for.
+    final report = await client.getAndReadBytes(
+      '/reports/2026-08',
+      expectedContentTypes: ['application/pdf'],
     );
-    debugPrint('Report: ${report.data?.length ?? 0} bytes');
+    if (!report.isEmpty) {
+      debugPrint('Report: ${report.fileName ?? 'report.pdf'}, '
+          '${report.bytes.length} bytes');
+    }
   } on NotFoundException catch (e) {
     debugPrint('Not found: ${e.message}');
   } on UnauthorizedException catch (e) {

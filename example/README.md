@@ -21,6 +21,8 @@ See `example.dart` for:
   caller
 - Logger interceptor with header redaction
 - Typed response deserialization (3 levels: standard / parse-decode / data)
+- A binary download with `getAndReadBytes`: the bytes with their headers and
+  file name, checked against `expectedContentTypes`
 - Error handling with `Result` type and typed `ApiException`
 - Automatic `DioException` → `ApiException` transformation
 - Token management (save, clear, storage access)
