@@ -1,10 +1,26 @@
 name: CI
 
+# develop only. master receives nothing but release merges of develop, whose
+# tree is byte-identical to the one develop's run just tested — running on both
+# tested every release twice. RELEASING.md checks that identity before tagging.
+#
+# And once a week, because the unpinned jobs below exist to notice the world
+# moving, and without a push nothing ran: flutter_secure_storage 11.0.0 shipped
+# on 2026-08-06, and pub.dev's score dropped to 150/160 on it long before any
+# run here could see it.
 on:
   push:
-    branches: [develop, master]
+    branches: [develop]
   pull_request:
-    branches: [develop, master]
+    branches: [develop]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+env:
+  # A scheduled run starts from the default branch, master. Point every checkout
+  # of this package at develop instead, where the next release is being made.
+  SOURCE_REF: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
 
 jobs:
   analyze:
@@ -21,6 +37,8 @@ jobs:
         dio: [floor, latest]
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -43,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -63,6 +83,8 @@ jobs:
         dio: [floor, latest]
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -105,6 +127,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -174,6 +198,7 @@ jobs:
       - name: Checkout apix
         uses: actions/checkout@v5
         with:
+          ref: ${{ env.SOURCE_REF }}
           path: apix
 
       - name: Checkout the example app
@@ -215,6 +240,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_REF }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2

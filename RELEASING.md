@@ -43,10 +43,13 @@ latest of the dependency range** — which is exactly what the CI matrix does
 3. **Local verification on BOTH dependency bounds** (see commands below) — format,
    `dart analyze --fatal-infos lib test`, and `flutter test` must all pass on the
    floor **and** the latest.
-4. **Push and wait for the CI matrix to be fully green** — all four cells
-   (`analyze` × `{floor, latest}`, `test` × `{floor, latest}`) plus `format`.
+4. **Push `develop` and wait for every CI job to be green.** CI runs on
+   `develop` only — and once a week — never on `master`.
 5. **Dry run**: `dart pub publish --dry-run` — resolve every warning.
-6. **Publish**: `dart pub publish`, then tag the release (`git tag vX.Y.Z`).
+6. **Merge into `master`, and prove it adds nothing CI has not seen**: with no
+   run on `master`, its tree being develop's is the whole guarantee.
+   `git diff --quiet develop master` must exit 0 **before** publishing.
+7. **Publish**: `dart pub publish`, then tag the release (`git tag vX.Y.Z`).
 
 ## Reproducing the CI matrix locally
 

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
-  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml?query=branch%3Adevelop"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg?branch=develop" alt="CI"></a>
   <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/develop/graph/badge.svg" alt="coverage"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
