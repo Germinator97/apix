@@ -54,7 +54,7 @@
 
     <section class="multi-line-signature">
       
-      <span class="name ">SecureStorageService</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span></li>
+      <span class="name ">SecureStorageService</span>(<wbr>{<ol class="parameter-list"> <li><span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span></li>
 <li><span class="parameter" id="-param-onBeforeRecoveryDelete"><span class="type-annotation">void</span> <span class="parameter-name">onBeforeRecoveryDelete</span>(<ol class="parameter-list single-line"> <li><span class="parameter" id="param-event"><span class="type-annotation"><a href="../../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span></li>
 </ol>)?, </span></li>
 </ol>})
@@ -62,7 +62,7 @@
     
 <section class="desc markdown">
   <p>Creates a <a href="../../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.</p>
-<p>If no <code>storage</code> is provided, a default <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> is created
+<p>If no <code>storage</code> is provided, a default <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> is created
 with secure defaults (RSA OAEP + AES-GCM on Android).
 On iOS, the accessibility is set to <code>KeychainAccessibility.first_unlock</code>
 to ensure the data is accessible only when the device is unlocked.</p>
@@ -75,34 +75,37 @@ it after destroying a credential that nobody was told about, and
 <code>onBeforeRecoveryDelete</code> never fires. A channel that exists to report the
 one place apix destroys data cannot be silent in the configuration
 everybody gets.</p>
-<p>The same default has a second effect, measured on an Android 16 emulator:
-when the plugin is left in a broken state (see
+<p>Up to plugin 10.2.x the same default has a second effect, measured on an
+Android 16 emulator: when the plugin is left in a broken state (see
 <a href="../../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a>), <code>resetOnError: true</code> turns a failed
 write into <code>deleteAll()</code> <strong>reported as a success</strong>. With it off, that
 surfaces as an exception instead of silently emptying the store.</p>
 <p>The trade-off, stated plainly: the plugin no longer repairs itself when its
 own initialisation fails — a failed migration after an algorithm change now
-raises instead of resetting. Pass your own <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> with
+raises instead of resetting. Pass your own <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> with
 <code>resetOnError: true</code> if you prefer the old behaviour.</p>
 <h2 id="-from-plugin-1020-this-option-is-only-yours-if-apix-asks-first">⚠️ From plugin 10.2.0, this option is only yours if apix asks first</h2>
 <p>From <strong>10.2.0</strong> — this said 10.3.0 until it was read again, and a consumer
 on 10.2.x would have concluded they were safe — the Android plugin keeps
 one instance per preferences store
-(<code>FlutterSecureStoragePlugin.getOrCreateStorage</code>), and binds that store's
-options on the <strong>first call for it</strong>: <code>initialize</code> returns early on an
-already-initialised store <em>before</em> re-reading the config. Later
-callers naming the same store are served the first one's settings, in
-silence. This service names no store, so it uses the default one. If
-anything else in your app reaches <code>flutter_secure_storage</code> on that same
-default store before this service does, it is that call's <code>resetOnError</code>
-that applies, and the channel above goes quiet again. Give your own
-storage a <code>sharedPreferencesName</code> to keep the two apart — except when the
-other storage exists to <strong>purge this one</strong>, which has to share the store
-to reach anything. See <a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a> for what that
-costs and what to do about it.</p>
+(<code>FlutterSecureStoragePlugin.getOrCreateStorage</code>) — per store <strong>and key
+prefix</strong> from 11.2.0 — and binds its options on the <strong>first call for
+it</strong>: <code>initialize</code> returns early on an already-initialised store <em>before</em>
+re-reading the config. Later callers naming the same store are served the
+first one's settings, in silence. This service names no store, so it uses
+the default one. If anything else in your app reaches
+<code>flutter_secure_storage</code> on that same default store before this service
+does, it is that call's <code>resetOnError</code> that applies, and the channel above
+goes quiet again. Give your own storage a store of its own to keep the two
+apart — <code>storageNamespace</code>, or <code>sharedPreferencesName</code> below plugin 11.0,
+which removed it — except when the other storage exists to <strong>purge this
+one</strong>, which has to share the store to reach anything. See
+<a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.storeUnusable</a> for what that costs and what to do
+about it.</p>
 <p>At the declared floor (10.0.0) the config is re-read on every call, so this
 cannot happen — only the cipher is cached there.</p>
-<p>Measured against <strong>both bounds</strong> by the device probes in
+<p>Measured against <strong>both bounds</strong> — 10.0.0 and 11.2.0, on an Android 11
+(API 30) emulator — by the device probes in
 <code>apix_example_app/integration_test/</code>, which stage a real decryption failure
 rather than a mocked one: <code>secure_storage_device_test.dart</code> for this
 default, and <code>secure_storage_reset_on_error_device_test.dart</code> for what it

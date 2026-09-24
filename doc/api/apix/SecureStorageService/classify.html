@@ -67,10 +67,12 @@
 <p>Public because the two failures below need <strong>opposite</strong> reactions from a
 consumer and nothing else separates them: <code>flutter_secure_storage</code> reports
 every platform failure as a <code>PlatformException</code> with the same
-<code>code: 'Exception encountered'</code>, so the only discriminator is a substring
-of the message. Doing that matching in your own code is what this exists
-to spare you — and it is matching this service has to do anyway, since it
-is what decides whether a credential gets deleted.</p>
+<code>code: 'Exception encountered'</code> — 10.3.2 to 10.3.4 add <code>INIT_FAILED</code>, for
+a plugin not attached to an Android context, which is
+<a href="../../apix/SecureStorageFailure.html">SecureStorageFailure.other</a> here — so the only discriminator is a
+substring of the message. Doing that matching in your own code is what
+this exists to spare you — and it is matching this service has to do
+anyway, since it is what decides whether a credential gets deleted.</p>
 <pre class="language-dart"><code class="language-dart">try {
   token = await storage.read('apix_access_token');
 } catch (e) {
