@@ -1,3 +1,21 @@
+## 5.3.0
+
+### Changed
+
+* `flutter_secure_storage` 11 is accepted (`>=10.0.0 <12.0.0`). Pub picks it
+  on Flutter ≥ 3.38 only; it needs Android minSdk 24 and iOS 13, and it reads
+  Android data still in EncryptedSharedPreferences — written through apix ≤
+  1.1.0 and never opened on plugin 10 since — as absent:
+  `checkUpgradeStatus()` on your own `FlutterSecureStorage` reports it.
+
+### Docs
+
+* A restored Android backup leaves the secure store unusable on every launch
+  (`storeUnusable`): the README has the backup rules that prevent it, and the
+  recovery.
+* `SecureStorageService` says which plugin versions each behaviour holds for;
+  on Android 11 a `withBiometrics()` refusal arrives wrapped from the first call.
+
 ## 5.2.0
 
 ### Changed

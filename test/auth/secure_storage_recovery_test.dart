@@ -7,15 +7,23 @@ class MockFlutterSecureStorage extends Mock implements FlutterSecureStorage {}
 
 /// Every message the Android plugin sends when the store's own key is unusable.
 ///
-/// Verbatim from its sources, identical at 10.0.0, 10.2.0 and 10.3.1 — the
-/// range this package declares. Named here rather than inline so a list literal
-/// of wrapped strings cannot hide a missing comma.
+/// Verbatim from its sources, identical from 10.0.0 to 11.2.0 — the range this
+/// package declares — except the EncryptedSharedPreferences one, which 11.0 no
+/// longer sends. Named here rather than inline so a list literal of wrapped
+/// strings cannot hide a missing comma.
 const deadStoreMessages = [
   'Key mismatch after algorithm change (Algorithm changed detected). Enable migrateOnAlgorithmChange=true to preserve data, or resetOnError=true to delete.',
   'Key mismatch after algorithm change (Invalid key, key type incompatible with cipher). Enable migrateOnAlgorithmChange=true to preserve data, or resetOnError=true to delete.',
   'Migration failed after algorithm change (Illegal block size, wrong cipher configuration). Enable resetOnError=true or call deleteAll().',
   'Required cryptographic algorithm not supported by device.',
   'EncryptedSharedPreferences data found but migration is disabled. Set migrateOnAlgorithmChange=true to migrate.',
+  // Measured on an Android 11 (API 30) emulator at 10.3.1 and 11.2.0: an app
+  // backed up, uninstalled and reinstalled, its preference files restored
+  // without the Keystore key that wrapped them. Every launch, not just one.
+  'Migration failed after algorithm change (Invalid key, key type incompatible with cipher). Enable resetOnError=true or call deleteAll().',
+  // 11.2.0, read in its sources: the Keystore authenticated the user and the
+  // app key still does not decrypt.
+  'Migration failed after algorithm change (Biometric key decrypt failed after successful authentication). Enable resetOnError=true or call deleteAll().',
 ];
 
 /// The biometric refusal measured on an Android 16 emulator (pass 4).
@@ -328,10 +336,11 @@ void main() {
       );
     });
 
-    // And the bare form, which is what the FIRST run against a virgin store
-    // raises. It is not a store failure yet — it is the refusal itself, and
-    // apix rethrows it either way. The pair is what shows the envelope is what
-    // moves the classification, not the words BIOMETRIC_UNAVAILABLE.
+    // And the bare form, seen once, on a first run on an Android 16 emulator —
+    // on Android 11 it arrives wrapped from the first call. It is not a store
+    // failure yet — it is the refusal itself, and apix rethrows it either way.
+    // The pair is what shows the envelope is what moves the classification,
+    // not the words BIOMETRIC_UNAVAILABLE.
     test('the bare refusal, on the other hand, is other', () {
       expect(SecureStorageService.classify(Exception(biometricUnavailable)),
           SecureStorageFailure.other);

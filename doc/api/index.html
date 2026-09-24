@@ -49,7 +49,7 @@
 <h1 align="center">ApiX</h1>
 <p align="center">
   <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
-  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml?query=branch%3Adevelop"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg?branch=develop" alt="CI"></a>
   <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/develop/graph/badge.svg" alt="coverage"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
@@ -97,7 +97,7 @@ final response = await client.get&lt;Map&lt;String, dynamic&gt;&gt;('/users');
 <hr>
 <h2 id="installation">Installation</h2>
 <pre class="language-yaml"><code class="language-yaml">dependencies:
-  apix: ^5.2.0
+  apix: ^5.3.0
 </code></pre>
 <pre class="language-bash"><code class="language-bash">flutter pub get
 </code></pre>
@@ -229,10 +229,11 @@ client actually uses. It returns <code>null</code> when no <code>cacheConfig</co
 <p><strong>Network resilience</strong>: When the refresh request itself fails with a connection or timeout error, the original request is rejected with <code>NetworkException</code> (typed: <code>ConnectionException</code>, <code>TimeoutException</code>) — <code>onAuthFailure</code> is <strong>not</strong> invoked, so a connectivity blip never logs the user out. Real auth failures (401/403 from the refresh endpoint) still trigger <code>AuthException</code> and call <code>onAuthFailure</code>.</p>
 <p><strong>Token storage failures</strong>: Errors raised by your <code>TokenProvider</code> (corrupted keychain, missing entitlements, ...) surface as <code>TokenProviderException</code> — see <a href="#error-handling">Error Handling</a>.</p>
 <h4 id="when-the-keychain-deletes-your-users-session">When the keychain deletes your user's session</h4>
-<p><code>SecureStorageService</code> recovers from data it cannot decrypt — after a reinstall,
-a key rotation, a restored backup — by <strong>deleting it</strong>: the affected key on a
-<code>read</code>, and the whole store on a <code>readAll</code>. That is the right call, since
-undecryptable bytes never become readable and re-reading them forever is worse.</p>
+<p><code>SecureStorageService</code> recovers from an entry it cannot decrypt — bytes that no
+longer match their key — by <strong>deleting it</strong>: the affected key on a <code>read</code>, and
+the whole store on a <code>readAll</code>. That is the right call, since undecryptable
+bytes never become readable and re-reading them forever is worse. (A restored
+backup is a different failure, and apix does not delete on it: see below.)</p>
 <p>But the decision rests on matching substrings against a platform exception's
 message, and a false positive here does not degrade a feature — it <strong>logs a user
 out</strong>, indistinguishably from a session that expired on its own. Nothing else
@@ -317,34 +318,77 @@ redo the substring matching on your side:</p>
   rethrow;
 }
 </code></pre>
-<p><strong>Retry once before doing anything drastic.</strong> Read in the Android plugin's
-sources (10.0.0 · 10.2.0 · 10.3.1) rather than measured here: when the failure
-comes from <em>missing</em> algorithm markers — the state a "clear app data" leaves
-behind when the Keystore key outlives the preferences — <code>StorageCipherFactory</code>
-writes the current markers as it builds, so the <strong>next</strong> call no longer takes
-that branch and the failure clears itself. When the markers are present but name
-another algorithm, nothing is rewritten and every call fails identically: that
-one is permanent until the store is reset, which is what
+<p><strong>Retry once before doing anything drastic</strong> — on plugin 10.x. Read in its
+Android sources rather than measured: when the failure comes from <em>missing</em>
+algorithm markers, <code>StorageCipherFactory</code> writes the current markers as it
+builds, so the <strong>next</strong> call no longer takes that branch and the failure clears
+itself. From 11.0 a store without markers is taken to use the current
+algorithms, and that branch cannot fail. When the markers are present but no
+longer match the key, nothing is rewritten and every call fails identically:
+that one is permanent until the store is reset, which is what
 <code>resetOnError: true</code> on your own <code>FlutterSecureStorage</code> does — the trade-off
 above, taken deliberately.</p>
 <p>⚠️ <strong>A purge instance binds the store for the rest of the process.</strong> From plugin
 10.2.0 the Android side keeps one instance per preferences store
-(<code>FlutterSecureStoragePlugin.getOrCreateStorage</code>) and its <code>initialize</code> returns
-early on an already-initialised store <em>before</em> re-reading the options. So a
-second <code>FlutterSecureStorage</code> you create just to purge, with
+(<code>FlutterSecureStoragePlugin.getOrCreateStorage</code>) — per store and key prefix from
+11.2.0 — and its <code>initialize</code> returns early on an already-initialised store
+<em>before</em> re-reading the options. So a second <code>FlutterSecureStorage</code> you create
+just to purge, with
 <code>resetOnError: true</code> and no store name of its own, shares apix's store — and
 once its call succeeds, <strong>its</strong> <code>resetOnError</code> governs every later call,
 apix's included. It has to share that store for the purge to reach anything, so
 this is a consequence rather than a mistake: know that for the remainder of that
-process <code>onBeforeRecoveryDelete</code> stays quiet and a write that fails after a
-broken initialisation is reported as a success. Restart the process after the
-purge rather than carrying on inside it.</p>
-<p>⚠️ <strong>One envelope, several causes.</strong> <code>Migration failed after algorithm change (Algorithm changed detected)</code> is also what a <code>SecureStorageService.withBiometrics()</code>
-refusal looks like from its second run onward — measured on an Android 11 (API
-30) emulator with no lock screen, <code>BIOMETRIC_UNAVAILABLE</code> buried in the
-<code>Caused by:</code> chain. No retry clears that one: the device has nothing to prompt
-for. The <code>(%s)</code> does not separate the causes; the <code>Caused by:</code> chain does, and
-it reaches you in the exception and in <code>SecureStorageRecovery.error</code>.</p>
+process <code>onBeforeRecoveryDelete</code> stays quiet — and, up to plugin 10.2.x, a write
+that fails after a broken initialisation is reported as a success. Restart the
+process after the purge rather than carrying on inside it.</p>
+<p>⚠️ <strong>One envelope, several causes.</strong> <code>Migration failed after algorithm change (…)</code> is also what a <code>SecureStorageService.withBiometrics()</code> refusal looks like —
+from the first call on an Android 11 (API 30) emulator with no lock screen,
+<code>BIOMETRIC_UNAVAILABLE</code> buried in the <code>Caused by:</code> chain. No retry and no purge
+clears that one: the device has nothing to prompt for. The <code>(%s)</code> narrows it
+down — <code>Invalid key, …</code> for a restored backup, <code>Algorithm changed detected</code> for
+that refusal as for markers naming another algorithm — but only the
+<code>Caused by:</code> chain says for sure, and it reaches you in the exception and in
+<code>SecureStorageRecovery.error</code>.</p>
+<h4 id="a-restored-backup-makes-the-store-unusable--keep-the-plugins-files-out-of-it">A restored backup makes the store unusable — keep the plugin's files out of it</h4>
+<p>Android Auto Backup restores the plugin's preference files after a reinstall or
+on a new phone — the data, the algorithm markers and the wrapped key — but not
+the Keystore key that wrapped it: that one never leaves the device. From then on
+every call fails, on every launch:</p>
+<pre class="language-text"><code class="language-text">Migration failed after algorithm change (Invalid key, key type incompatible with
+cipher). Enable resetOnError=true or call deleteAll().
+</code></pre>
+<p><code>storeUnusable</code>, and no retry clears it. Measured on an Android 11 (API 30)
+emulator at plugin 10.3.1 and 11.2.0, by backing an app up, uninstalling it and
+reinstalling it. A "clear app data" does <strong>not</strong> cause it: that removes the
+Keystore key along with the preferences, and the next launch simply starts empty.</p>
+<p>Exclude the plugin's files from backup — all of them: the wrapped key and the
+markers restored without the data fail the same way. For the default store:</p>
+<pre class="language-xml"><code class="language-xml">&lt;!-- android/app/src/main/AndroidManifest.xml --&gt;
+&lt;application
+    android:fullBackupContent="@xml/secure_storage_backup_rules"
+    android:dataExtractionRules="@xml/secure_storage_data_extraction_rules"
+    ...&gt;
+
+&lt;!-- android/app/src/main/res/xml/secure_storage_backup_rules.xml (Android 11 and lower) --&gt;
+&lt;full-backup-content&gt;
+    &lt;exclude domain="sharedpref" path="FlutterSecureStorage.xml" /&gt;
+    &lt;exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" /&gt;
+    &lt;exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" /&gt;
+    &lt;exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" /&gt;
+&lt;/full-backup-content&gt;
+
+&lt;!-- android/app/src/main/res/xml/secure_storage_data_extraction_rules.xml (Android 12+):
+     the same four excludes, in both &lt;cloud-backup&gt; and &lt;device-transfer&gt; --&gt;
+</code></pre>
+<p>With these rules, the same backup-and-reinstall starts from an empty store — the
+user signs in again instead of being locked out. Measured on API 30, which reads
+<code>fullBackupContent</code>; <code>dataExtractionRules</code> is what Android 12 and later read, and
+was not measured here. A store you named yourself adds its own files; so does
+<code>storageNamespace</code>. The plugin's own README suggests <code>android:allowBackup="false"</code>,
+which also works — at the price of every other file in the app.</p>
+<p>Already locked out? The purge above — your own <code>FlutterSecureStorage</code> on the same
+store, with <code>resetOnError: true</code> — reset it in the same measurement, and the next
+process wrote and read again. What was stored is gone either way: its key is.</p>
 <hr>
 <h3 id="-retry-with-exponential-backoff">🔄 Retry with Exponential Backoff</h3>
 <pre class="language-dart"><code class="language-dart">final client = ApiClientFactory.create(
@@ -1715,7 +1759,7 @@ an error.</p>
 <footer>
   <span class="no-break">
     apix
-      5.2.0
+      5.3.0
   </span>
   
 </footer>

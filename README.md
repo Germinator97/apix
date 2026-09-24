@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://pub.dev/packages/apix"><img src="https://img.shields.io/pub/v/apix.svg" alt="pub package"></a>
-  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Germinator97/apix/actions/workflows/ci.yaml?query=branch%3Adevelop"><img src="https://github.com/Germinator97/apix/actions/workflows/ci.yaml/badge.svg?branch=develop" alt="CI"></a>
   <a href="https://codecov.io/gh/Germinator97/apix"><img src="https://codecov.io/gh/Germinator97/apix/branch/develop/graph/badge.svg" alt="coverage"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
 </p>
@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^5.2.0
+  apix: ^5.3.0
 ```
 
 ```bash
@@ -197,10 +197,11 @@ await client.cacheInterceptor?.clearCache();
 
 #### When the keychain deletes your user's session
 
-`SecureStorageService` recovers from data it cannot decrypt — after a reinstall,
-a key rotation, a restored backup — by **deleting it**: the affected key on a
-`read`, and the whole store on a `readAll`. That is the right call, since
-undecryptable bytes never become readable and re-reading them forever is worse.
+`SecureStorageService` recovers from an entry it cannot decrypt — bytes that no
+longer match their key — by **deleting it**: the affected key on a `read`, and
+the whole store on a `readAll`. That is the right call, since undecryptable
+bytes never become readable and re-reading them forever is worse. (A restored
+backup is a different failure, and apix does not delete on it: see below.)
 
 But the decision rests on matching substrings against a platform exception's
 message, and a false positive here does not degrade a feature — it **logs a user
@@ -284,37 +285,90 @@ try {
 }
 ```
 
-**Retry once before doing anything drastic.** Read in the Android plugin's
-sources (10.0.0 · 10.2.0 · 10.3.1) rather than measured here: when the failure
-comes from *missing* algorithm markers — the state a "clear app data" leaves
-behind when the Keystore key outlives the preferences — `StorageCipherFactory`
-writes the current markers as it builds, so the **next** call no longer takes
-that branch and the failure clears itself. When the markers are present but name
-another algorithm, nothing is rewritten and every call fails identically: that
-one is permanent until the store is reset, which is what
+**Retry once before doing anything drastic** — on plugin 10.x. Read in its
+Android sources rather than measured: when the failure comes from *missing*
+algorithm markers, `StorageCipherFactory` writes the current markers as it
+builds, so the **next** call no longer takes that branch and the failure clears
+itself. From 11.0 a store without markers is taken to use the current
+algorithms, and that branch cannot fail. When the markers are present but no
+longer match the key, nothing is rewritten and every call fails identically:
+that one is permanent until the store is reset, which is what
 `resetOnError: true` on your own `FlutterSecureStorage` does — the trade-off
 above, taken deliberately.
 
 ⚠️ **A purge instance binds the store for the rest of the process.** From plugin
 10.2.0 the Android side keeps one instance per preferences store
-(`FlutterSecureStoragePlugin.getOrCreateStorage`) and its `initialize` returns
-early on an already-initialised store *before* re-reading the options. So a
-second `FlutterSecureStorage` you create just to purge, with
+(`FlutterSecureStoragePlugin.getOrCreateStorage`) — per store and key prefix from
+11.2.0 — and its `initialize` returns early on an already-initialised store
+*before* re-reading the options. So a second `FlutterSecureStorage` you create
+just to purge, with
 `resetOnError: true` and no store name of its own, shares apix's store — and
 once its call succeeds, **its** `resetOnError` governs every later call,
 apix's included. It has to share that store for the purge to reach anything, so
 this is a consequence rather than a mistake: know that for the remainder of that
-process `onBeforeRecoveryDelete` stays quiet and a write that fails after a
-broken initialisation is reported as a success. Restart the process after the
-purge rather than carrying on inside it.
+process `onBeforeRecoveryDelete` stays quiet — and, up to plugin 10.2.x, a write
+that fails after a broken initialisation is reported as a success. Restart the
+process after the purge rather than carrying on inside it.
 
 ⚠️ **One envelope, several causes.** `Migration failed after algorithm change
-(Algorithm changed detected)` is also what a `SecureStorageService.withBiometrics()`
-refusal looks like from its second run onward — measured on an Android 11 (API
-30) emulator with no lock screen, `BIOMETRIC_UNAVAILABLE` buried in the
-`Caused by:` chain. No retry clears that one: the device has nothing to prompt
-for. The `(%s)` does not separate the causes; the `Caused by:` chain does, and
-it reaches you in the exception and in `SecureStorageRecovery.error`.
+(…)` is also what a `SecureStorageService.withBiometrics()` refusal looks like —
+from the first call on an Android 11 (API 30) emulator with no lock screen,
+`BIOMETRIC_UNAVAILABLE` buried in the `Caused by:` chain. No retry and no purge
+clears that one: the device has nothing to prompt for. The `(%s)` narrows it
+down — `Invalid key, …` for a restored backup, `Algorithm changed detected` for
+that refusal as for markers naming another algorithm — but only the
+`Caused by:` chain says for sure, and it reaches you in the exception and in
+`SecureStorageRecovery.error`.
+
+#### A restored backup makes the store unusable — keep the plugin's files out of it
+
+Android Auto Backup restores the plugin's preference files after a reinstall or
+on a new phone — the data, the algorithm markers and the wrapped key — but not
+the Keystore key that wrapped it: that one never leaves the device. From then on
+every call fails, on every launch:
+
+```text
+Migration failed after algorithm change (Invalid key, key type incompatible with
+cipher). Enable resetOnError=true or call deleteAll().
+```
+
+`storeUnusable`, and no retry clears it. Measured on an Android 11 (API 30)
+emulator at plugin 10.3.1 and 11.2.0, by backing an app up, uninstalling it and
+reinstalling it. A "clear app data" does **not** cause it: that removes the
+Keystore key along with the preferences, and the next launch simply starts empty.
+
+Exclude the plugin's files from backup — all of them: the wrapped key and the
+markers restored without the data fail the same way. For the default store:
+
+```xml
+<!-- android/app/src/main/AndroidManifest.xml -->
+<application
+    android:fullBackupContent="@xml/secure_storage_backup_rules"
+    android:dataExtractionRules="@xml/secure_storage_data_extraction_rules"
+    ...>
+
+<!-- android/app/src/main/res/xml/secure_storage_backup_rules.xml (Android 11 and lower) -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" />
+</full-backup-content>
+
+<!-- android/app/src/main/res/xml/secure_storage_data_extraction_rules.xml (Android 12+):
+     the same four excludes, in both <cloud-backup> and <device-transfer> -->
+```
+
+With these rules, the same backup-and-reinstall starts from an empty store — the
+user signs in again instead of being locked out. Measured on API 30, which reads
+`fullBackupContent`; `dataExtractionRules` is what Android 12 and later read, and
+was not measured here. A store you named yourself adds its own files; so does
+`storageNamespace`. The plugin's own README suggests `android:allowBackup="false"`,
+which also works — at the price of every other file in the app.
+
+Already locked out? The purge above — your own `FlutterSecureStorage` on the same
+store, with `resetOnError: true` — reset it in the same measurement, and the next
+process wrote and read again. What was stored is gone either way: its key is.
 
 ---
 

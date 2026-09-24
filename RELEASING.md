@@ -43,19 +43,29 @@ latest of the dependency range** — which is exactly what the CI matrix does
 3. **Local verification on BOTH dependency bounds** (see commands below) — format,
    `dart analyze --fatal-infos lib test`, and `flutter test` must all pass on the
    floor **and** the latest.
-4. **Push and wait for the CI matrix to be fully green** — all four cells
-   (`analyze` × `{floor, latest}`, `test` × `{floor, latest}`) plus `format`.
+4. **Push `develop` and wait for every CI job to be green.** CI runs on
+   `develop` only — and once a week — never on `master`.
 5. **Dry run**: `dart pub publish --dry-run` — resolve every warning.
-6. **Publish**: `dart pub publish`, then tag the release (`git tag vX.Y.Z`).
+6. **Merge into `master`, and prove it adds nothing CI has not seen**: with no
+   run on `master`, its tree being develop's is the whole guarantee.
+   `git diff --quiet develop master` must exit 0 **before** publishing.
+7. **Publish**: `dart pub publish`, then tag the release (`git tag vX.Y.Z`).
 
 ## Reproducing the CI matrix locally
 
 CI pins **Flutter 3.24.0** for `format`/`test` and uses the **latest stable** for
 `analyze`. Mirror both with FVM: use `3.24.5` (≈ CI test) and a recent stable
-(e.g. `3.41.x`, ≈ CI analyze). Replace `<flutter>` with the version under test.
+(e.g. `3.47.x`, ≈ CI analyze). Replace `<flutter>` with the version under test.
+
+⚠️ A fresh resolution means **no lock**. `pub get` never moves a locked version
+that still satisfies the constraint, so a lock left by an earlier run keeps the
+old major under a new SDK — and the run passes, measuring nothing new. Remove
+`pubspec.lock` first, and read the resolved version before trusting a green
+run.
 
 ```bash
 # --- LATEST of the dio range (fresh resolution, like CI with no lock) ---
+rm -f pubspec.lock
 <flutter> pub get                 # or: pub upgrade dio, to force the newest
 dart format --set-exit-if-changed lib test
 dart analyze --fatal-infos lib test
@@ -66,7 +76,21 @@ flutter test
 <flutter> pub downgrade dio       # pins dio to 5.4.0, keeps the rest resolvable
 dart analyze --fatal-infos lib test
 flutter test
+
+# --- The flutter_secure_storage range (plugin-floor / plugin-latest) ---
+rm -f pubspec.lock
+<recent stable> pub get           # 11.x resolves from Flutter 3.38 only
+grep -A7 '^  flutter_secure_storage:$' pubspec.lock | grep version
+flutter test
+<flutter> pub downgrade flutter_secure_storage   # the 10.0.0 floor
+flutter test
 ```
+
+The `device-probes` job runs the demo app's `integration_test/` on an API 30
+emulator at both plugin bounds. Locally, in `apix_example_app`, after resolving
+the bound the same way: `flutter test integration_test -d <serial>
+--dart-define=SENTRY_DSN=<dsn>` — with Sentry active, like every run of the
+demo.
 
 Run the `analyze` step on the recent stable too — a newer analyzer surfaces lints
 the pinned 3.24.x does not (e.g. `unreachable_switch_default`).

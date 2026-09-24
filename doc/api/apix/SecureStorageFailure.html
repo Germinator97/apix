@@ -125,33 +125,46 @@ written or deleted through the plugin — including the deletion that would
 it rethrows, because there is no state it could put you in that would be
 truthful. What to do is yours to decide, and the two useful moves are:</p>
 <ul>
-<li><strong>retry once.</strong> Read in the Android plugin's sources (10.0.0 · 10.2.0 ·
-10.3.1, on 2026-09-08), not measured here: when the failure comes from
-<em>missing</em> algorithm markers — the state a "clear app data" leaves behind
-when the Keystore key outlives the preferences — <code>StorageCipherFactory</code>
-writes the current markers as it builds, so the <strong>next</strong> call no longer
-takes that branch. The failure clears itself, and one retry is enough.</li>
+<li><strong>retry once.</strong> Plugin 10.x only, read in its Android sources (10.0.0
+to 10.3.4) rather than measured: when the failure comes from <em>missing</em>
+algorithm markers, <code>StorageCipherFactory</code> writes the current markers as
+it builds, so the <strong>next</strong> call no longer takes that branch and the
+failure clears itself. From 11.0 a store without markers is taken to use
+the current algorithms, and that branch cannot fail at all.</li>
 <li><strong>treat a second failure as permanent.</strong> When the markers are present
-but name another algorithm, nothing is rewritten and every call fails
+but no longer match the key, nothing is rewritten and every call fails
 identically until the store is reset — pass your own
 <code>FlutterSecureStorage</code> with <code>resetOnError: true</code>, which is the plugin's
 own recovery for this, knowing what <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> gives up by
 disabling it (see the constructor).</li>
 </ul>
-<p>⚠️ <strong>One envelope, several causes.</strong> <code>Migration failed after algorithm change (Algorithm changed detected)</code> is what a <code>withBiometrics()</code> refusal
-looks like from its second run onward — measured on an Android 11 (API 30)
-emulator with no lock screen, <code>BIOMETRIC_UNAVAILABLE</code> buried in the
-<code>Caused by:</code> chain. A retry never clears that one: the device has nothing
-to prompt for. The <code>(%s)</code> does not tell the causes apart; the
-<code>Caused by:</code> chain does, and it travels in
-<a href="../apix/SecureStorageRecovery/error.html">SecureStorageRecovery.error</a> and in the exception you catch.</p>
+<p>⚠️ <strong>A restored backup produces it — the one field trigger reproduced so
+far.</strong> Android Auto Backup brings the plugin's preference files back after
+a reinstall or on a new phone — the data, the markers and the wrapped key
+— but not the Keystore key that wrapped it, which never leaves the device.
+Every call then fails with <code>Migration failed after algorithm change (Invalid key, key type incompatible with cipher)</code>, on every launch, and a
+retry never clears it. Measured on an Android 11 (API 30) emulator at
+plugin 10.3.1 and 11.2.0 (2026-09-24), and so was the purge below: it
+resets the store, and the next process writes again. A "clear app data"
+does <strong>not</strong> produce this state — measured the same day, it removes the
+Keystore key along with the preferences, and the next launch starts from
+an empty store. Prevent it rather than recover from it: exclude the
+plugin's files from backup, as the README shows.</p>
+<p>⚠️ <strong>One envelope, several causes.</strong> <code>Migration failed after algorithm change (…)</code> is also what a <code>withBiometrics()</code> refusal looks like — from
+the first call on an Android 11 (API 30) emulator with no lock screen,
+<code>BIOMETRIC_UNAVAILABLE</code> buried in the <code>Caused by:</code> chain. No retry and no
+purge clears that one: the device has nothing to prompt for. The <code>(%s)</code>
+narrows it down — <code>Invalid key, …</code> for a restored backup, <code>Algorithm changed detected</code> for that refusal as for markers naming another
+algorithm — but only the <code>Caused by:</code> chain says for sure, and it travels
+in <a href="../apix/SecureStorageRecovery/error.html">SecureStorageRecovery.error</a> and in the exception you catch.</p>
 <p>⚠️ That purge instance has to name the <strong>same</strong> store to reach anything,
-and from plugin 10.2.0 the first successful call for a store fixes its
-options for the process. So its <code>resetOnError: true</code> governs apix's calls
-afterwards too: <a href="../apix/SecureStorageService/onBeforeRecoveryDelete.html">SecureStorageService.onBeforeRecoveryDelete</a> goes quiet,
-and a write that fails after a broken initialisation comes back as a
-success. Restart the process after purging rather than carrying on inside
-it — the same advice as <a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a>.</p>
+and from plugin 10.2.0 the first successful call for a store — and key
+prefix, from 11.2.0 — fixes its options for the process. So its
+<code>resetOnError: true</code> governs apix's calls afterwards too:
+<a href="../apix/SecureStorageService/onBeforeRecoveryDelete.html">SecureStorageService.onBeforeRecoveryDelete</a> goes quiet, and up to 10.2.x
+a write that fails after a broken initialisation comes back as a success.
+Restart the process after purging rather than carrying on inside it — the
+same advice as <a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a>.</p>
 <p>Do not catch this and keep writing: see
 <a href="../apix/SecureStorageService/SecureStorageService.withBiometrics.html">SecureStorageService.withBiometrics</a> for what a plugin left without a
 cipher does to the next write.</p>
@@ -336,7 +349,7 @@ through here. Rethrown untouched, and never a reason to delete anything.</p>
 <footer>
   <span class="no-break">
     apix
-      5.2.0
+      5.3.0
   </span>
   
 </footer>

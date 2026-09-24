@@ -54,7 +54,7 @@
 
     
 <section class="desc markdown">
-  <p>A wrapper service for <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> providing simplified
+  <p>A wrapper service for <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> providing simplified
 secure key-value storage operations.</p>
 <p>This service abstracts the underlying secure storage implementation,
 allowing for easy injection and testing.</p>
@@ -73,7 +73,7 @@ await storage.delete('api_key');
 // Clear all values
 await storage.deleteAll();
 </code></pre>
-<p>You can also inject a custom <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> instance:</p>
+<p>You can also inject a custom <a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a> instance:</p>
 <pre class="language-dart"><code class="language-dart">final customStorage = FlutterSecureStorage(
   iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
 );
@@ -88,7 +88,7 @@ final storage = SecureStorageService(storage: customStorage);
     <h2>Constructors</h2>
     <dl class="constructor-summary-list">
         <dt id="SecureStorageService.new" class="callable">
-          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.1/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span><span class="parameter" id="-param-onBeforeRecoveryDelete"><span class="type-annotation">void</span> <span class="parameter-name">onBeforeRecoveryDelete</span>(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)?</span>})</span>
+          <span class="name"><a href="../apix/SecureStorageService/SecureStorageService.html">SecureStorageService.new</a></span><span class="signature">({<span class="parameter" id="-param-storage"><span class="type-annotation"><a href="https://pub.dev/documentation/flutter_secure_storage/10.3.4/flutter_secure_storage/FlutterSecureStorage-class.html">FlutterSecureStorage</a>?</span> <span class="parameter-name">storage</span>, </span><span class="parameter" id="-param-onBeforeRecoveryDelete"><span class="type-annotation">void</span> <span class="parameter-name">onBeforeRecoveryDelete</span>(<span class="parameter" id="param-event"><span class="type-annotation"><a href="../apix/SecureStorageRecovery-class.html">SecureStorageRecovery</a></span> <span class="parameter-name">event</span></span>)?</span>})</span>
         </dt>
         <dd>
           Creates a <a href="../apix/SecureStorageService-class.html">SecureStorageService</a> with optional custom storage.
@@ -326,7 +326,7 @@ unreadable data.
 <footer>
   <span class="no-break">
     apix
-      5.2.0
+      5.3.0
   </span>
   
 </footer>

@@ -88,8 +88,8 @@ class SecureStorageService {
   /// one place apix destroys data cannot be silent in the configuration
   /// everybody gets.
   ///
-  /// The same default has a second effect, measured on an Android 16 emulator:
-  /// when the plugin is left in a broken state (see
+  /// Up to plugin 10.2.x the same default has a second effect, measured on an
+  /// Android 16 emulator: when the plugin is left in a broken state (see
   /// [SecureStorageService.withBiometrics]), `resetOnError: true` turns a failed
   /// write into `deleteAll()` **reported as a success**. With it off, that
   /// surfaces as an exception instead of silently emptying the store.
@@ -104,23 +104,26 @@ class SecureStorageService {
   /// From **10.2.0** — this said 10.3.0 until it was read again, and a consumer
   /// on 10.2.x would have concluded they were safe — the Android plugin keeps
   /// one instance per preferences store
-  /// (`FlutterSecureStoragePlugin.getOrCreateStorage`), and binds that store's
-  /// options on the **first call for it**: `initialize` returns early on an
-  /// already-initialised store *before* re-reading the config. Later
-  /// callers naming the same store are served the first one's settings, in
-  /// silence. This service names no store, so it uses the default one. If
-  /// anything else in your app reaches `flutter_secure_storage` on that same
-  /// default store before this service does, it is that call's `resetOnError`
-  /// that applies, and the channel above goes quiet again. Give your own
-  /// storage a `sharedPreferencesName` to keep the two apart — except when the
-  /// other storage exists to **purge this one**, which has to share the store
-  /// to reach anything. See [SecureStorageFailure.storeUnusable] for what that
-  /// costs and what to do about it.
+  /// (`FlutterSecureStoragePlugin.getOrCreateStorage`) — per store **and key
+  /// prefix** from 11.2.0 — and binds its options on the **first call for
+  /// it**: `initialize` returns early on an already-initialised store *before*
+  /// re-reading the config. Later callers naming the same store are served the
+  /// first one's settings, in silence. This service names no store, so it uses
+  /// the default one. If anything else in your app reaches
+  /// `flutter_secure_storage` on that same default store before this service
+  /// does, it is that call's `resetOnError` that applies, and the channel above
+  /// goes quiet again. Give your own storage a store of its own to keep the two
+  /// apart — `storageNamespace`, or `sharedPreferencesName` below plugin 11.0,
+  /// which removed it — except when the other storage exists to **purge this
+  /// one**, which has to share the store to reach anything. See
+  /// [SecureStorageFailure.storeUnusable] for what that costs and what to do
+  /// about it.
   ///
   /// At the declared floor (10.0.0) the config is re-read on every call, so this
   /// cannot happen — only the cipher is cached there.
   ///
-  /// Measured against **both bounds** by the device probes in
+  /// Measured against **both bounds** — 10.0.0 and 11.2.0, on an Android 11
+  /// (API 30) emulator — by the device probes in
   /// `apix_example_app/integration_test/`, which stage a real decryption failure
   /// rather than a mocked one: `secure_storage_device_test.dart` for this
   /// default, and `secure_storage_reset_on_error_device_test.dart` for what it
@@ -148,22 +151,23 @@ class SecureStorageService {
   ///
   /// ## ⚠️ On a device with nothing to prompt for, it **refuses**
   ///
-  /// Measured on an Android 16 emulator with no lock screen and no enrolled
-  /// biometric: the first storage call raises
+  /// On a device with no lock screen and no enrolled biometric, the first
+  /// storage call is refused, and the cause is always
   ///
   /// ```text
   /// BIOMETRIC_UNAVAILABLE: Biometric enforcement enabled but device has no
   /// PIN, pattern, password, or biometric enrolled. Cannot generate secure key.
   /// ```
   ///
-  /// ⚠️ That is the message on the **first** run against a virgin store. From
-  /// the second onward the store carries algorithm markers, so the refusal
-  /// arrives wrapped — `Migration failed after algorithm change (Algorithm
-  /// changed detected). Enable resetOnError=true or call deleteAll().`, with
-  /// `BIOMETRIC_UNAVAILABLE` down in the `Caused by:` chain. Measured on an
-  /// Android 11 (API 30) emulator; pinned by the device probe, which matches
-  /// the buried token rather than the outer message for exactly this reason.
-  /// A consumer keying on the bare string sees it once and never again.
+  /// ⚠️ It seldom arrives bare. On an Android 11 (API 30) emulator it comes
+  /// wrapped from the **very first call**, fresh install included —
+  /// `Migration failed after algorithm change (Algorithm changed detected).
+  /// Enable resetOnError=true or call deleteAll().`, `BIOMETRIC_UNAVAILABLE`
+  /// down in the `Caused by:` chain — at plugin 10.0.0, 10.3.1 and 11.2.0
+  /// alike (measured 2026-09-24). Only an Android 16 emulator has shown it
+  /// bare, on a first run. Pinned by the device probe, which matches the
+  /// buried token rather than the outer message for exactly this reason: a
+  /// consumer keying on the bare string may never see it.
   /// [SecureStorageService.classify] calls the wrapped form
   /// [SecureStorageFailure.storeUnusable], which is what it is.
   ///
@@ -174,9 +178,10 @@ class SecureStorageService {
   ///
   /// ## ⚠️ Do not catch that refusal and keep writing
   ///
-  /// The Android plugin assigns its preferences field **before** the cipher it
-  /// failed to build, so every later call in the process short-circuits
-  /// initialisation and finds no cipher. Measured, and confirmed in logcat:
+  /// Up to plugin 10.2.x — the floor of the declared range — the Android
+  /// plugin assigns its preferences field **before** the cipher it failed to
+  /// build, so every later call in the process short-circuits initialisation
+  /// and finds no cipher. Measured at 10.0.0, and confirmed in logcat:
   ///
   /// ```text
   /// NullPointerException: StorageCipher.encrypt(byte[]) on a null object
@@ -189,6 +194,11 @@ class SecureStorageService {
   /// refusal and carries on empties its entire secure store while believing it
   /// wrote. apix passes `resetOnError: false` precisely so this surfaces as an
   /// exception instead. Restarting the process is what clears the broken state.
+  ///
+  /// From 10.3.1 the field is set only once the cipher exists, so the next call
+  /// initialises again and is refused again — measured at 10.3.1 and 11.2.0.
+  /// Nothing is left half-built; the refusal is still not a state to write
+  /// through.
   ///
   /// Where the guarantee matters, check the device state yourself first —
   /// `local_auth`'s `canCheckBiometrics` / `isDeviceSupported` — rather than
@@ -284,10 +294,12 @@ class SecureStorageService {
   /// Public because the two failures below need **opposite** reactions from a
   /// consumer and nothing else separates them: `flutter_secure_storage` reports
   /// every platform failure as a `PlatformException` with the same
-  /// `code: 'Exception encountered'`, so the only discriminator is a substring
-  /// of the message. Doing that matching in your own code is what this exists
-  /// to spare you — and it is matching this service has to do anyway, since it
-  /// is what decides whether a credential gets deleted.
+  /// `code: 'Exception encountered'` — 10.3.2 to 10.3.4 add `INIT_FAILED`, for
+  /// a plugin not attached to an Android context, which is
+  /// [SecureStorageFailure.other] here — so the only discriminator is a
+  /// substring of the message. Doing that matching in your own code is what
+  /// this exists to spare you — and it is matching this service has to do
+  /// anyway, since it is what decides whether a credential gets deleted.
   ///
   /// ```dart
   /// try {
@@ -324,9 +336,10 @@ class SecureStorageService {
   /// The store's own key is unusable — every call through the plugin fails.
   ///
   /// Verbatim `String.format` templates and messages from
-  /// `flutter_secure_storage`, read in its Android sources at **10.0.0, 10.2.0
-  /// and 10.3.1** (2026-09-08) and identical across the three — which is the
-  /// whole range this package declares.
+  /// `flutter_secure_storage`, read in its Android sources at **10.0.0, 10.2.0,
+  /// 10.3.1, 10.3.4, 11.0.0, 11.1.1 and 11.2.0** (2026-09-24) — the range this
+  /// package declares — and identical across them, except the last one, which
+  /// 11.0 no longer produces.
   static const _storeUnusableMarkers = [
     // FlutterSecureStorage.handleKeyMismatch, both branches.
     'key mismatch after algorithm change',
@@ -334,13 +347,15 @@ class SecureStorageService {
     // initializeStorageCipher, NoSuchAlgorithmException.
     'required cryptographic algorithm not supported by device',
     // initialize, legacy EncryptedSharedPreferences data with migration off.
+    // Plugin 10.x only: 11.0 removed that backend.
     'encryptedsharedpreferences data found but migration is disabled',
   ];
 
   /// One entry's bytes cannot be decrypted; the store itself is fine.
   ///
   /// `bad_decrypt` and `error:1e000065` are the two that a real corruption
-  /// produced on an Android 16 emulator, measured through the device probes in
+  /// produced on an Android 16 emulator, and on an Android 11 (API 30) one at
+  /// plugin 10.0.0, 10.3.1 and 11.2.0, measured through the device probes in
   /// `apix_example_app/integration_test/`:
   /// `javax.crypto.AEADBadTagException: error:1e000065:…:BAD_DECRYPT`.
   ///
@@ -349,8 +364,9 @@ class SecureStorageService {
   /// `BadPaddingException` for the same reason — a payload that does not
   /// decrypt — on the AES-CBC storage cipher, which is what the plugin falls
   /// back to below API 23 and what a consumer gets by choosing
-  /// `StorageCipherAlgorithm.AES_CBC_PKCS7Padding`. Recognising one of a pair
-  /// and not the other is the asymmetry, not the fix.
+  /// `StorageCipherAlgorithm.AES_CBC_PKCS7Padding` — both plugin 10.x only.
+  /// Recognising one of a pair and not the other is the asymmetry, not the
+  /// fix.
   static const _unreadableEntryMarkers = [
     'bad padding',
     'badpaddingexception',
@@ -416,8 +432,10 @@ class SecureStorageService {
   /// Returns an empty map if no values exist.
   ///
   /// The most destructive path in this package: an
-  /// [SecureStorageFailure.unreadableEntry] here clears **the whole store**,
-  /// because there is no single key to blame. Anything else is rethrown.
+  /// [SecureStorageFailure.unreadableEntry] here clears **the whole store** —
+  /// every entry under the storage's key prefix from plugin 11.2.0, the whole
+  /// preferences file before — because there is no single key to blame.
+  /// Anything else is rethrown.
   Future<Map<String, String>> readAll() async {
     try {
       return await _storage.readAll();
@@ -456,35 +474,51 @@ enum SecureStorageFailure {
   /// it rethrows, because there is no state it could put you in that would be
   /// truthful. What to do is yours to decide, and the two useful moves are:
   ///
-  /// * **retry once.** Read in the Android plugin's sources (10.0.0 · 10.2.0 ·
-  ///   10.3.1, on 2026-09-08), not measured here: when the failure comes from
-  ///   *missing* algorithm markers — the state a "clear app data" leaves behind
-  ///   when the Keystore key outlives the preferences — `StorageCipherFactory`
-  ///   writes the current markers as it builds, so the **next** call no longer
-  ///   takes that branch. The failure clears itself, and one retry is enough.
+  /// * **retry once.** Plugin 10.x only, read in its Android sources (10.0.0
+  ///   to 10.3.4) rather than measured: when the failure comes from *missing*
+  ///   algorithm markers, `StorageCipherFactory` writes the current markers as
+  ///   it builds, so the **next** call no longer takes that branch and the
+  ///   failure clears itself. From 11.0 a store without markers is taken to use
+  ///   the current algorithms, and that branch cannot fail at all.
   /// * **treat a second failure as permanent.** When the markers are present
-  ///   but name another algorithm, nothing is rewritten and every call fails
+  ///   but no longer match the key, nothing is rewritten and every call fails
   ///   identically until the store is reset — pass your own
   ///   `FlutterSecureStorage` with `resetOnError: true`, which is the plugin's
   ///   own recovery for this, knowing what [SecureStorageService] gives up by
   ///   disabling it (see the constructor).
   ///
+  /// ⚠️ **A restored backup produces it — the one field trigger reproduced so
+  /// far.** Android Auto Backup brings the plugin's preference files back after
+  /// a reinstall or on a new phone — the data, the markers and the wrapped key
+  /// — but not the Keystore key that wrapped it, which never leaves the device.
+  /// Every call then fails with `Migration failed after algorithm change
+  /// (Invalid key, key type incompatible with cipher)`, on every launch, and a
+  /// retry never clears it. Measured on an Android 11 (API 30) emulator at
+  /// plugin 10.3.1 and 11.2.0 (2026-09-24), and so was the purge below: it
+  /// resets the store, and the next process writes again. A "clear app data"
+  /// does **not** produce this state — measured the same day, it removes the
+  /// Keystore key along with the preferences, and the next launch starts from
+  /// an empty store. Prevent it rather than recover from it: exclude the
+  /// plugin's files from backup, as the README shows.
+  ///
   /// ⚠️ **One envelope, several causes.** `Migration failed after algorithm
-  /// change (Algorithm changed detected)` is what a `withBiometrics()` refusal
-  /// looks like from its second run onward — measured on an Android 11 (API 30)
-  /// emulator with no lock screen, `BIOMETRIC_UNAVAILABLE` buried in the
-  /// `Caused by:` chain. A retry never clears that one: the device has nothing
-  /// to prompt for. The `(%s)` does not tell the causes apart; the
-  /// `Caused by:` chain does, and it travels in
-  /// [SecureStorageRecovery.error] and in the exception you catch.
+  /// change (…)` is also what a `withBiometrics()` refusal looks like — from
+  /// the first call on an Android 11 (API 30) emulator with no lock screen,
+  /// `BIOMETRIC_UNAVAILABLE` buried in the `Caused by:` chain. No retry and no
+  /// purge clears that one: the device has nothing to prompt for. The `(%s)`
+  /// narrows it down — `Invalid key, …` for a restored backup, `Algorithm
+  /// changed detected` for that refusal as for markers naming another
+  /// algorithm — but only the `Caused by:` chain says for sure, and it travels
+  /// in [SecureStorageRecovery.error] and in the exception you catch.
   ///
   /// ⚠️ That purge instance has to name the **same** store to reach anything,
-  /// and from plugin 10.2.0 the first successful call for a store fixes its
-  /// options for the process. So its `resetOnError: true` governs apix's calls
-  /// afterwards too: [SecureStorageService.onBeforeRecoveryDelete] goes quiet,
-  /// and a write that fails after a broken initialisation comes back as a
-  /// success. Restart the process after purging rather than carrying on inside
-  /// it — the same advice as [SecureStorageService.withBiometrics].
+  /// and from plugin 10.2.0 the first successful call for a store — and key
+  /// prefix, from 11.2.0 — fixes its options for the process. So its
+  /// `resetOnError: true` governs apix's calls afterwards too:
+  /// [SecureStorageService.onBeforeRecoveryDelete] goes quiet, and up to 10.2.x
+  /// a write that fails after a broken initialisation comes back as a success.
+  /// Restart the process after purging rather than carrying on inside it — the
+  /// same advice as [SecureStorageService.withBiometrics].
   ///
   /// Do not catch this and keep writing: see
   /// [SecureStorageService.withBiometrics] for what a plugin left without a
