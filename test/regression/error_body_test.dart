@@ -266,7 +266,7 @@ void main() {
         ResponseType.plain,
       );
 
-      expect(e.message, 'a�b');
+      expect(e.message, 'a\uFFFDb');
       expect(e.code, 'X1');
     });
   });

@@ -30,7 +30,7 @@ void main() {
       '\uD800',
       '\uDC00',
       'x\uD800y',
-      '\uD800𐀀',
+      '\uD800\uD800\uDC00',
     ]) {
       test(jsonEncode(text), () {
         expect(utf8ByteLength(text), utf8.encode(text).length);
