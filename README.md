@@ -1176,6 +1176,45 @@ final results = await client.postListAndDecodeData('/search', query, User.fromJs
 final results = await client.postListAndDecodeDataOrEmpty('/search', query, User.fromJson);
 ```
 
+### Binary Downloads — `{verb}AndReadBytes`
+
+A file — a PDF, an image, an archive — comes back as a `BinaryResponse`: the
+bytes, byte for byte, with the status and headers none of the other shapes can
+reach. No dio type crosses into your data layer.
+
+```dart
+final pdf = await client.getAndReadBytes(
+  '/reports/2026-08',
+  expectedContentTypes: ['application/pdf'],
+  options: Options(receiveTimeout: const Duration(minutes: 2)),
+);
+
+if (pdf.isEmpty) return;                        // 204, or an empty body
+final name = pdf.fileName ?? 'report.pdf';      // Content-Disposition, sanitised
+final missing = pdf.header('X-Missing-Items');  // any header, case-insensitive
+await File('${dir.path}/$name').writeAsBytes(pdf.bytes);
+```
+
+- `ResponseType.bytes` is forced whatever `options` says, and the rest of
+  `options` is kept. Forgotten on a raw `get`, it decodes the file as text and
+  corrupts it without a word.
+- `expectedContentTypes` refuses a non-empty body of another type with
+  `UnexpectedContentTypeException` — a captive portal's HTML served as `200`
+  would otherwise be saved as your PDF. Parameters (`; charset=…`) are
+  ignored and `image/*` matches the family. `Accept` is left alone: narrowing
+  it can turn a JSON error into a `406` without a body.
+- `fileName` prefers `filename*` (RFC 8187) to `filename`, and is sanitised:
+  last path segment only, no control characters, never `.` or `..`. It still
+  comes from the server — where the file goes is yours to decide.
+- Failures are typed like every other call: a JSON error body gives its
+  `message` and `code` although bytes were asked for.
+- A `responseValidator` sees the bytes — `response.data` is a `Uint8List` —
+  so have it return `null` for what it does not understand.
+
+`postAndReadBytes`, `putAndReadBytes`, `patchAndReadBytes` and
+`deleteAndReadBytes` take a body like the other shapes; the bytes are what is
+*received*.
+
 ### Method Summary
 
 | Level | Methods | Source | Verbs | Variants |
@@ -1183,11 +1222,12 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | all | — |
 | **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
 | **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | all | OrNull, List, ListOrNull, ListOrEmpty |
+| **Binary** | `{verb}AndReadBytes` | the body's bytes, with status and headers | all | — |
 
-Since 5.0 every family is available on every verb — twelve shapes × five verbs.
-The table used to claim that while `PUT` and `PATCH` had two methods each and
-`DELETE` none, because filling the gaps meant copying the plumbing five times.
-It is one shared core now, so a verb cannot fall behind again.
+Since 5.0 every shape is available on every verb. The table used to claim that
+while `PUT` and `PATCH` had two methods each and `DELETE` none, because filling
+the gaps meant copying the plumbing five times. It is one shared core now, so a
+verb cannot fall behind again.
 
 #### Progress on a typed call
 
@@ -1205,8 +1245,8 @@ final receipt = await client.postAndDecodeData<Receipt>(
 );
 ```
 
-The twelve `GET` variants take only `onReceiveProgress`: a `GET` has nothing to
-send, and an option that can never fire is an option that looks set.
+The `GET` variants take only `onReceiveProgress`: a `GET` has nothing to send,
+and an option that can never fire is an option that looks set.
 
 ### Strict Content-Type Checks (Captive Portals)
 
@@ -1232,6 +1272,10 @@ try {
 `*AndParse` methods are unaffected (they accept any payload type by design).
 A missing `Content-Type` header in strict mode triggers the same exception
 with `actualContentType: null`.
+
+A binary download has its own check, per call: `expectedContentTypes` on
+`getAndReadBytes` and its verbs, which raises the same exception — see
+*Binary Downloads* above.
 
 ---
 

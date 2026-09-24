@@ -8,6 +8,9 @@
 
 ### Added
 
+* `getAndReadBytes` — and `post`/`put`/`patch`/`deleteAndReadBytes` — return
+  a `BinaryResponse`: the bytes with their status and headers, `contentType`
+  and a sanitised `fileName`, checked against `expectedContentTypes` if given.
 * `RequestMetrics.copyWith` takes `requestSize`.
 
 ### Fixed

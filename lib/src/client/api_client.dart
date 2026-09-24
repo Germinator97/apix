@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../cache/cache_interceptor.dart';
@@ -6,6 +8,7 @@ import '../errors/parsing_exception.dart';
 import '../errors/unexpected_content_type_exception.dart';
 import '../http/header_values.dart';
 import 'api_client_config.dart';
+import 'binary_response.dart';
 
 /// A production-ready API client powered by Dio.
 ///
@@ -1848,6 +1851,237 @@ class ApiClient {
       decode: (response) =>
           _asListOrNull(_extractData(response.data), parser) ?? <T>[],
     );
+  }
+
+  // ========== Binary Shape ==========
+  //
+  // One shape, five verbs, like the twelve above: a body read as bytes and
+  // handed back with its status and headers, which none of the other shapes
+  // can reach. The raw verbs could download a file, but left every caller to
+  // force `ResponseType.bytes` (forgetting it corrupts the file silently),
+  // check the body really is the expected type (a captive portal's HTML page
+  // served as `200` would be saved as a PDF), and parse the file name — and
+  // put a dio `Response` in the data layer to do it.
+
+  /// Sends a GET to [path] and returns the body as bytes, with its status and
+  /// headers.
+  ///
+  /// `ResponseType.bytes` is forced whatever [options] says; the rest of
+  /// [options] is kept — a longer `receiveTimeout` for a large file, say.
+  /// `Accept` is left alone: narrowing it to the file type would turn a JSON
+  /// error into a `406` without a body on some servers.
+  ///
+  /// When [expectedContentTypes] is given and the body is not empty, its
+  /// `Content-Type` must match one of them — parameters ignored, `image/*`
+  /// style wildcards allowed — or [UnexpectedContentTypeException] is thrown.
+  /// A `204`, or an empty body, is returned as [BinaryResponse.isEmpty]
+  /// without the check.
+  ///
+  /// Failures are typed like everywhere else: an error body in JSON gives its
+  /// `message` and `code` even though bytes were asked for.
+  ///
+  /// ```dart
+  /// final pdf = await client.getAndReadBytes(
+  ///   '/reports/2026-08',
+  ///   expectedContentTypes: ['application/pdf'],
+  /// );
+  /// final name = pdf.fileName ?? 'report.pdf';
+  /// ```
+  Future<BinaryResponse> getAndReadBytes(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _readBytes(
+      'GET',
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      onReceiveProgress: onReceiveProgress,
+      expectedContentTypes: expectedContentTypes,
+    );
+  }
+
+  /// Sends a POST with [data] to [path] and returns the body as bytes — see
+  /// [getAndReadBytes]. The bytes are what is *received*; [data] is sent as
+  /// for any other POST.
+  Future<BinaryResponse> postAndReadBytes(
+    String path,
+    Object? data, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _readBytes(
+      'POST',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      expectedContentTypes: expectedContentTypes,
+    );
+  }
+
+  /// Sends a PUT with [data] to [path] and returns the body as bytes — see
+  /// [getAndReadBytes].
+  Future<BinaryResponse> putAndReadBytes(
+    String path,
+    Object? data, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _readBytes(
+      'PUT',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      expectedContentTypes: expectedContentTypes,
+    );
+  }
+
+  /// Sends a PATCH with [data] to [path] and returns the body as bytes — see
+  /// [getAndReadBytes].
+  Future<BinaryResponse> patchAndReadBytes(
+    String path,
+    Object? data, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _readBytes(
+      'PATCH',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      expectedContentTypes: expectedContentTypes,
+    );
+  }
+
+  /// Sends a DELETE with [data] to [path] and returns the body as bytes —
+  /// see [getAndReadBytes].
+  Future<BinaryResponse> deleteAndReadBytes(
+    String path,
+    Object? data, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _readBytes(
+      'DELETE',
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      expectedContentTypes: expectedContentTypes,
+    );
+  }
+
+  Future<BinaryResponse> _readBytes(
+    String method,
+    String path, {
+    Object? data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    void Function(int, int)? onSendProgress,
+    void Function(int, int)? onReceiveProgress,
+    List<String>? expectedContentTypes,
+  }) {
+    return _typed(
+      method,
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options:
+          (options ?? Options()).copyWith(responseType: ResponseType.bytes),
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      decode: (response) => _binaryFrom(response, expectedContentTypes),
+    );
+  }
+
+  BinaryResponse _binaryFrom(
+    Response<dynamic> response,
+    List<String>? expectedContentTypes,
+  ) {
+    final data = response.data;
+    final Uint8List bytes = switch (data) {
+      null => Uint8List(0),
+      final Uint8List value => value,
+      final List<int> value => Uint8List.fromList(value),
+      _ => throw FormatException('Expected bytes, got ${data.runtimeType}'),
+    };
+    final binary = BinaryResponse(
+      bytes: bytes,
+      statusCode: response.statusCode ?? 0,
+      headers: response.headers.map,
+    );
+    if (expectedContentTypes != null &&
+        expectedContentTypes.isNotEmpty &&
+        !binary.isEmpty &&
+        !_matchesMediaType(binary.contentType, expectedContentTypes)) {
+      throw UnexpectedContentTypeException(
+        expectedContentType: expectedContentTypes.join(', '),
+        actualContentType: binary.contentType,
+        statusCode: response.statusCode,
+      );
+    }
+    return binary;
+  }
+
+  /// Whether [contentType] names one of [expected]: type and subtype
+  /// compared case-insensitively, parameters ignored, `type/*` and `*/*`
+  /// accepted as wildcards.
+  static bool _matchesMediaType(String? contentType, List<String> expected) {
+    String? mediaType(String? value) {
+      if (value == null) return null;
+      final type = value.split(';').first.trim().toLowerCase();
+      return type.isEmpty ? null : type;
+    }
+
+    final actual = mediaType(contentType);
+    if (actual == null) return false;
+    for (final candidate in expected.map(mediaType)) {
+      if (candidate == null) continue;
+      if (candidate == '*/*' || candidate == actual) return true;
+      if (candidate.endsWith('/*') &&
+          actual.startsWith(candidate.substring(0, candidate.length - 1))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Asserts that the response data is a non-null `Map<String, dynamic>`

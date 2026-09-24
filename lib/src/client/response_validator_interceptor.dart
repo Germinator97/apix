@@ -8,6 +8,19 @@ import '../errors/api_exception.dart';
 ///
 /// Useful for legacy APIs that signal business errors via 200-OK responses
 /// with a payload like `{"success": false, "error": "..."}`.
+///
+/// It sees **every** 2xx response, including binary downloads, whose
+/// `response.data` is a `Uint8List`. A validator written for JSON envelopes
+/// should let what it does not understand through — otherwise each download
+/// fails with `responseValidator threw`:
+///
+/// ```dart
+/// responseValidator: (response) {
+///   final data = response.data;
+///   if (data is! Map) return null;
+///   return data['success'] == false ? BusinessException(data) : null;
+/// },
+/// ```
 typedef ResponseValidator = ApiException? Function(
   Response<dynamic> response,
 );
