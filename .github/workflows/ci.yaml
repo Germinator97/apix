@@ -444,11 +444,23 @@ jobs:
       - name: Publish dry run
         run: dart pub publish --dry-run
 
-      # Any lost point fails the job. The threshold was 20, and 20 let exactly
-      # this through: flutter_secure_storage 11 cost the ten points of "all of
-      # the package dependencies are supported in the latest version", pub.dev
-      # showed 150/160, and this step stayed green. Measured locally with pana
-      # 0.23.19: the old constraint exits 0 at 20 and fails at 0.
+      # pana converts the pubspec screenshots with the WebP tools. pub.dev's
+      # analysis has them, a bare runner does not, and without them the
+      # screenshots score 0/10 ("tool not found", then "No such file or
+      # directory"). Each tool is checked by name, so a missing one fails here
+      # rather than as a lost point.
+      - name: Install the WebP tools pana converts screenshots with
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webp
+          for tool in webpinfo cwebp gif2webp; do command -v "$tool"; done
+
+      # Any lost point fails the job. The threshold was 20, and it hid two
+      # losses at once: the ten points flutter_secure_storage 11 cost on pub.dev
+      # (150/160), and the ten the runner lost on its own for want of the WebP
+      # tools. With the tools the job scores what pub.dev scores — 160 for
+      # develop, measured locally with pana 0.23.19 — so there is no noise left
+      # to absorb.
       - name: Score with pana
         run: |
           dart pub global activate pana
