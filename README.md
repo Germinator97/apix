@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^5.2.0
+  apix: ^5.3.0
 ```
 
 ```bash

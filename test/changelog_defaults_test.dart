@@ -133,6 +133,7 @@ void main() {
       // so does a deleted one. At a release, add the new version at the top of
       // this list, in the same move as the pubspec and the README snippet.
       const headings = [
+        '5.3.0',
         '5.2.0',
         '5.1.0',
         '5.0.0',
