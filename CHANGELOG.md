@@ -8,6 +8,10 @@
 
 ### Fixed
 
+* A body that claims JSON and does not parse keeps its HTTP status: an error
+  stays typed by its status (a `401` refreshes again), and a `2xx` raises
+  `ParsingException` with its status — raw verbs included — instead of
+  `ApiException('Unknown error')`.
 * A JSON error body keeps its `message` and `code` whatever the request's
   `responseType` — a failed binary download reported `HTTP 400` and no code.
   Bodies over 64 KB are left as received.

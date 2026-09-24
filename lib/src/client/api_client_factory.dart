@@ -7,6 +7,7 @@ import '../cache/cache_interceptor.dart';
 import '../cache/deduplication_config.dart';
 import '../cache/deduplication_interceptor.dart';
 import '../errors/error_mapper_interceptor.dart';
+import '../http/status_preserving_transformer.dart';
 import '../logging/logger_config.dart';
 import '../logging/logger_interceptor.dart';
 import '../observability/error_tracking_interceptor.dart';
@@ -130,6 +131,11 @@ class ApiClientFactory {
       sendTimeout: config.sendTimeout,
       headers: config.headers,
     );
+
+    // dio decodes a JSON body before any interceptor runs, and a decoding
+    // failure used to leave with no response at all — status, headers and
+    // body lost, a 401 no longer refreshing. See StatusPreservingTransformer.
+    dio.transformer = StatusPreservingTransformer(dio.transformer);
 
     // Custom HTTP client adapter (optional)
     if (httpClientAdapter != null) {
