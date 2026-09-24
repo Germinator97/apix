@@ -318,7 +318,12 @@ jobs:
       - name: Publish dry run
         run: dart pub publish --dry-run
 
+      # Any lost point fails the job. The threshold was 20, and 20 let exactly
+      # this through: flutter_secure_storage 11 cost the ten points of "all of
+      # the package dependencies are supported in the latest version", pub.dev
+      # showed 150/160, and this step stayed green. Measured locally with pana
+      # 0.23.19: the old constraint exits 0 at 20 and fails at 0.
       - name: Score with pana
         run: |
           dart pub global activate pana
-          dart pub global run pana --no-warning --exit-code-threshold 20 .
+          dart pub global run pana --no-warning --exit-code-threshold 0 .
