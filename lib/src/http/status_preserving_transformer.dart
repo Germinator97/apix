@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 import '../errors/parsing_exception.dart';
+import 'body_size.dart';
 import 'header_values.dart';
 import 'json_media_type.dart';
 
@@ -41,6 +42,10 @@ import 'json_media_type.dart';
 /// body as text, and the 5.4.0 floor, whose media-type parser throws, now
 /// does too.
 ///
+/// The number of bytes received is recorded under `receivedBodyBytesKey`,
+/// for `MetricsInterceptor`: a decoded `Map` cannot say how large it was, and
+/// a server streaming its JSON sends no `Content-Length`.
+///
 /// The body is **recorded as it streams**, never gathered up front: at the
 /// floor it is dio's transformer that reports receive progress while it
 /// reads, and draining the stream first would reduce that to one final
@@ -70,9 +75,13 @@ class StatusPreservingTransformer extends Transformer {
     final recording = _Recording(responseBody.stream);
     responseBody.stream = recording.stream;
     try {
-      return await inner.transformResponse(options, responseBody);
+      final data = await inner.transformResponse(options, responseBody);
+      options.extra[receivedBodyBytesKey] = recording.length;
+      return data;
     } on FormatException catch (error, stackTrace) {
-      final text = utf8.decode(await recording.all(), allowMalformed: true);
+      final bytes = await recording.all();
+      options.extra[receivedBodyBytesKey] = bytes.length;
+      final text = utf8.decode(bytes, allowMalformed: true);
       final headers = Headers.fromMap(responseBody.headers);
       final claimsJson = type == ResponseType.json &&
           isJsonContentType(firstHeaderValue(headers, 'content-type'));
@@ -131,6 +140,9 @@ class _Recording {
   StackTrace? _errorStackTrace;
 
   Stream<Uint8List> get stream => _controller.stream;
+
+  /// How many bytes have been recorded so far.
+  int get length => _bytes.length;
 
   void _start() {
     _subscription ??= _source.listen(

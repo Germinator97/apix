@@ -2,25 +2,29 @@
 
 ### Changed
 
-* `HttpException.responseBody` is the decoded JSON when a JSON error body was
-  received as bytes or text; the raw value stays on
+* `HttpException.responseBody` is the decoded JSON when a JSON error body
+  arrived as bytes or text; the raw value stays on
   `originalError.response.data`. If you decoded it yourself, drop that step.
+
+### Added
+
+* `RequestMetrics.copyWith` takes `requestSize`.
 
 ### Fixed
 
+* `RequestMetrics.requestSize` and `responseSize` are byte counts, taken
+  without rendering the body — they were the length of its `toString()`.
 * A body that claims JSON and does not parse keeps its HTTP status: an error
-  stays typed by its status (a `401` refreshes again), and a `2xx` raises
-  `ParsingException` with its status — raw verbs included — instead of
+  stays typed by it (a `401` refreshes again), a `2xx` raises
+  `ParsingException` — raw verbs included — instead of
   `ApiException('Unknown error')`.
-* A JSON error body keeps its `message` and `code` whatever the request's
-  `responseType` — a failed binary download reported `HTTP 400` and no code.
-  Bodies over 64 KB are left as received.
+* A JSON error body keeps its `message` and `code` whatever the
+  `responseType`; one over 64 KB is left as received.
 * Logs and tracker fields no longer render a body beyond what they keep: a
-  `Uint8List` prints `<binary: N bytes>` — a 5 MB download cost ~170 ms per
-  log line — and a large JSON body costs its preview, not its size.
-* A response header sent twice no longer escapes as a raw `DioException`: a
-  repeated `Retry-After` keeps a `429` typed and waits the longest delay, and
-  repeated `Cache-Control` lines combine.
+  `Uint8List` prints `<binary: N bytes>`.
+* A header sent twice no longer escapes as a raw `DioException`: a repeated
+  `Retry-After` keeps a `429` typed and waits the longest delay; repeated
+  `Cache-Control` lines combine.
 
 ## 5.1.0
 
