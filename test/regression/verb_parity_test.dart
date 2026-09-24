@@ -143,6 +143,21 @@ void main() {
     expect(adapter.seen.map((o) => o.method), ['PUT', 'PATCH', 'DELETE']);
   });
 
+  test('the binary shape is available on every verb', () async {
+    // Named one by one, like the families above: a verb missing from the
+    // binary shape is a compile error here, not a surprise at a call site.
+    await client.getAndReadBytes('/x');
+    await client.postAndReadBytes('/x', <String, dynamic>{});
+    await client.putAndReadBytes('/x', <String, dynamic>{});
+    await client.patchAndReadBytes('/x', <String, dynamic>{});
+    await client.deleteAndReadBytes('/x', null);
+
+    expect(adapter.seen.map((o) => o.method),
+        ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+    expect(
+        adapter.seen.map((o) => o.responseType).toSet(), {ResponseType.bytes});
+  });
+
   test('options supplied by the caller survive the method override', () async {
     await client.putAndParse(
       '/x',

@@ -1,3 +1,34 @@
+## 5.2.0
+
+### Changed
+
+* `HttpException.responseBody` is the decoded JSON when a JSON error body
+  arrived as bytes or text; the raw value stays on
+  `originalError.response.data`. If you decoded it yourself, drop that step.
+
+### Added
+
+* `getAndReadBytes` — and `post`/`put`/`patch`/`deleteAndReadBytes` — return
+  a `BinaryResponse`: the bytes with their status and headers, `contentType`
+  and a sanitised `fileName`, checked against `expectedContentTypes` if given.
+* `RequestMetrics.copyWith` takes `requestSize`.
+
+### Fixed
+
+* `RequestMetrics.requestSize` and `responseSize` are byte counts, taken
+  without rendering the body — they were the length of its `toString()`.
+* A body that claims JSON and does not parse keeps its HTTP status: an error
+  stays typed by it (a `401` refreshes again), a `2xx` raises
+  `ParsingException` — raw verbs included — instead of
+  `ApiException('Unknown error')`.
+* A JSON error body keeps its `message` and `code` whatever the
+  `responseType`; one over 64 KB is left as received.
+* Logs and tracker fields no longer render a body beyond what they keep: a
+  `Uint8List` prints `<binary: N bytes>`.
+* A header sent twice no longer escapes as a raw `DioException`: a repeated
+  `Retry-After` keeps a `429` typed and waits the longest delay; repeated
+  `Cache-Control` lines combine.
+
 ## 5.1.0
 
 ### Changed

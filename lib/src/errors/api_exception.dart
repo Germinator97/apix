@@ -43,6 +43,9 @@ class ApiException implements Exception {
   /// object, or the value was neither a string nor a number — and null on every
   /// non-HTTP failure (timeout, connection loss), which has no body to read.
   ///
+  /// A JSON body is read whatever the request's `responseType`, bytes and
+  /// text included — see `HttpException.responseBody`.
+  ///
   /// **Also null when the body's code merely repeats the HTTP status.** Many
   /// envelopes fill a field named `code` with the status itself
   /// (`{"code": 401, ...}` on a `401`); handing that back here would restore

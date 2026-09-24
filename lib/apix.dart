@@ -20,6 +20,7 @@ export 'src/auth/token_provider_exception.dart';
 export 'src/client/api_client.dart';
 export 'src/client/api_client_config.dart';
 export 'src/client/api_client_factory.dart';
+export 'src/client/binary_response.dart';
 export 'src/client/multipart_interceptor.dart';
 export 'src/client/response_validator_interceptor.dart';
 

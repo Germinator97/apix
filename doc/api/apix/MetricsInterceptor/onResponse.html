@@ -88,6 +88,7 @@ void onResponse(
         requestId: requestId as String,
         statusCode: response.statusCode,
         success: true,
+        requestSize: _getRequestSize(response.requestOptions),
         responseSize: _getResponseSize(response),
       );
 
@@ -138,7 +139,7 @@ void onResponse(
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

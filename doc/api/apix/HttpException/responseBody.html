@@ -62,7 +62,14 @@
       </section>
       
 <section class="desc markdown">
-  <p>The response body if available.</p>
+  <p>The response body, as a caller wants to read it.</p>
+<p>The decoded JSON — a <code>Map</code>, a <code>List</code> or a scalar — whenever the body is
+JSON, <strong>whatever the request's <code>responseType</code></strong>: the error of a
+<code>ResponseType.bytes</code> download is decoded too, provided its
+<code>Content-Type</code> is JSON and it is under 64 KB. Otherwise the value dio
+produced — bytes, text, a stream — or <code>null</code>.</p>
+<p>The value dio received stays reachable through
+<code>(originalError as DioException).response?.data</code>.</p>
 </section>
 
       
@@ -97,7 +104,7 @@
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

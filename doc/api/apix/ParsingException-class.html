@@ -59,6 +59,11 @@
 and their envelope variants) when the user-supplied parser callback or
 the internal envelope unwrapping fails — for example, on truncated JSON,
 shape mismatches, or invalid casts.</p>
+<p>It is also raised by the raw verbs (<code>get</code>, <code>post</code>, …) when a successful
+response claims JSON and its body does not parse, with the response's
+<a href="../apix/ApiException/statusCode.html">statusCode</a>. An <em>error</em> response whose body does not parse keeps the
+exception its status calls for — a <code>401</code> stays an <code>UnauthorizedException</code>
+— with the body as text in <code>responseBody</code>.</p>
 <p>It extends <a href="../apix/ApiException-class.html">ApiException</a> so existing <code>on ApiException catch</code> blocks
 catch it transparently.</p>
 <p>Example:</p>
@@ -285,7 +290,7 @@ sent one.
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

@@ -48,7 +48,7 @@ final response = await client.get<Map<String, dynamic>>('/users');
 
 ```yaml
 dependencies:
-  apix: ^5.1.0
+  apix: ^5.2.0
 ```
 
 ```bash
@@ -639,9 +639,9 @@ declared dio version range a constraint on your code too.
 ```dart
 import 'package:apix/apix.dart';
 
-// Binary downloads (reports, receipts)
-final pdf = await client.get<List<int>>(
-  '/reports/2026-08.pdf',
+// A raw binary call — `getAndReadBytes` does this for you, headers included
+final raw = await client.get<List<int>>(
+  '/files/report.pdf',
   options: Options(responseType: ResponseType.bytes),
 );
 
@@ -739,6 +739,11 @@ final client = ApiClientFactory.create(
 | `warn` | Warnings + errors |
 | `info` | Info + warnings + errors |
 | `trace` | Everything (debug) |
+
+A body is printed in at most `maxBodyLength` characters and never rendered
+beyond them: a `Uint8List` — a download, an upload — prints
+`<binary: N bytes>`, and a large JSON body costs only what is shown. The
+fields `ErrorTrackingConfig` sends are rendered the same way.
 
 ---
 
@@ -882,7 +887,7 @@ ApiX automatically transforms all Dio errors into typed exceptions via `ErrorMap
 | HTTP 4xx (other) | `ClientException` |
 | HTTP 5xx | `ServerException` |
 | Other status on the error path (3xx, unknown) | `HttpException` |
-| `*AndDecode` / `*AndParse` parse failure | `ParsingException` |
+| A body that does not parse — a typed shape's decoding, or a `2xx` claiming JSON on any verb | `ParsingException` |
 | `TokenProvider` failure (keychain, custom impl) | `TokenProviderException` |
 | Wrong `Content-Type` (with `strictContentType: true`) | `UnexpectedContentTypeException` |
 | A multipart body that cannot be rebuilt for a replay | `MultipartReplayException` |
@@ -925,6 +930,17 @@ The **message** is automatically extracted from the API response body. Supports 
 ```
 
 Falls back to `"HTTP {statusCode}"` if no known field is found.
+
+The body is read the same way **whatever the request's `responseType`**: the
+JSON error of a `ResponseType.bytes` download, or of a `plain` call, gives its
+message and `code` too, provided its `Content-Type` is JSON and it is under
+64 KB. `HttpException.responseBody` then holds the decoded JSON; the value dio
+received stays on `originalError.response.data`. A `stream` body is left
+unread.
+
+A body that claims JSON and does not parse keeps its status: a `401` is still
+an `UnauthorizedException` — and still refreshes — with the text in
+`responseBody`, and only a `2xx` becomes a `ParsingException`.
 
 ### Exception Hierarchy
 
@@ -1020,7 +1036,8 @@ on TooManyRequestsException catch (e) {
 
 `retryAfter` is the parsed `Retry-After` header (delta-seconds or HTTP-date), or
 null when the server sent none — treat null as *unknown delay*, never as *retry
-now*.
+now*. Sent twice — a gateway and the application both setting it — the longest
+delay wins, here and in the retry alike.
 
 `AuthException` exposes `originalError` so the underlying cause (e.g. `TokenProviderException` or a custom error from a legacy `onRefresh`) is recoverable.
 
@@ -1124,7 +1141,7 @@ final patched = await client.patchAndDecode('/users/1', body, User.fromJson);
 ### Level 3: Data Methods — Envelope Unwrapping
 
 For APIs that wrap responses in an envelope like `{ "data": { ... } }`.
-Extracts `response.data[dataKey]` then formats. **GET & POST only.**
+Extracts `response.data[dataKey]` then formats. Available for all verbs.
 
 ```dart
 // Configure dataKey globally (default: 'data')
@@ -1176,6 +1193,45 @@ final results = await client.postListAndDecodeData('/search', query, User.fromJs
 final results = await client.postListAndDecodeDataOrEmpty('/search', query, User.fromJson);
 ```
 
+### Binary Downloads — `{verb}AndReadBytes`
+
+A file — a PDF, an image, an archive — comes back as a `BinaryResponse`: the
+bytes, byte for byte, with the status and headers none of the other shapes can
+reach. No dio type crosses into your data layer.
+
+```dart
+final pdf = await client.getAndReadBytes(
+  '/reports/2026-08',
+  expectedContentTypes: ['application/pdf'],
+  options: Options(receiveTimeout: const Duration(minutes: 2)),
+);
+
+if (pdf.isEmpty) return;                        // 204, or an empty body
+final name = pdf.fileName ?? 'report.pdf';      // Content-Disposition, sanitised
+final missing = pdf.header('X-Missing-Items');  // any header, case-insensitive
+await File('${dir.path}/$name').writeAsBytes(pdf.bytes);
+```
+
+- `ResponseType.bytes` is forced whatever `options` says, and the rest of
+  `options` is kept. Forgotten on a raw `get`, it decodes the file as text and
+  corrupts it without a word.
+- `expectedContentTypes` refuses a non-empty body of another type with
+  `UnexpectedContentTypeException` — a captive portal's HTML served as `200`
+  would otherwise be saved as your PDF. Parameters (`; charset=…`) are
+  ignored and `image/*` matches the family. `Accept` is left alone: narrowing
+  it can turn a JSON error into a `406` without a body.
+- `fileName` prefers `filename*` (RFC 8187) to `filename`, and is sanitised:
+  last path segment only, no control characters, never `.` or `..`. It still
+  comes from the server — where the file goes is yours to decide.
+- Failures are typed like every other call: a JSON error body gives its
+  `message` and `code` although bytes were asked for.
+- A `responseValidator` sees the bytes — `response.data` is a `Uint8List` —
+  so have it return `null` for what it does not understand.
+
+`postAndReadBytes`, `putAndReadBytes`, `patchAndReadBytes` and
+`deleteAndReadBytes` take a body like the other shapes; the bytes are what is
+*received*.
+
 ### Method Summary
 
 | Level | Methods | Source | Verbs | Variants |
@@ -1183,11 +1239,12 @@ final results = await client.postListAndDecodeDataOrEmpty('/search', query, User
 | **Standard** | `get`, `post`, `put`, `delete`, `patch` | `Response<T>` | all | — |
 | **Parse/Decode** | `{verb}AndParse`, `{verb}AndDecode` | `response.data` | all | non-nullable only |
 | **Data** | `{verb}And{Parse\|Decode}Data` | `response.data[dataKey]` | all | OrNull, List, ListOrNull, ListOrEmpty |
+| **Binary** | `{verb}AndReadBytes` | the body's bytes, with status and headers | all | — |
 
-Since 5.0 every family is available on every verb — twelve shapes × five verbs.
-The table used to claim that while `PUT` and `PATCH` had two methods each and
-`DELETE` none, because filling the gaps meant copying the plumbing five times.
-It is one shared core now, so a verb cannot fall behind again.
+Since 5.0 every shape is available on every verb. The table used to claim that
+while `PUT` and `PATCH` had two methods each and `DELETE` none, because filling
+the gaps meant copying the plumbing five times. It is one shared core now, so a
+verb cannot fall behind again.
 
 #### Progress on a typed call
 
@@ -1205,15 +1262,15 @@ final receipt = await client.postAndDecodeData<Receipt>(
 );
 ```
 
-The twelve `GET` variants take only `onReceiveProgress`: a `GET` has nothing to
-send, and an option that can never fire is an option that looks set.
+The `GET` variants take only `onReceiveProgress`: a `GET` has nothing to send,
+and an option that can never fire is an option that looks set.
 
 ### Strict Content-Type Checks (Captive Portals)
 
 `*AndDecode` methods can verify that the response's `Content-Type` starts
 with `application/json` before attempting to parse. Useful in mobile
-contexts where a captive Wi-Fi portal may return HTML 200 in place
-of the expected JSON:
+contexts where a captive Wi-Fi portal may return HTML 200 in place of the
+expected JSON:
 
 ```dart
 final client = ApiClientFactory.create(
@@ -1232,6 +1289,10 @@ try {
 `*AndParse` methods are unaffected (they accept any payload type by design).
 A missing `Content-Type` header in strict mode triggers the same exception
 with `actualContentType: null`.
+
+A binary download has its own check, per call: `expectedContentTypes` on
+`getAndReadBytes` and its verbs, which raises the same exception — see
+*Binary Downloads* above.
 
 ---
 
@@ -1303,7 +1364,7 @@ read. Named here because the signature alone does not.
 | You wire | You receive | Carries |
 |----------|-------------|---------|
 | `loggerConfig.logHandler` | `LogEntry` | `level`, `method`, `url`, `statusCode`, `durationMs`, `headers`, `body`, `error` |
-| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes, `toMap()` |
+| `metricsConfig.onMetrics` | `RequestMetrics` | `requestId`, `durationMs`, `statusCode`, `success`, sizes in bytes, `toMap()` |
 | `metricsConfig.onBreadcrumb` | `RequestBreadcrumb` | `type` (`BreadcrumbType`), `message`, `category`, `data` |
 | `onRetry` | `RetryAttempt` | `attempt` (0-indexed), `delay`, `cause`, `statusCode` |
 | `cacheConfig.onCacheHit` | `CacheHit` | `key`, `method`, `uri`, `isStale`, `statusCode` |

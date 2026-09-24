@@ -98,6 +98,7 @@ void onError(
         success: false,
         error: err.message ?? err.error?.toString(),
         errorType: err.type.name,
+        requestSize: _getRequestSize(err.requestOptions),
         responseSize:
             err.response != null ? _getResponseSize(err.response!) : null,
       );
@@ -152,7 +153,7 @@ void onError(
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

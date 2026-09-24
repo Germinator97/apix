@@ -63,21 +63,21 @@
     </section>
     
 <section class="desc markdown">
-  <p>Truncates body if it exceeds maxBodyLength.</p>
+  <p>Renders <code>body</code> in at most <a href="../../apix/LoggerConfig/maxBodyLength.html">maxBodyLength</a> characters, then
+<code>... [truncated]</code>.</p>
+<p>A <code>Uint8List</code> — a binary download or upload — renders as
+<code>&lt;binary: N bytes&gt;</code> without being read. Maps, lists and sets render as
+their <code>toString()</code> would, but only as far as the cut keeps: nothing is
+turned into text beyond what is printed. It used to render the whole
+body first, which for a 5 MB file meant a 24-million-character string on
+every log line.</p>
 </section>
 
 
     
 <section class="summary source-code" id="source">
   <h2><span>Implementation</span></h2>
-  <pre class="language-dart"><code class="language-dart">String truncateBody(dynamic body) {
-  if (body == null) return &#39;null&#39;;
-
-  final str = body.toString();
-  if (str.length &lt;= maxBodyLength) return str;
-
-  return &#39;${str.substring(0, maxBodyLength)}... [truncated]&#39;;
-}</code></pre>
+  <pre class="language-dart"><code class="language-dart">String truncateBody(dynamic body) =&gt; previewBody(body, maxBodyLength);</code></pre>
 </section>
 
 
@@ -105,7 +105,7 @@
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

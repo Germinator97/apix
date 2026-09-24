@@ -82,6 +82,8 @@ arrives here as <code>'4001'</code>, so a <code>switch</code> never has to care 
 the server picked. Null when the body carried no code, was not a JSON
 object, or the value was neither a string nor a number — and null on every
 non-HTTP failure (timeout, connection loss), which has no body to read.</p>
+<p>A JSON body is read whatever the request's <code>responseType</code>, bytes and
+text included — see <code>HttpException.responseBody</code>.</p>
 <p><strong>Also null when the body's code merely repeats the HTTP status.</strong> Many
 envelopes fill a field named <code>code</code> with the status itself
 (<code>{"code": 401, ...}</code> on a <code>401</code>); handing that back here would restore
@@ -126,7 +128,7 @@ status — and it is indistinguishable from the disguise by construction.</p>
 <footer>
   <span class="no-break">
     apix
-      5.1.0
+      5.2.0
   </span>
   
 </footer>

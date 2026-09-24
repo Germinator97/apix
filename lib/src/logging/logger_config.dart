@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../http/body_preview.dart';
+
 /// Log level for filtering log output.
 enum LogLevel {
   /// No logging.
@@ -218,15 +220,16 @@ class LoggerConfig {
     return result;
   }
 
-  /// Truncates body if it exceeds maxBodyLength.
-  String truncateBody(dynamic body) {
-    if (body == null) return 'null';
-
-    final str = body.toString();
-    if (str.length <= maxBodyLength) return str;
-
-    return '${str.substring(0, maxBodyLength)}... [truncated]';
-  }
+  /// Renders [body] in at most [maxBodyLength] characters, then
+  /// `... [truncated]`.
+  ///
+  /// A `Uint8List` — a binary download or upload — renders as
+  /// `<binary: N bytes>` without being read. Maps, lists and sets render as
+  /// their `toString()` would, but only as far as the cut keeps: nothing is
+  /// turned into text beyond what is printed. It used to render the whole
+  /// body first, which for a 5 MB file meant a 24-million-character string on
+  /// every log line.
+  String truncateBody(dynamic body) => previewBody(body, maxBodyLength);
 
   /// Creates a copy with updated values.
   LoggerConfig copyWith({

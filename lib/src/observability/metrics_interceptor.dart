@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'observer_guard.dart';
+import '../http/body_size.dart';
 import '../http/observation_marker.dart';
 
 /// Request metrics data.
@@ -37,10 +38,23 @@ class RequestMetrics {
   /// Error type if failed.
   final String? errorType;
 
-  /// Request size in bytes (if available).
+  /// Size in bytes of the body the request sent, or null when it cannot be
+  /// told.
+  ///
+  /// Once the request has gone out, the `Content-Length` dio computed while
+  /// encoding the body; while it is in flight, measured on raw bytes, text and
+  /// form data only. Never a rendering of the body — this used to be the
+  /// length of `toString()`: characters of Dart's `{key: value}` form, not
+  /// bytes, at the cost of building that string.
   final int? requestSize;
 
-  /// Response size in bytes (if available).
+  /// Size in bytes of the body received, after any transport decompression,
+  /// or null when it cannot be told.
+  ///
+  /// Measured on raw bytes; for JSON and text, counted by apix as the bytes
+  /// arrive; otherwise the `Content-Length` of a body that was not
+  /// content-encoded. A stream is not measured. It used to be the length of
+  /// `toString()`: 23,960,010 for a 5,242,880-byte download.
   final int? responseSize;
 
   /// Additional metadata.
@@ -71,6 +85,7 @@ class RequestMetrics {
     bool? success,
     String? error,
     String? errorType,
+    int? requestSize,
     int? responseSize,
     Map<String, dynamic>? extra,
   }) {
@@ -86,7 +101,7 @@ class RequestMetrics {
       success: success ?? this.success,
       error: error ?? this.error,
       errorType: errorType ?? this.errorType,
-      requestSize: requestSize,
+      requestSize: requestSize ?? this.requestSize,
       responseSize: responseSize ?? this.responseSize,
       extra: extra ?? this.extra,
     );
@@ -186,10 +201,12 @@ class MetricsConfig {
   /// Handler for breadcrumbs.
   final BreadcrumbHandler? onBreadcrumb;
 
-  /// Whether to include request size in metrics.
+  /// Whether to include request size in metrics, in bytes — see
+  /// [RequestMetrics.requestSize].
   final bool trackRequestSize;
 
-  /// Whether to include response size in metrics.
+  /// Whether to include response size in metrics, in bytes — see
+  /// [RequestMetrics.responseSize].
   final bool trackResponseSize;
 
   /// Custom request ID generator.
@@ -321,6 +338,7 @@ class MetricsInterceptor extends Interceptor {
           requestId: requestId as String,
           statusCode: response.statusCode,
           success: true,
+          requestSize: _getRequestSize(response.requestOptions),
           responseSize: _getResponseSize(response),
         );
 
@@ -367,6 +385,7 @@ class MetricsInterceptor extends Interceptor {
           success: false,
           error: err.message ?? err.error?.toString(),
           errorType: err.type.name,
+          requestSize: _getRequestSize(err.requestOptions),
           responseSize:
               err.response != null ? _getResponseSize(err.response!) : null,
         );
@@ -418,7 +437,7 @@ class MetricsInterceptor extends Interceptor {
       url: options.uri.toString(),
       path: options.path,
       startTime: now,
-      requestSize: config.trackRequestSize ? _getRequestSize(options) : null,
+      requestSize: _getRequestSize(options),
     );
   }
 
@@ -428,6 +447,7 @@ class MetricsInterceptor extends Interceptor {
     required bool success,
     String? error,
     String? errorType,
+    int? requestSize,
     int? responseSize,
   }) {
     final metrics = _inFlight.remove(requestId);
@@ -443,6 +463,9 @@ class MetricsInterceptor extends Interceptor {
       success: success,
       error: error,
       errorType: errorType,
+      // Measured again at the end: dio writes the exact `Content-Length`
+      // while it encodes the body, after this request was first seen.
+      requestSize: requestSize,
       responseSize: responseSize,
     );
   }
@@ -467,22 +490,9 @@ class MetricsInterceptor extends Interceptor {
     return '${DateTime.now().millisecondsSinceEpoch}_${_requestCounter++}';
   }
 
-  int? _getRequestSize(RequestOptions options) {
-    if (options.data == null) return null;
-    try {
-      return options.data.toString().length;
-    } catch (_) {
-      return null;
-    }
-  }
+  int? _getRequestSize(RequestOptions options) =>
+      config.trackRequestSize ? requestBodySize(options) : null;
 
-  int? _getResponseSize(Response<dynamic> response) {
-    if (!config.trackResponseSize) return null;
-    if (response.data == null) return null;
-    try {
-      return response.data.toString().length;
-    } catch (_) {
-      return null;
-    }
-  }
+  int? _getResponseSize(Response<dynamic> response) =>
+      config.trackResponseSize ? responseBodySize(response) : null;
 }
